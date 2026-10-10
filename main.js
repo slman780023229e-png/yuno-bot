@@ -1077,10 +1077,21 @@ async function startBot() {
                         return
                     }
 
-                    // Only handle fresh notifications, not history synchronization.
+                    
+                    // Accept fresh incoming messages, plus outgoing bot messages
+                    // from append so the handler can recognize the bot's commands.
                     if (chatUpdate.type && chatUpdate.type !== 'notify') {
-                        return
+                        const hasOutgoingBotMessage =
+                            chatUpdate.type === 'append' &&
+                            chatUpdate.messages.some(
+                                message => message?.key?.fromMe === true
+                            );
+
+                        if (!hasOutgoingBotMessage) {
+                            return;
+                        }
                     }
+
 
 
                     for (
