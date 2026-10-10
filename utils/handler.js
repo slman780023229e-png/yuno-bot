@@ -1368,8 +1368,16 @@ export function getHandlerStats() {
 export function handleMessages(sock, update) {
     try {
         // Ignore history replay; it can contain old commands and duplicate notifications.
-        if (update?.type && update.type !== "notify") return 0;
+       if (update?.type && update.type !== "notify") {
+    const hasOutgoingBotMessage =
+        update.type === "append" &&
+        Array.isArray(update.messages) &&
+        update.messages.some(
+            msg => msg?.key?.fromMe === true
+        );
 
+    if (!hasOutgoingBotMessage) return 0;
+}
         const messages = Array.isArray(update?.messages)
             ? update.messages
             : update?.message
@@ -1379,7 +1387,7 @@ export function handleMessages(sock, update) {
         let queued = 0;
         for (const msg of messages) {
             if (!msg?.message || !msg?.key?.remoteJid) continue;
-            // Permit commands in the bot's own private chat only; ignore its other outgoing messages.
+            // Permit prefixed commands from the bot account in its own chat and in groups; ignore ordinary outgoing messages.
             if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
             if (msg.key.remoteJid === "status@broadcast") continue;
 
@@ -1556,29 +1564,61 @@ function unwrapOwnChatContent(message) {
 
 function isOwnPrivateChatCommand(sock, msg) {
     try {
-        const jid = String(msg?.key?.remoteJid || '');
-        if (!jid.endsWith('@s.whatsapp.net')) return false;
+        const jid = cleanRawId(msg?.key?.remoteJid);
+        if (!jid || jid === "status@broadcast") return false;
 
-        const identity = sock?.user?.id || sock?.user?.jid || sock?.authState?.creds?.me?.id || '';
-        const botNumber = normalizeStoredNumber(identity);
-        const chatNumber = normalizeStoredNumber(jid);
-        if (!botNumber || chatNumber !== botNumber) return false;
-
-        const content = unwrapOwnChatContent(msg.message);
+        // Only process outgoing messages that are clearly commands. This prevents
+        // the bot from reacting to its own ordinary replies and creating loops.
+        const content = unwrapOwnChatContent(msg?.message);
         const text = String(
             content.conversation
             || content.extendedTextMessage?.text
             || content.imageMessage?.caption
             || content.videoMessage?.caption
             || content.documentMessage?.caption
+            || content.buttonsResponseMessage?.selectedButtonId
+            || content.listResponseMessage?.singleSelectReply?.selectedRowId
+            || content.templateButtonReplyMessage?.selectedId
+            || content.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson
             || ''
         ).trim();
         const configuredPrefix = config?.prefix;
         const prefixes = Array.isArray(configuredPrefix)
-            ? configuredPrefix.map(String)
-            : [String(configuredPrefix ?? '.')];
-        return Boolean(text && prefixes.some(prefix => prefix && text.startsWith(prefix)));
-    } catch {
+            ? configuredPrefix.map(value => String(value)).filter(Boolean)
+            : [String(configuredPrefix ?? '.')].filter(Boolean);
+        const isPrefixedCommand = Boolean(text && prefixes.some(prefix => text.startsWith(prefix)));
+        if (!isPrefixedCommand || msg?.key?.fromMe !== true) return false;
+
+        // In groups, fromMe confirms the command was sent by this bot account.
+        // Allow prefixed commands only; never process its normal outgoing messages.
+        if (jid.endsWith('@g.us')) return true;
+
+        // Private self-chat: verify the destination is one of the bot's own IDs.
+        if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) return false;
+
+        const identities = getBotIdentities(sock).map(cleanRawId).filter(Boolean);
+        const ownJidAliases = new Set();
+        for (const identity of identities) {
+            ownJidAliases.add(identity);
+            const at = identity.indexOf('@');
+            if (at > 0) ownJidAliases.add(identity.slice(0, at));
+        }
+
+        let isSelfChat = ownJidAliases.has(jid);
+        if (!isSelfChat && !jid.endsWith('@lid')) {
+            const at = jid.indexOf('@');
+            const jidUser = at > 0 ? jid.slice(0, at) : jid;
+            const chatNumber = normalizeStoredNumber(jidUser);
+            if (chatNumber) {
+                isSelfChat = identities.some(identity => {
+                    if (identity.endsWith('@lid')) return false;
+                    return normalizeStoredNumber(identity) === chatNumber;
+                });
+            }
+        }
+        return isSelfChat;
+    } catch (error) {
+        console.error('[SELF CHAT CHECK]', error?.message || error);
         return false;
     }
 }
@@ -1605,9 +1645,7 @@ async function executeHandlerLogic(
             jid.endsWith("@g.us");
 
         const isPrivate =
-            jid.endsWith(
-                "@s.whatsapp.net"
-            );
+            jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
 
         const metadataPromise =
             isGroup
