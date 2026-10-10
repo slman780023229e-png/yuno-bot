@@ -66,10 +66,11 @@ function log(type, text) {
             bot: "🤖"
         };
 
-        const color = colors[type] || COLORS.cyan;
-        const icon = icons[type] || "•";
-
-        console.log(`${color}[${icon}] ${text}${COLORS.reset}`);
+        console.log(
+            `${colors[type] || COLORS.cyan}` +
+            `[${icons[type] || "•"}] ${text}` +
+            COLORS.reset
+        );
     } catch {}
 }
 
@@ -425,6 +426,7 @@ async function ensureDataDir() {
 
 // ═══════════════════════════════════════════════════════
 // 🔒 STRICT ELITE GATE (SYNC)
+// يقرأ الحالة مباشرة قبل تشغيل أي listener أو command.
 // ═══════════════════════════════════════════════════════
 let strictModeValue = false;
 let strictModeMtime = -1;
@@ -449,6 +451,8 @@ function readModeSync() {
         strictModeMtime = stat.mtimeMs;
         return strictModeValue;
     } catch {
+        // Fail closed only when the file exists but cannot be read: don't silently
+        // switch a protected bot to normal mode because of a transient read error.
         return strictModeValue;
     }
 }
@@ -501,11 +505,20 @@ function getEarlySenderNumber(msg) {
     return normalizeStoredNumber(raw);
 }
 
-function isStrictEliteAllowed(msg) {
+function isStrictEliteAllowed(msg, sock) {
+    const eliteNumbers = readEliteSetSync();
+
+    // رسائل أوامر البوت في محادثته الخاصة تُفحص برقم حساب البوت نفسه،
+    // وليس remoteJid الذي قد يكون معرّف المحادثة أو صيغة مختلفة.
+    if (msg?.key?.fromMe === true) {
+        const botNumber = normalizeStoredNumber(getBotNumber(sock));
+        return Boolean(botNumber && eliteNumbers.has(botNumber));
+    }
+
     const sender = getEarlySenderNumber(msg);
     if (!sender) return false;
     if (checkOwner(sender)) return true;
-    return readEliteSetSync().has(sender);
+    return eliteNumbers.has(sender);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -741,7 +754,7 @@ async function refreshElite(force = false) {
 }
 
 // ═══════════════════════════════════════════════════════
-// ⚡ BACKGROUND REFRESH
+// ⚡ BACKGROUND REFRESH (مُحدث لاستجابة فورية)
 // ═══════════════════════════════════════════════════════
 
 function scheduleFileRefresh() {
@@ -761,6 +774,7 @@ function scheduleFileRefresh() {
 }
 
 function getModeFast() {
+    // تحديث فوري بدون تأخير ۳۰ ثانية لضمان قراءة التغيير فور حدوثه
     void refreshMode().catch(() => {});
     return modeCache;
 }
@@ -923,6 +937,8 @@ export async function getLoadedPlugins(sock) {
 
     try {
         const plugins = await loadPlugins(sock);
+        // loadPlugins already removes invalid modules; preserve array identity
+        // so the command/listener index can be reused between messages.
         return Array.isArray(plugins) ? plugins : [];
     } catch (error) {
         console.error(
@@ -965,7 +981,8 @@ function wasProcessed(id, sock, scope = "") {
             getSocketSessionId(sock)
         );
 
-    const key = `${session}:${scope}:${id}`;
+    const key =
+        `${session}:${scope}:${id}`;
 
     const now =
         Date.now();
@@ -1292,6 +1309,7 @@ async function acquireMessageWorker() {
         activeMessageWorkers++;
         return;
     }
+    // The slot is handed directly to the next waiter by releaseMessageWorker.
     await new Promise(resolve => workerWaiters.push(resolve));
 }
 
@@ -1313,6 +1331,7 @@ function queueMessage(sock, msg) {
         msg?.key?.remoteJid ||
         "unknown"
     );
+    // Serialize a whole chat/group so shared game and moderation state cannot race.
     const queueKey = jid;
     const scope = `${jid}:${participant}`;
     if (id && wasProcessed(id, sock, scope)) return false;
@@ -1346,24 +1365,10 @@ export function getHandlerStats() {
     };
 }
 
-function unwrapOwnChatMessage(message) {
-    let content = message || {};
-    for (let i = 0; i < 8; i++) {
-        const wrapped = content.ephemeralMessage?.message
-            || content.viewOnceMessage?.message
-            || content.viewOnceMessageV2?.message
-            || content.viewOnceMessageV2Extension?.message
-            || content.documentWithCaptionMessage?.message;
-        if (!wrapped) break;
-        content = wrapped;
-    }
-    return content;
-}
-
 export function handleMessages(sock, update) {
     try {
-        const updateType = update?.type;
-        if (updateType && updateType !== "notify" && updateType !== "append") return 0;
+        // Ignore history replay; it can contain old commands and duplicate notifications.
+        if (update?.type && update.type !== "notify") return 0;
 
         const messages = Array.isArray(update?.messages)
             ? update.messages
@@ -1374,30 +1379,9 @@ export function handleMessages(sock, update) {
         let queued = 0;
         for (const msg of messages) {
             if (!msg?.message || !msg?.key?.remoteJid) continue;
-            
-            const jid = String(msg.key.remoteJid);
-            if (jid === "status@broadcast") continue;
-
-            const isSelfMessage = msg.key.fromMe;
-
-            if (isSelfMessage) {
-                const content = unwrapOwnChatMessage(msg.message);
-                const text = String(
-                    content.conversation ||
-                    content.extendedTextMessage?.text ||
-                    content.imageMessage?.caption ||
-                    content.videoMessage?.caption ||
-                    content.buttonsResponseMessage?.selectedButtonId ||
-                    content.listResponseMessage?.singleSelectReply?.selectedRowId ||
-                    content.templateButtonReplyMessage?.selectedId ||
-                    ""
-                ).trim();
-                
-                const prefix = String(config?.prefix ?? ".");
-                if (!text || !text.startsWith(prefix)) {
-                    continue;
-                }
-            }
+            // Permit commands in the bot's own private chat only; ignore its other outgoing messages.
+            if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
+            if (msg.key.remoteJid === "status@broadcast") continue;
 
             try {
                 if (queueMessage(sock, msg)) queued++;
@@ -1415,6 +1399,7 @@ export function handleMessages(sock, update) {
 // ═══════════════════════════════════════════════════════
 // ⚡ MAIN EXECUTION
 // ═══════════════════════════════════════════════════════
+
 
 function checkOwner(value) {
     const n = normalizeStoredNumber(value);
@@ -1502,6 +1487,8 @@ function createArthurSocket(sock) {
                     if (out?.videoMessage?.caption && !isArthurDecorated(out.videoMessage.caption)) {
                         out.videoMessage = { ...out.videoMessage, caption: arthurBox(cleanDecorationLines(out.videoMessage.caption)) };
                     }
+                    // Native-flow interactive messages (such as .اوامر and .كود)
+                    // bypass sendMessage, so decorate their visible body/footer here.
                     const decorateInteractive = (message) => {
                         if (!message || typeof message !== "object") return message;
                         const result = { ...message };
@@ -1552,6 +1539,50 @@ function getPluginRuntimeIndex(plugins) {
     return pluginRuntimeCache;
 }
 
+// Allow only prefixed commands sent in the bot account's own private chat.
+// Ordinary outgoing messages remain ignored to avoid reply loops.
+function unwrapOwnChatContent(message) {
+    let content = message || {};
+    for (let i = 0; i < 5; i++) {
+        const wrapped = content.ephemeralMessage?.message
+            || content.viewOnceMessage?.message
+            || content.viewOnceMessageV2?.message
+            || content.documentWithCaptionMessage?.message;
+        if (!wrapped) break;
+        content = wrapped;
+    }
+    return content;
+}
+
+function isOwnPrivateChatCommand(sock, msg) {
+    try {
+        const jid = String(msg?.key?.remoteJid || '');
+        if (!jid.endsWith('@s.whatsapp.net')) return false;
+
+        const identity = sock?.user?.id || sock?.user?.jid || sock?.authState?.creds?.me?.id || '';
+        const botNumber = normalizeStoredNumber(identity);
+        const chatNumber = normalizeStoredNumber(jid);
+        if (!botNumber || chatNumber !== botNumber) return false;
+
+        const content = unwrapOwnChatContent(msg.message);
+        const text = String(
+            content.conversation
+            || content.extendedTextMessage?.text
+            || content.imageMessage?.caption
+            || content.videoMessage?.caption
+            || content.documentMessage?.caption
+            || ''
+        ).trim();
+        const configuredPrefix = config?.prefix;
+        const prefixes = Array.isArray(configuredPrefix)
+            ? configuredPrefix.map(String)
+            : [String(configuredPrefix ?? '.')];
+        return Boolean(text && prefixes.some(prefix => prefix && text.startsWith(prefix)));
+    } catch {
+        return false;
+    }
+}
+
 async function executeHandlerLogic(
     sock,
     msg
@@ -1564,7 +1595,9 @@ async function executeHandlerLogic(
             return;
         }
 
-        if (readModeSync() && !isStrictEliteAllowed(msg)) {
+        // بوابة المود الصارمة: لا يتم تشغيل أي listener أو أمر لغير النخبة.
+        // القراءة هنا مباشرة من الملف، لذلك لا توجد مشكلة cache عند on/off.
+        if (readModeSync() && !isStrictEliteAllowed(msg, sock)) {
             return;
         }
 
@@ -1574,7 +1607,7 @@ async function executeHandlerLogic(
         const isPrivate =
             jid.endsWith(
                 "@s.whatsapp.net"
-            ) || jid.endsWith("@lid");
+            );
 
         const metadataPromise =
             isGroup
@@ -1674,23 +1707,8 @@ async function executeHandlerLogic(
                 sender
             ]);
 
-        if (!isEliteUser) {
-            for (
-                const candidate
-                of [
-                    botNumber,
-                    participantPhone,
-                    ...botIdentities
-                ]
-            ) {
-                if (
-                    checkElite(candidate)
-                ) {
-                    isEliteUser = true;
-                    break;
-                }
-            }
-        }
+        // لا تجعل تسجيل رقم البوت في النخبة جميع المستخدمين نخبة.
+        // رسائل البوت الذاتية تُقيّم برقم المرسل المحسوب في resolveSender أعلاه.
 
         if (
             !isEliteUser &&
@@ -1730,7 +1748,7 @@ async function executeHandlerLogic(
             botAdminData.isSuperAdmin;
 
         const message =
-            unwrapOwnChatMessage(msg.message);
+            msg.message;
 
         const normalText =
             message.conversation ||
@@ -1757,6 +1775,8 @@ async function executeHandlerLogic(
         const mode = getModeFast();
         const restrictedMode = mode?.elite === true;
 
+        // In elite mode, normal onMessage listeners are also restricted.
+        // Security listeners explicitly marked alwaysOn continue to protect the group.
         if (onMessagePlugins.length) {
             const context = {
                 jid, sender, number, isGroup, isPrivate, message: msg,
@@ -1789,16 +1809,22 @@ async function executeHandlerLogic(
             return;
         }
 
-        const hasPrefix = fromInteractive ? false : text.startsWith(".");
+        const configuredPrefix = config?.prefix;
+        const prefixes = Array.isArray(configuredPrefix)
+            ? configuredPrefix.map(value => String(value)).filter(Boolean)
+            : [String(configuredPrefix ?? ".")].filter(Boolean);
+        const matchedPrefix = fromInteractive
+            ? ""
+            : prefixes.find(prefix => text.startsWith(prefix)) || "";
+        const hasPrefix = Boolean(matchedPrefix);
 
         if (!hasPrefix && !fromInteractive) {
             return;
         }
 
-        let noPrefixText =
-            hasPrefix
-                ? text.slice(1).trim()
-                : text;
+        let noPrefixText = hasPrefix
+            ? text.slice(matchedPrefix.length).trim()
+            : text;
 
         if (fromInteractive) {
             noPrefixText =
@@ -1847,7 +1873,11 @@ async function executeHandlerLogic(
 
         log(
             "cmd",
-            `${commandName} ← ${number || sender || "UNKNOWN"} ← ${
+            `${commandName} ← ${
+                number ||
+                sender ||
+                "UNKNOWN"
+            } ← ${
                 isEliteUser
                     ? "ELITE"
                     : botIsAdmin
@@ -1956,22 +1986,36 @@ export async function warmupHandler(
 
         log(
             "ok",
-            `Handler Ready | Bot: ${botNumber || "UNKNOWN"}`
+            `Handler Ready | Bot: ${
+                botNumber ||
+                "UNKNOWN"
+            }`
         );
 
         log(
             "bot",
-            `Identities: ${identities.join(" | ") || "NONE"}`
+            `Identities: ${
+                identities.join(
+                    " | "
+                ) ||
+                "NONE"
+            }`
         );
 
         log(
             "elite",
-            `Elite: ${eliteCache.length}`
+            `Elite: ${
+                eliteCache.length
+            }`
         );
 
         log(
             "ok",
-            `Mode: ${modeCache.elite ? "ELITE" : "NORMAL"}`
+            `Mode: ${
+                modeCache.elite
+                    ? "ELITE"
+                    : "NORMAL"
+            }`
         );
 
         return true;
