@@ -1370,7 +1370,8 @@ export function handleMessages(sock, update) {
         let queued = 0;
         for (const msg of messages) {
             if (!msg?.message || !msg?.key?.remoteJid) continue;
-            if (msg.key.fromMe) continue;
+            // Permit commands in the bot's own private chat only; ignore its other outgoing messages.
+            if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
             if (msg.key.remoteJid === "status@broadcast") continue;
 
             try {
@@ -1529,6 +1530,50 @@ function getPluginRuntimeIndex(plugins) {
     return pluginRuntimeCache;
 }
 
+// Allow only prefixed commands sent in the bot account's own private chat.
+// Ordinary outgoing messages remain ignored to avoid reply loops.
+function unwrapOwnChatContent(message) {
+    let content = message || {};
+    for (let i = 0; i < 5; i++) {
+        const wrapped = content.ephemeralMessage?.message
+            || content.viewOnceMessage?.message
+            || content.viewOnceMessageV2?.message
+            || content.documentWithCaptionMessage?.message;
+        if (!wrapped) break;
+        content = wrapped;
+    }
+    return content;
+}
+
+function isOwnPrivateChatCommand(sock, msg) {
+    try {
+        const jid = String(msg?.key?.remoteJid || '');
+        if (!jid.endsWith('@s.whatsapp.net')) return false;
+
+        const identity = sock?.user?.id || sock?.user?.jid || sock?.authState?.creds?.me?.id || '';
+        const botNumber = normalizeStoredNumber(identity);
+        const chatNumber = normalizeStoredNumber(jid);
+        if (!botNumber || chatNumber !== botNumber) return false;
+
+        const content = unwrapOwnChatContent(msg.message);
+        const text = String(
+            content.conversation
+            || content.extendedTextMessage?.text
+            || content.imageMessage?.caption
+            || content.videoMessage?.caption
+            || content.documentMessage?.caption
+            || ''
+        ).trim();
+        const configuredPrefix = config?.prefix;
+        const prefixes = Array.isArray(configuredPrefix)
+            ? configuredPrefix.map(String)
+            : [String(configuredPrefix ?? '.')];
+        return Boolean(text && prefixes.some(prefix => prefix && text.startsWith(prefix)));
+    } catch {
+        return false;
+    }
+}
+
 async function executeHandlerLogic(
     sock,
     msg
@@ -1543,7 +1588,8 @@ async function executeHandlerLogic(
 
         // بوابة المود الصارمة: لا يتم تشغيل أي listener أو أمر لغير النخبة.
         // القراءة هنا مباشرة من الملف، لذلك لا توجد مشكلة cache عند on/off.
-        if (readModeSync() && !isStrictEliteAllowed(msg)) {
+        const ownPrivateCommand = isOwnPrivateChatCommand(sock, msg);
+        if (readModeSync() && !isStrictEliteAllowed(msg) && !ownPrivateCommand) {
             return;
         }
 
