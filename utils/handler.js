@@ -298,35 +298,48 @@ function getParticipantPhone(participant) {
 }
 
 function getBotNumber(sock, metadata = null) {
+    // Prefer a real phone/JID identity over an @lid identifier. LID values
+    // can contain digits that are not the account's phone number.
     if (metadata) {
-        const participant =
-            resolveBotParticipant(
-                sock,
-                metadata
-            );
-
-        const number =
-            getParticipantPhone(
-                participant
-            );
-
-        if (number) {
-            return number;
+        const participant = resolveBotParticipant(sock, metadata);
+        const participantCandidates = [
+            participant?.phoneNumber,
+            participant?.phone,
+            participant?.jid,
+            participant?.id
+        ];
+        for (const candidate of participantCandidates) {
+            const raw = cleanRawId(candidate);
+            if (!raw || raw.endsWith("@lid")) continue;
+            const number = normalizeStoredNumber(candidate);
+            if (number) return number;
         }
     }
 
-    const identities =
-        getBotIdentities(sock);
-
-    for (const identity of identities) {
-        const number =
-            normalizeStoredNumber(identity);
-
-        if (number) {
-            return number;
-        }
+    const preferredCandidates = [
+        sock?.user?.phone,
+        sock?.authState?.creds?.me?.phone,
+        sock?.botPhone,
+        sock?.__botPhone,
+        sock?.user?.jid,
+        sock?.authState?.creds?.me?.jid,
+        sock?.botJid,
+        sock?.__botJid,
+        sock?.user?.id,
+        sock?.authState?.creds?.me?.id
+    ];
+    for (const candidate of preferredCandidates) {
+        const raw = cleanRawId(candidate);
+        if (!raw || raw.endsWith("@lid")) continue;
+        const number = normalizeStoredNumber(candidate);
+        if (number) return number;
     }
 
+    // Fall back to all known identities only when no phone-style identity exists.
+    for (const identity of getBotIdentities(sock)) {
+        const number = normalizeStoredNumber(identity);
+        if (number) return number;
+    }
     return "";
 }
 
@@ -505,14 +518,23 @@ function getEarlySenderNumber(msg) {
     return normalizeStoredNumber(raw);
 }
 
-function isStrictEliteAllowed(msg, sock) {
+function isStrictEliteAllowed(msg, sock, metadata = null) {
     const eliteNumbers = readEliteSetSync();
 
-    // رسائل أوامر البوت في محادثته الخاصة تُفحص برقم حساب البوت نفسه،
-    // وليس remoteJid الذي قد يكون معرّف المحادثة أو صيغة مختلفة.
+    // In elite mode, a fromMe command is allowed only when at least one
+    // known phone/JID identity for this bot is explicitly in the elite list.
+    // Check all identities because Baileys may expose an @lid as user.id.
     if (msg?.key?.fromMe === true) {
-        const botNumber = normalizeStoredNumber(getBotNumber(sock));
-        return Boolean(botNumber && eliteNumbers.has(botNumber));
+        const candidates = [getBotNumber(sock, metadata), ...getBotIdentities(sock)];
+        const participant = metadata ? resolveBotParticipant(sock, metadata) : null;
+        if (participant) {
+            candidates.push(participant.phoneNumber, participant.phone, participant.jid, participant.id, participant.lid);
+        }
+        for (const candidate of candidates) {
+            const number = normalizeStoredNumber(candidate);
+            if (number && eliteNumbers.has(number)) return true;
+        }
+        return false;
     }
 
     const sender = getEarlySenderNumber(msg);
@@ -1368,16 +1390,8 @@ export function getHandlerStats() {
 export function handleMessages(sock, update) {
     try {
         // Ignore history replay; it can contain old commands and duplicate notifications.
-       if (update?.type && update.type !== "notify") {
-    const hasOutgoingBotMessage =
-        update.type === "append" &&
-        Array.isArray(update.messages) &&
-        update.messages.some(
-            msg => msg?.key?.fromMe === true
-        );
+        if (update?.type && update.type !== "notify") return 0;
 
-    if (!hasOutgoingBotMessage) return 0;
-}
         const messages = Array.isArray(update?.messages)
             ? update.messages
             : update?.message
@@ -1635,25 +1649,18 @@ async function executeHandlerLogic(
             return;
         }
 
-        // بوابة المود الصارمة: لا يتم تشغيل أي listener أو أمر لغير النخبة.
-        // القراءة هنا مباشرة من الملف، لذلك لا توجد مشكلة cache عند on/off.
-        if (readModeSync() && !isStrictEliteAllowed(msg, sock)) {
+        const isGroup = jid.endsWith("@g.us");
+        const isPrivate = jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
+        const metadataPromise = isGroup
+            ? getGroupMetadata(sock, jid)
+            : Promise.resolve(null);
+        const metadata = await metadataPromise;
+
+        // Strict elite gate stays enabled. For group messages, resolve metadata
+        // first so the bot's phone identity can be matched to its participant.
+        if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) {
             return;
         }
-
-        const isGroup =
-            jid.endsWith("@g.us");
-
-        const isPrivate =
-            jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
-
-        const metadataPromise =
-            isGroup
-                ? getGroupMetadata(
-                      sock,
-                      jid
-                  )
-                : Promise.resolve(null);
 
         let rawPlugins = [];
         try {
@@ -1669,7 +1676,6 @@ async function executeHandlerLogic(
         getModeFast();
         getEliteFast();
 
-        const metadata = await metadataPromise;
         const runtimeIndex = getPluginRuntimeIndex(plugins);
         const commandIndex = runtimeIndex.commandIndex;
         const onMessagePlugins = runtimeIndex.onMessagePlugins;
