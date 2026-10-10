@@ -66,11 +66,10 @@ function log(type, text) {
             bot: "🤖"
         };
 
-        console.log(
-            (colors[type] || COLORS.cyan) +
-            "[" + (icons[type] || "•") + "] " + text +
-            COLORS.reset
-        );
+        const color = colors[type] || COLORS.cyan;
+        const icon = icons[type] || "•";
+
+        console.log(`${color}[${icon}] ${text}${COLORS.reset}`);
     } catch {}
 }
 
@@ -466,9 +465,9 @@ function readEliteSetSync() {
     for (const candidate of candidates) {
         try {
             const stat = fs.statSync(candidate);
-            signature += candidate + ":" + stat.mtimeMs + ":" + stat.size + "|";
+            signature += `${candidate}:${stat.mtimeMs}:${stat.size}|`;
         } catch {
-            signature += candidate + ":missing|";
+            signature += `${candidate}:missing|`;
         }
     }
     if (signature === strictEliteSignature) return strictEliteSet;
@@ -966,7 +965,7 @@ function wasProcessed(id, sock, scope = "") {
             getSocketSessionId(sock)
         );
 
-    const key = session + ":" + scope + ":" + id;
+    const key = `${session}:${scope}:${id}`;
 
     const now =
         Date.now();
@@ -1307,7 +1306,7 @@ function releaseMessageWorker() {
 
 function queueMessage(sock, msg) {
     const id = msg?.key?.id;
-    const jid = String(msg?.key?.remoteJid || ("unknown:" + (id || Date.now())));
+    const jid = String(msg?.key?.remoteJid || `unknown:${id || Date.now()}`);
     const participant = String(
         msg?.key?.participant ||
         msg?.participant ||
@@ -1315,7 +1314,7 @@ function queueMessage(sock, msg) {
         "unknown"
     );
     const queueKey = jid;
-    const scope = jid + ":" + participant;
+    const scope = `${jid}:${participant}`;
     if (id && wasProcessed(id, sock, scope)) return false;
     const previous = chatMessageQueues.get(queueKey) || Promise.resolve();
     pendingMessageCount++;
@@ -1777,7 +1776,7 @@ async function executeHandlerLogic(
                     const listenerResult = await plugin.onMessage(pluginSock, msg, context);
                     if (listenerResult?.handled === true) return;
                 } catch (listenerError) {
-                    console.error("❌ Listener Error: " + (listenerError?.message || listenerError));
+                    console.error(`❌ Listener Error: ${listenerError?.message || listenerError}`);
                 }
             }
         }
@@ -1848,13 +1847,13 @@ async function executeHandlerLogic(
 
         log(
             "cmd",
-            commandName + " ← " + (number || sender || "UNKNOWN") + " ← " + (
+            `${commandName} ← ${number || sender || "UNKNOWN"} ← ${
                 isEliteUser
                     ? "ELITE"
                     : botIsAdmin
                     ? "BOT ADMIN"
                     : "USER"
-            )
+            }`
         );
 
         try {
@@ -1920,7 +1919,7 @@ async function executeHandlerLogic(
 
         } catch (error) {
             console.error(
-                "❌ Command Execution Failed [" + commandName + "]:",
+                `❌ Command Execution Failed [${commandName}]:`,
                 error?.message ||
                     error
             );
@@ -1957,22 +1956,22 @@ export async function warmupHandler(
 
         log(
             "ok",
-            "Handler Ready | Bot: " + (botNumber || "UNKNOWN")
+            `Handler Ready | Bot: ${botNumber || "UNKNOWN"}`
         );
 
         log(
             "bot",
-            "Identities: " + (identities.join(" | ") || "NONE")
+            `Identities: ${identities.join(" | ") || "NONE"}`
         );
 
         log(
             "elite",
-            "Elite: " + eliteCache.length
+            `Elite: ${eliteCache.length}`
         );
 
         log(
             "ok",
-            "Mode: " + (modeCache.elite ? "ELITE" : "NORMAL")
+            `Mode: ${modeCache.elite ? "ELITE" : "NORMAL"}`
         );
 
         return true;
