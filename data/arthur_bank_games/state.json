@@ -1,0 +1,41 @@
+{
+  "version": 7,
+  "accounts": {
+    "233144431206490@lid": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1791757197518,
+      "createdAt": 1791757197518
+    }
+  },
+  "clans": {},
+  "teams": {},
+  "duels": {},
+  "xo": {},
+  "transactions": [],
+  "processedResults": {},
+  "world": {
+    "market": [],
+    "games": {},
+    "season": {
+      "id": 1,
+      "startedAt": 1791756776488
+    }
+  }
+}
