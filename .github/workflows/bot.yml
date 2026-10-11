@@ -3,25 +3,44 @@ name: WhatsApp Bot Runner
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *'
+    - cron: '0 */2 * * *'
 
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: 1. Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 2. Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install Dependencies
+      # استرجاع مجلد الجلسة تلقائياً قبل تشغيل البوت
+      - name: 3. Restore WhatsApp Session
+        uses: actions/cache/restore@v4
+        with:
+          path: ./ملف_الاتصال
+          key: whatsapp-session-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            whatsapp-session-${{ runner.os }}-
+            whatsapp-session-
+
+      - name: 4. Install Dependencies
         run: npm install
 
-      - name: Start Bot
+      - name: 5. Run WhatsApp Bot
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: node start.js
+        continue-on-error: true
+
+      # حفظ مجلد الجلسة الجديد بعد إيقاف أو انتهاء البوت لضمان بقاء تسجيل الدخول
+      - name: 6. Save WhatsApp Session
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ./ملف_الاتصال
+          key: whatsapp-session-${{ runner.os }}-${{ github.run_id }}
