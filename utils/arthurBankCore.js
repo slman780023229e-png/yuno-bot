@@ -1,6 +1,8 @@
+
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { scheduleArthurGithubSync } from './arthurGithubSync.js';
 
 // ═══════════════════════════════════════════════════════
 // ARTHUR WORLD CORE — Unified Edition
@@ -71,8 +73,7 @@ export function normalizeText(text) {
 }
 
 export function formatMoney(value) {
-  return Math.floor(finiteNumber(value))
-    .toLocaleString('en-US');
+  return Math.floor(finiteNumber(value)).toLocaleString('en-US');
 }
 
 export function userId(msg, data = {}) {
@@ -290,8 +291,21 @@ function saveDatabase() {
       }
     }
 
+    // أولًا: الحفظ المحلي الذري.
     writeAtomic(DB_FILE, serialized);
     lastSaveError = null;
+
+    // ثانيًا: جدولة المزامنة إلى GitHub بعد نجاح الحفظ المحلي.
+    // خطأ الرفع لا يلغي الحفظ المحلي.
+    try {
+      scheduleArthurGithubSync();
+    } catch (syncError) {
+      console.error(
+        '[ARTHUR WORLD] GitHub sync scheduling failed:',
+        syncError?.message || syncError
+      );
+    }
+
     return true;
   } catch (error) {
     lastSaveError = error;
@@ -965,7 +979,6 @@ export function dissolveTeam(teamId, ownerId) {
   return { ok: true };
 }
 
-// إيداع شخصي في خزينة الفريق.
 export function contributeToTeam(teamId, playerId, amount) {
   const team = getTeamRecord(teamId);
   const player = cleanId(playerId);
@@ -999,9 +1012,6 @@ export function contributeToTeam(teamId, playerId, amount) {
   return { ok: true, amount: value, wallet: account.wallet, treasury: team.treasury };
 }
 
-// السحب من خزينة الفريق محصور بالقائد أو الضباط.
-// لا يستطيع الضابط سحب أكثر من الحد الذي يحدده القائد؛
-// لذلك الحد الافتراضي للضابط صفر، والقائد فقط يستطيع السحب.
 export function withdrawFromTeam(teamId, playerId, amount, options = {}) {
   const team = getTeamRecord(teamId);
   const player = cleanId(playerId);
@@ -1039,8 +1049,6 @@ export function withdrawFromTeam(teamId, playerId, amount, options = {}) {
   return { ok: true, amount: value, wallet: account.wallet, treasury: team.treasury };
 }
 
-// إضافة أموال للخزينة من مصدر موثوق داخل اللعبة.
-// يجب ألا تستدعيها أوامر المستخدم مباشرة دون تحقق من نتيجة اللعبة.
 export function rewardTeam(teamId, amount, options = {}) {
   const team = getTeamRecord(teamId);
   const value = validAmount(amount);
@@ -1099,10 +1107,6 @@ export function getRegisteredGames() {
   return Object.values(dbState.world.games).map(clone);
 }
 
-// تسوية نتيجة مرة واحدة.
-// rewards: { gold, points, xp }
-// winners/losers: مصفوفات معرّفات اللاعبين.
-// teamRewards: [{ teamId, gold }]
 export function settleGameResult({
   gameId,
   resultId,
@@ -1143,7 +1147,6 @@ export function settleGameResult({
   const points = Math.max(0, integer(rewards.points));
   const xp = Math.max(0, integer(rewards.xp));
 
-  // تحقق مسبق من هويات الفرق والمبالغ قبل تغيير الأرصدة.
   const normalizedTeamRewards = [];
 
   for (const item of teamRewards) {
