@@ -2,13 +2,13 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 1500,
+      "wallet": 2000,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 0,
-      "xp": 0,
+      "points": 25,
+      "xp": 50,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -19,8 +19,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 0,
-      "lastInterest": 1791757197518,
+      "lastDaily": 1791757232740,
+      "lastInterest": 1791757197519,
       "createdAt": 1791757197518
     }
   },
@@ -28,7 +28,15 @@
   "teams": {},
   "duels": {},
   "xo": {},
-  "transactions": [],
+  "transactions": [
+    {
+      "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
+      "type": "daily",
+      "at": 1791757232740,
+      "player": "233144431206490@lid",
+      "amount": 500
+    }
+  ],
   "processedResults": {},
   "world": {
     "market": [],
