@@ -1,27 +1,53 @@
-name: WhatsApp Bot Runner
+
+name: ARTHUR BOT Runner
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '17 */2 * * *'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: arthur-whatsapp-bot
+  cancel-in-progress: false
 
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
+    timeout-minutes: 330
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js Environment
+      - name: Restore WhatsApp Session
+        uses: actions/cache/restore@v4
+        with:
+          path: ملف_الاتصال/
+          key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            arthur-session-${{ github.ref_name }}-
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run WhatsApp Bot
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: node start.js
+
+      - name: Save WhatsApp Session
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ملف_الاتصال/
+          key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}
