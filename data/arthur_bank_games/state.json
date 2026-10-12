@@ -13,12 +13,7 @@
       "wins": 1,
       "losses": 0,
       "title": "",
-      "inventory": [
-        {
-          "id": "hint_medium",
-          "qty": 1
-        }
-      ],
+      "inventory": [],
       "skills": {
         "luck": 1,
         "strength": 1,
