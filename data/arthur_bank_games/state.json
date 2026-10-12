@@ -2,7 +2,7 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 1859,
+      "wallet": 1609,
       "bank": 1400,
       "vault": 0,
       "debt": 0,
@@ -13,7 +13,12 @@
       "wins": 1,
       "losses": 0,
       "title": "",
-      "inventory": [],
+      "inventory": [
+        {
+          "id": "hint_medium",
+          "qty": 1
+        }
+      ],
       "skills": {
         "luck": 1,
         "strength": 1,
