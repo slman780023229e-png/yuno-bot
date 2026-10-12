@@ -745,7 +745,7 @@ async function handleGroupAnswer(sock, msg, context, game, text) {
 
   // Ignore answers that were sent before the current question appeared.
   const messageTime = Number(msg.messageTimestamp || msg.message?.messageTimestamp || 0);
-  if (messageTime && game.questionSentAt && messageTime <= game.questionSentAt) return true;
+  if (messageTime && game.questionSentAt && messageTime < game.questionSentAt) return true;
 
   if (!answerCorrect(text, game.question.answers)) {
     await react(sock, msg, "❌");
