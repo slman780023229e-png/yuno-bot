@@ -22,10 +22,52 @@
       "lastDaily": 1791757232740,
       "lastInterest": 1791757197519,
       "createdAt": 1791757197518
+    },
+    "233144431206490": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1791788131957,
+      "createdAt": 1791788131957
     }
   },
   "clans": {},
-  "teams": {},
+  "teams": {
+    "team_6e0f7e81-ac4b-4050-8bd9-76b745b48fb4": {
+      "id": "team_6e0f7e81-ac4b-4050-8bd9-76b745b48fb4",
+      "name": "فرسان الظل",
+      "description": "",
+      "owner": "233144431206490",
+      "members": {
+        "233144431206490": {
+          "role": "leader",
+          "joinedAt": 1791788131957,
+          "contribution": 0
+        }
+      },
+      "treasury": 0,
+      "invites": {},
+      "wins": 0,
+      "losses": 0,
+      "createdAt": 1791788131957,
+      "updatedAt": 1791788131957
+    }
+  },
   "duels": {},
   "xo": {},
   "transactions": [
@@ -35,6 +77,13 @@
       "at": 1791757232740,
       "player": "233144431206490@lid",
       "amount": 500
+    },
+    {
+      "id": "tx_30c0250b-6b0f-4d1e-b0d0-808de5b94b3e",
+      "type": "team_create",
+      "at": 1791788131958,
+      "teamId": "team_6e0f7e81-ac4b-4050-8bd9-76b745b48fb4",
+      "owner": "233144431206490"
     }
   ],
   "processedResults": {},
