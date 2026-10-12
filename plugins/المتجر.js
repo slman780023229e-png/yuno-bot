@@ -25,7 +25,11 @@ function accountIsOpen(id) { return Boolean(getAccount(id).bankProfile?.name); }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const STORE_DIR = path.resolve(__dirname, '../متجر');
+const STORE_DIR_CANDIDATES = [
+  path.resolve(__dirname, '../متجر'), // preferred sibling folder
+  path.resolve(__dirname, 'متجر') // legacy nested folder
+];
+const STORE_DIR = STORE_DIR_CANDIDATES.find(dir => fs.existsSync(dir)) || STORE_DIR_CANDIDATES[0];
 function imageFor(item) {
   if (!item?.image) return null;
   const full = path.resolve(STORE_DIR, item.image);
@@ -88,7 +92,7 @@ export default {
       if (!item) return send(sock, jid, '❌ اختر رقم المنتج الصحيح من .متجر ثم اكتب مثلًا: .متجر شراء 1 2');
       const result = buyStoreItem(id, item.id, Number(qtyToken));
       if (!result.ok) return send(sock, jid, `❌ ${result.error}`);
-      const caption = `✅ *تم الشراء بنجاح*\n\n${item.emoji || '🛍️'} ${item.name} × ${result.quantity}\n💰 السعر الإجمالي: ${formatMoney(result.total)} ذهب\n🎒 في حقيبتك الآن: ${result.owned}\n👛 المتبقي في المحفظة: ${formatMoney(result.wallet)} ذهب`;
+      const caption = `✅ *تم الشراء بنجاح*\n\n${item.emoji || '🛍️'} ${item.name} × ${result.quantity}\n💰 السعر الإجمالي: ${formatMoney(result.total)} جواهر 💎\n🎒 في حقيبتك الآن: ${result.owned}\n👛 المتبقي في المحفظة: ${formatMoney(result.wallet)} جواهر 💎`;
       return sendItemCard(sock, jid, item, caption);
     }
 
@@ -100,14 +104,14 @@ export default {
     await sendAsset(sock, jid, 'store.png',
       `╭━━━『 🏪 ARTHUR WORLD STORE 』━━━╮\n` +
       `${profileLine}\n` +
-      `👛 محفظتك: ${formatMoney(account.wallet)} ذهب\n\n` +
+      `👛 محفظتك: ${formatMoney(account.wallet)} جواهر 💎\n\n` +
       `🖼️ هذه منتجات المتجر؛ ستصل صورة صغيرة لكل منتج مع السعر وطريقة الشراء.\n` +
       `🎒 حقيبتك: .متجر حقيبتي\n` +
       `╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯`
     );
     for (let index = 0; index < items.length; index++) {
       const item = items[index];
-      const caption = `${index + 1}. ${item.emoji || '🛍️'} *${item.name}*\n💰 السعر: ${formatMoney(item.price)} ذهب\n${item.description || ''}\n🛒 للشراء: .متجر شراء ${index + 1} [الكمية]`;
+      const caption = `${index + 1}. ${item.emoji || '🛍️'} *${item.name}*\n💰 السعر: ${formatMoney(item.price)} جواهر 💎\n${item.description || ''}\n🛒 للشراء: .متجر شراء ${index + 1} [الكمية]`;
       await sendItemCard(sock, jid, item, caption);
     }
   }
