@@ -22,7 +22,10 @@ import { getItemCount, consumeStoreItem, grantStoreItem } from "../utils/arthurS
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, "../ذكاء");
+const DATA_DIR_CANDIDATES = [
+  path.resolve(__dirname, "../ذكاء"), // preferred: sibling of plugins
+  path.resolve(__dirname, "ذكاء")     // compatibility: nested inside plugins
+];
 const MENU_TTL = 60_000;
 const MAX_RECENT_QUESTIONS = 30;
 
@@ -91,28 +94,32 @@ function isPrefixed(text) {
 }
 
 async function loadFlexible(baseName) {
-  const jsPath = path.join(DATA_DIR, `${baseName}.js`);
-  const jsonPath = path.join(DATA_DIR, `${baseName}.json`);
+  for (const dataDir of DATA_DIR_CANDIDATES) {
+    const jsPath = path.join(dataDir, `${baseName}.js`);
+    const jsonPath = path.join(dataDir, `${baseName}.json`);
 
-  let jsExists = false;
-  try {
-    await fs.access(jsPath);
-    jsExists = true;
-  } catch {}
-
-  if (jsExists) {
-    const url = pathToFileURL(jsPath);
-    url.searchParams.set("reload", String(Date.now()));
-    const module = await import(url.href);
-
-    if (module.default === undefined) {
-      throw new Error(`${baseName}.js يجب أن يستخدم export default`);
+    try {
+      await fs.access(jsPath);
+      const url = pathToFileURL(jsPath);
+      url.searchParams.set("reload", String(Date.now()));
+      const module = await import(url.href);
+      if (module.default === undefined) {
+        throw new Error(`${baseName}.js يجب أن يستخدم export default`);
+      }
+      return module.default;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
     }
 
-    return module.default;
+    try {
+      await fs.access(jsonPath);
+      return JSON.parse(await fs.readFile(jsonPath, "utf8"));
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
   }
 
-  return JSON.parse(await fs.readFile(jsonPath, "utf8"));
+  throw new Error(`لم يتم العثور على ${baseName}.json أو ${baseName}.js في مجلد ذكاء بجانب plugins أو داخله.`);
 }
 
 async function loadData() {
@@ -253,9 +260,9 @@ async function handleHintRequest(sock, chat, id, raw, solo, group, msg) {
   if (!request.tier) {
     await safeSend(sock, chat, {
       text: "💡 متجر التلميحات — اختر القوة المناسبة:\n\n" +
-        "1️⃣ تلميح خفيف — اشتره من المتجر بـ 100 ذهب\n" +
-        "2️⃣ تلميح متوسط — اشتره من المتجر بـ 250 ذهب\n" +
-        "3️⃣ تلميح قوي — اشتره من المتجر بـ 500 ذهب\n\n" +
+        "1️⃣ تلميح خفيف — اشتره من المتجر بـ 100 جواهر 💎\n" +
+        "2️⃣ تلميح متوسط — اشتره من المتجر بـ 250 جواهر 💎\n" +
+        "3️⃣ تلميح قوي — اشتره من المتجر بـ 500 جواهر 💎\n\n" +
         "الشراء: .متجر شراء 1 أو 2 أو 3\n" +
         "بعد الشراء اكتب: تلميح 1 أو تلميح 2 أو تلميح 3\n" +
         "التلميح يُستهلك من حقيبتك ويصل إليك على الخاص."
@@ -412,7 +419,7 @@ async function startSolo(sock, msg, context, chat, id) {
       `🔥 بدأت رحلتك الفردية يا ${game.playerName}!\n\n` +
       `📚 المرحلة ${stageIndex + 1}: ${stage.name}\n` +
       `❓ عدد الأسئلة: ${selected.length}\n` +
-      `🏆 مكافأة اجتياز المرحلة: ${stageReward(config).gold} ذهب\n\n` +
+      `🏆 مكافأة اجتياز المرحلة: ${stageReward(config).gold} جواهر 💎\n\n` +
       "الإجابة تكون مباشرة دون كتابة أمر."
   }, { quoted: msg });
 
@@ -457,7 +464,7 @@ async function completeSoloStage(sock, game) {
     await safeSend(sock, game.chat, {
       text:
         `🏆 ممتاز! اجتزت المرحلة ${stageNumber}!\n\n` +
-        `💰 حصلت على ${outcome.duplicate ? 0 : rewards.gold} ذهب\n` +
+        `💰 حصلت على ${outcome.duplicate ? 0 : rewards.gold} جواهر 💎\n` +
         `⭐ حصلت على ${outcome.duplicate ? 0 : rewards.points} نقطة\n` +
         `✨ حصلت على ${outcome.duplicate ? 0 : rewards.xp} خبرة`
     });
@@ -500,6 +507,7 @@ async function handleSoloAnswer(sock, msg, context, game, text) {
     player.totalWrong = (player.totalWrong || 0) + 1;
     save();
     await react(sock, msg, "❌");
+    await safeSend(sock, game.chat, { text: "❌ إجابة غير صحيحة، حاول مرة ثانية!" }, { quoted: msg });
     return true;
   }
 
@@ -524,7 +532,7 @@ async function handleSoloAnswer(sock, msg, context, game, text) {
   await safeSend(sock, game.chat, {
     text: outcome.duplicate
       ? "✅ صح! مكافأة هذا السؤال سبق استلامها، نكمل."
-      : `✅ صح! حصلت على ${reward.gold} ذهب و${reward.points} نقطة و${reward.xp} خبرة.`
+      : `✅ صح! حصلت على ${reward.gold} جواهر 💎 و${reward.points} نقطة و${reward.xp} خبرة.`
   }, { quoted: msg });
 
   game.questionIndex++;
@@ -677,6 +685,7 @@ async function sendGroupQuestion(sock, game) {
   game.attempted = new Set();
   game.correctThisQuestion = new Set();
   game.transitioning = false;
+  game.answerLocked = false;
 
   await safeSend(sock, game.chat, {
     text:
@@ -686,6 +695,7 @@ async function sendGroupQuestion(sock, game) {
       `⏳ الوقت: ${game.config.groupAnswerSeconds || 15} ثانية\n` +
       "أرسلوا الإجابات مباشرة!"
   });
+  game.questionSentAt = Math.floor(Date.now() / 1000);
 
   clearTimeout(game.timer);
   game.timer = setTimeout(async () => {
@@ -700,9 +710,14 @@ async function advanceGroupQuestion(sock, game, timedOut = false) {
   clearTimeout(game.timer);
 
   if (timedOut && game.question) {
+    // A stage/question is never cleared without a correct answer.
     await safeSend(sock, game.chat, {
-      text: `⌛ انتهى الوقت. الإجابة الصحيحة: ${game.question.answers[0]}`
+      text: "⌛ انتهى الوقت، لكن السؤال لم يُحتسب محلولًا. سنعيد السؤال نفسه؛ لا تنتقل المرحلة إلا بعد إجابة صحيحة."
     });
+    game.transitioning = false;
+    game.answerLocked = false;
+    await sendGroupQuestion(sock, game);
+    return;
   }
 
   game.questionIndex++;
@@ -722,20 +737,25 @@ async function advanceGroupQuestion(sock, game, timedOut = false) {
 }
 
 async function handleGroupAnswer(sock, msg, context, game, text) {
-  if (game.transitioning || game.attempted.has(userId(msg, context))) return true;
+  if (game.transitioning || game.answerLocked) return true;
 
   const id = userId(msg, context);
   const player = game.players.get(id);
-
   if (!player) return true;
 
-  game.attempted.add(id);
+  // Ignore answers that were sent before the current question appeared.
+  const messageTime = Number(msg.messageTimestamp || msg.message?.messageTimestamp || 0);
+  if (messageTime && game.questionSentAt && messageTime <= game.questionSentAt) return true;
 
   if (!answerCorrect(text, game.question.answers)) {
     await react(sock, msg, "❌");
+    await safeSend(sock, game.chat, { text: "❌ إجابة غير صحيحة، جرّب مرة ثانية!" }, { quoted: msg });
     return true;
   }
 
+  // Lock immediately so two correct answers cannot win the same question.
+  game.answerLocked = true;
+  game.attempted.add(id);
   game.correctThisQuestion.add(id);
   player.correct++;
   player.points += 10;
@@ -750,10 +770,8 @@ async function handleGroupAnswer(sock, msg, context, game, text) {
     text: `صح يا ${player.name}! حصلت على 10 نقاط في ترتيب المسابقة.`
   }, { quoted: msg });
 
-  if (game.attempted.size >= game.players.size) {
-    await advanceGroupQuestion(sock, game, false);
-  }
-
+  // First correct answer wins this question; advance immediately.
+  await advanceGroupQuestion(sock, game, false);
   return true;
 }
 
@@ -804,7 +822,7 @@ async function finishGroup(sock, game) {
       `${i + 1}. ${player.name}\n` +
       `   🧠 الإجابات الصحيحة: ${player.correct}\n` +
       `   ⭐ نقاط المسابقة: ${player.points}\n` +
-      `   💰 مكافأة البنك: ${rewardGold} ذهب\n\n`;
+      `   💰 مكافأة البنك: ${rewardGold} جواهر 💎\n\n`;
   }
 
   save();
@@ -861,7 +879,7 @@ async function handleMessage(sock, msg, context = {}) {
       await startSolo(sock, msg, context, chat, id);
     } catch (error) {
       console.error("[ARTHUR INTELLIGENCE] Direct start error:", error?.stack || error);
-      await safeSend(sock, chat, { text: "❌ تعذر بدء الذكاء. تأكد من ملفات plugins/ذكاء." });
+      await safeSend(sock, chat, { text: "❌ تعذر بدء الذكاء. تأكد من وجود مجلد ذكاء بجانب plugins وملفات المراحل والأسئلة داخله." });
     }
     return { handled: true };
   }
@@ -885,7 +903,7 @@ async function handleMessage(sock, msg, context = {}) {
     } catch (error) {
       console.error("[ARTHUR INTELLIGENCE] Start error:", error?.stack || error);
       await safeSend(sock, chat, {
-        text: "❌ تعذر بدء اللعبة. تأكد من ملفات plugins/ذكاء."
+        text: "❌ تعذر بدء اللعبة. تأكد من وجود مجلد ذكاء بجانب plugins وملفات المراحل والأسئلة داخله."
       });
     }
 
@@ -951,7 +969,7 @@ export default {
   name: "arthur-intelligence",
   command: ["ذكاء", "لعبة_الذكاء"],
   aliases: ["intelligence"],
-  category: "العاب",
+  category: "games",
   description: "لعبة ذكاء متكاملة: مراحل فردية وتحدي جماعي وترتيب ومكافآت بنك.",
 
   async execute(sock, msg, context = {}) {
