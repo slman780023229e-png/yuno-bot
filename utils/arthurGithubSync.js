@@ -17,7 +17,7 @@ let running = null;
 let lastError = null;
 
 function getConfig() {
-  const token = process.env.ARTHUR_GITHUB_TOKEN;
+  const token = process.env.ARTHUR_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
   const repository = process.env.GITHUB_REPOSITORY;
   const branch = process.env.GITHUB_REF_NAME;
 
