@@ -155,6 +155,18 @@
     "season": {
       "id": 1,
       "startedAt": 1791756776488
+    },
+    "arthurIntelligence": {
+      "players": {
+        "233144431206490@lid": {
+          "stage": 0,
+          "completedStages": 0,
+          "totalCorrect": 0,
+          "totalWrong": 0,
+          "soloGames": 1,
+          "groupGames": 0
+        }
+      }
     }
   },
   "accountSetup": {}
