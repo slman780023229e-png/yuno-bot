@@ -291,7 +291,15 @@
           "totalCorrect": 6,
           "totalWrong": 4,
           "soloGames": 2,
-          "groupGames": 0
+          "groupGames": 1
+        },
+        "176412191391926@lid": {
+          "stage": 0,
+          "completedStages": 0,
+          "totalCorrect": 0,
+          "totalWrong": 0,
+          "soloGames": 0,
+          "groupGames": 1
         }
       }
     }
