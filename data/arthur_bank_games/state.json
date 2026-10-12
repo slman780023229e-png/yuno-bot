@@ -21,7 +21,13 @@
       },
       "lastDaily": 1791757232740,
       "lastInterest": 1791818836263,
-      "createdAt": 1791757197518
+      "createdAt": 1791757197518,
+      "bankProfile": {
+        "name": "سلمان",
+        "logo": "♦️🩸",
+        "openedAt": 1791818876645,
+        "updatedAt": 1791818876645
+      }
     },
     "233144431206490": {
       "wallet": 1500,
@@ -117,11 +123,5 @@
       "startedAt": 1791756776488
     }
   },
-  "accountSetup": {
-    "233144431206490@lid": {
-      "step": "logo",
-      "startedAt": 1791818852999,
-      "name": "سلمان"
-    }
-  }
+  "accountSetup": {}
 }
