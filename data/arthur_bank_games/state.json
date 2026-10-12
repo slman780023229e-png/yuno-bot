@@ -74,8 +74,8 @@
       "createdAt": 1791817714505
     },
     "176412191391926@lid": {
-      "wallet": 2577,
-      "bank": 0,
+      "wallet": 2377,
+      "bank": 200,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -274,6 +274,13 @@
       "at": 1791821681048,
       "player": "176412191391926@lid",
       "amount": 500
+    },
+    {
+      "id": "tx_f2a9521e-7ed9-4a5d-9fac-1b5ab3269032",
+      "type": "deposit",
+      "at": 1791821702770,
+      "player": "176412191391926@lid",
+      "amount": 200
     }
   ],
   "processedResults": {
