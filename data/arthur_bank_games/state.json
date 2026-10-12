@@ -44,6 +44,28 @@
       "lastDaily": 0,
       "lastInterest": 1791788131957,
       "createdAt": 1791788131957
+    },
+    "967715795639:6@s.whatsapp.net": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1791817714505,
+      "createdAt": 1791817714505
     }
   },
   "clans": {},
