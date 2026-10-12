@@ -20,7 +20,50 @@ import {
   save
 } from '../utils/arthurBankCore.js';
 
-const accountSetup = new Map();
+// Persist account setup state in the bank database so plugin hot-reloads
+// or restarts do not lose the user's current name/logo step.
+function setupStore() {
+  const database = db();
+  if (!database.accountSetup || typeof database.accountSetup !== 'object' || Array.isArray(database.accountSetup)) {
+    database.accountSetup = {};
+  }
+  return database.accountSetup;
+}
+
+function setAccountSetup(sender, value) {
+  setupStore()[sender] = value;
+  save();
+}
+
+function getAccountSetup(sender) {
+  return setupStore()[sender] || null;
+}
+
+function deleteAccountSetup(sender) {
+  delete setupStore()[sender];
+  save();
+}
+
+function extractIncomingText(msg) {
+  let message = msg?.message || {};
+  for (let i = 0; i < 5; i++) {
+    const wrapped =
+      message.ephemeralMessage?.message ||
+      message.viewOnceMessage?.message ||
+      message.viewOnceMessageV2?.message ||
+      message.documentWithCaptionMessage?.message;
+    if (!wrapped) break;
+    message = wrapped;
+  }
+  return String(
+    message.conversation ||
+    message.extendedTextMessage?.text ||
+    message.imageMessage?.caption ||
+    message.videoMessage?.caption ||
+    message.documentMessage?.caption ||
+    ''
+  ).trim();
+}
 
 function parseAmount(value) {
   const text = String(value || '').replace(/[,،_]/g, '');
@@ -73,24 +116,39 @@ export default {
 
     const sub = String(args[0] || 'رصيد').toLowerCase();
 
+    if (
+      (sub === 'حذف' && ['الحساب', 'حساب'].includes(String(args[1] || '').toLowerCase())) ||
+      ['حذف_الحساب', 'حذفحساب'].includes(sub)
+    ) {
+      const current = db().accounts?.[sender];
+      if (!current) return reply(sock, jid, 'ℹ️ لا يوجد حساب بنكي محفوظ لحذفه.');
+      setAccountSetup(sender, { step: 'delete_confirm', startedAt: Date.now() });
+      return reply(sock, jid,
+        '⚠️ تأكيد حذف حساب ARTHUR BANK\n\n' +
+        'سيتم حذف حسابك البنكي ورصيدك وتقدمك الاقتصادي نهائيًا. هذا لا يحذف رسائلك أو رقمك من واتساب.\n\n' +
+        'للتأكيد اكتب: تأكيد حذف الحساب\n' +
+        'للإلغاء اكتب: إلغاء'
+      );
+    }
+
     if ((sub === 'فتح' && String(args[1] || '').toLowerCase() === 'حساب') || ['فتح_حساب', 'فتححساب'].includes(sub)) {
       const account = getAccount(sender);
       if (account.bankProfile?.name) {
         return reply(sock, jid, `🏦 حسابك مفتوح بالفعل!\n\n${account.bankProfile.logo || '🎮'} الاسم: ${account.bankProfile.name}\nالشعار: ${account.bankProfile.logo || '🎮'}\n\nلتعديل الملف: .بنك تعديل الحساب`);
       }
-      accountSetup.set(sender, { step: 'name', startedAt: Date.now() });
+      setAccountSetup(sender, { step: 'name', startedAt: Date.now() });
       return reply(sock, jid, `╭━━━『 🏦 فتح حساب ARTHUR 』━━━╮\n\nأهلًا بك في بنك ARTHUR! سننشئ لك بطاقة خاصة.\n\n1️⃣ اكتب الاسم الذي تريد ظهوره في البطاقة (من 2 إلى 24 حرفًا).\nاكتب إلغاء إذا أردت التوقف.\n\n╰━━━━━━━━━━━━━━━━━━━━╯`);
     }
 
     if ((sub === 'تعديل' && String(args[1] || '').toLowerCase() === 'الحساب') || sub === 'تعديل_الحساب') {
-      accountSetup.set(sender, { step: 'name', startedAt: Date.now(), editing: true });
+      setAccountSetup(sender, { step: 'name', startedAt: Date.now(), editing: true });
       return reply(sock, jid, '📝 تعديل بطاقة البنك\nاكتب الاسم الجديد (من 2 إلى 24 حرفًا)، أو اكتب إلغاء.');
     }
 
     if (['بطاقتي', 'ملفي', 'بطاقة'].includes(sub)) {
       const account = getAccount(sender);
       if (!account.bankProfile?.name) return reply(sock, jid, 'ليس لديك ملف مصرفي بعد. اكتب: .بنك فتح حساب');
-      return reply(sock, jid, `╭━━━『 🏦 بطاقة ARTHUR 』━━━╮\n\n${account.bankProfile.logo || '🎮'} ${account.bankProfile.name}\n🆔 الحساب: ${sender.split('@')[0]}\n👛 المحفظة: ${formatMoney(account.wallet)} ذهب\n🏦 البنك: ${formatMoney(getBankBalance(sender))} ذهب\n⭐ النقاط: ${formatMoney(account.points)}\n🎖️ الرتبة: ${calculateRank(account.points)}\n\n╰━━━━━━━━━━━━━━━━━━╯`);
+      return reply(sock, jid, `╭━━━『 🏦 بطاقة ARTHUR 』━━━╮\n\n${account.bankProfile.logo || '🎮'} ${account.bankProfile.name}\n🆔 الحساب: ${sender.split('@')[0]}\n👛 المحفظة: ${formatMoney(account.wallet)} جواهر 💎\n🏦 البنك: ${formatMoney(getBankBalance(sender))} جواهر 💎\n⭐ النقاط: ${formatMoney(account.points)}\n🎖️ الرتبة: ${calculateRank(account.points)}\n\n╰━━━━━━━━━━━━━━━━━━╯`);
     }
 
     // ─────────────── الرصيد ───────────────
@@ -134,7 +192,7 @@ export default {
         sock,
         jid,
         `╭━━━『 🎁 مكافأة ARTHUR 』━━━╮\n\n` +
-        `💰 الذهب: +${formatMoney(result.reward)}\n` +
+        `💰 الجواهر 💎: +${formatMoney(result.reward)}\n` +
         `⭐ النقاط: +25\n` +
         `✨ الخبرة: +50\n` +
         (result.levelsGained
@@ -308,6 +366,7 @@ export default {
       `💳 الاقتصاد الشخصي\n` +
       `• .بنك فتح حساب — إنشاء بطاقة باسم وشعار\n` +
       `• .بنك بطاقتي — عرض بطاقتك\n` +
+      `• .بنك حذف الحساب — حذف حسابك بعد التأكيد\n` +
       `• .بنك — عرض الرصيد\n` +
       `• .بنك يومي — المكافأة اليومية\n` +
       `• .بنك إيداع 100 — إيداع في البنك\n` +
@@ -327,20 +386,38 @@ export default {
     const sender = userId(msg, context);
     const jid = chatId(msg, context) || msg.key.remoteJid;
     if (!sender || !jid) return;
-    const pending = accountSetup.get(sender);
+    const pending = getAccountSetup(sender);
     if (!pending) return;
-    const raw = String(msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
+    const raw = extractIncomingText(msg);
     if (!raw) return;
     const plain = raw.replace(/^[.!/#]+/, '').trim();
     const normalized = plain.toLowerCase().replace(/[أإآٱ]/g, 'ا');
     if (normalized === 'الغاء' || normalized === 'إلغاء' || normalized === 'cancel') {
-      accountSetup.delete(sender);
+      deleteAccountSetup(sender);
       await reply(sock, jid, 'تم إلغاء إعداد بطاقة البنك.');
       return { handled: true };
     }
     if (/^[.!/#]/.test(raw)) return;
+
+    if (pending.step === 'delete_confirm') {
+      if (Date.now() - pending.startedAt > 2 * 60_000) {
+        deleteAccountSetup(sender);
+        await reply(sock, jid, 'انتهت مهلة تأكيد الحذف. لم يتم حذف حسابك.');
+        return { handled: true };
+      }
+      const confirmation = normalized.replace(/\s+/g, ' ').trim();
+      if (!['تاكيد حذف الحساب', 'تاكيد حذف حساب', 'احذف حسابي'].includes(confirmation)) {
+        await reply(sock, jid, 'لم يتم حذف الحساب. للتأكيد اكتب بالضبط: تأكيد حذف الحساب، أو اكتب إلغاء.');
+        return { handled: true };
+      }
+      delete db().accounts[sender];
+      deleteAccountSetup(sender);
+      save();
+      await reply(sock, jid, '🗑️ تم حذف حسابك البنكي وتقدمك الاقتصادي. إذا رغبت بالعودة يمكنك فتح حساب جديد عبر: .بنك فتح حساب');
+      return { handled: true };
+    }
     if (Date.now() - pending.startedAt > 10 * 60_000) {
-      accountSetup.delete(sender);
+      deleteAccountSetup(sender);
       await reply(sock, jid, 'انتهت مهلة فتح الحساب. اكتب .بنك فتح حساب للبدء من جديد.');
       return { handled: true };
     }
@@ -352,7 +429,7 @@ export default {
       }
       pending.name = name;
       pending.step = 'logo';
-      accountSetup.set(sender, pending);
+      setAccountSetup(sender, pending);
       await reply(sock, jid, `جميل يا ${name}! الآن أرسل شعارك: إيموجي أو رمز قصير مثل 👑 أو 🐉 أو ☘️.`);
       return { handled: true };
     }
@@ -365,7 +442,7 @@ export default {
       const account = getAccount(sender);
       account.bankProfile = { name: pending.name, logo, openedAt: account.bankProfile?.openedAt || Date.now(), updatedAt: Date.now() };
       save();
-      accountSetup.delete(sender);
+      deleteAccountSetup(sender);
       await reply(sock, jid, `╭━━━『 ✅ تم فتح حسابك 』━━━╮\n\n${logo} *${pending.name}*\n🏦 أصبح لديك ملف مصرفي في ARTHUR BANK.\n🛍️ المتجر: .متجر\n🎒 حقيبتك: .متجر حقيبتي\n🪪 بطاقتك: .بنك بطاقتي\n\n╰━━━━━━━━━━━━━━━━━━╯`);
       return { handled: true };
     }
