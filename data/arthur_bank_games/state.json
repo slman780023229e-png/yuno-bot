@@ -20,7 +20,7 @@
         "defense": 1
       },
       "lastDaily": 1791757232740,
-      "lastInterest": 1791757197519,
+      "lastInterest": 1791818836263,
       "createdAt": 1791757197518
     },
     "233144431206490": {
@@ -115,6 +115,12 @@
     "season": {
       "id": 1,
       "startedAt": 1791756776488
+    }
+  },
+  "accountSetup": {
+    "233144431206490@lid": {
+      "step": "name",
+      "startedAt": 1791818852999
     }
   }
 }
