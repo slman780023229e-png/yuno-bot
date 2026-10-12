@@ -2,8 +2,8 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 3059,
-      "bank": 200,
+      "wallet": 2859,
+      "bank": 400,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -280,6 +280,13 @@
       "type": "deposit",
       "at": 1791821702770,
       "player": "176412191391926@lid",
+      "amount": 200
+    },
+    {
+      "id": "tx_745a58b5-f9e3-4b6c-a320-b4ebe115a592",
+      "type": "deposit",
+      "at": 1791821725336,
+      "player": "233144431206490@lid",
       "amount": 200
     }
   ],
