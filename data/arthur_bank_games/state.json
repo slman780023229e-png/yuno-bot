@@ -70,7 +70,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1791817714505,
+      "lastInterest": 1791820717282,
       "createdAt": 1791817714505
     }
   },
@@ -282,5 +282,10 @@
       }
     }
   },
-  "accountSetup": {}
+  "accountSetup": {
+    "967715795639:6@s.whatsapp.net": {
+      "step": "name",
+      "startedAt": 1791820723662
+    }
+  }
 }
