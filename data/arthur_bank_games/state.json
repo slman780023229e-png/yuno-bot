@@ -119,8 +119,9 @@
   },
   "accountSetup": {
     "233144431206490@lid": {
-      "step": "name",
-      "startedAt": 1791818852999
+      "step": "logo",
+      "startedAt": 1791818852999,
+      "name": "سلمان"
     }
   }
 }
