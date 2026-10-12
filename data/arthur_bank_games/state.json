@@ -72,6 +72,28 @@
       "lastDaily": 0,
       "lastInterest": 1791820717282,
       "createdAt": 1791817714505
+    },
+    "176412191391926@lid": {
+      "wallet": 1605,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 15,
+      "xp": 25,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1791821623802,
+      "createdAt": 1791821623802
     }
   },
   "clans": {},
@@ -202,6 +224,15 @@
       "gold": 105,
       "points": 15,
       "xp": 20
+    },
+    {
+      "id": "tx_ed753732-c16c-4761-9dd7-97c35863baad",
+      "type": "progress",
+      "at": 1791821623802,
+      "player": "176412191391926@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
     }
   ],
   "processedResults": {
@@ -249,6 +280,11 @@
       "at": 1791820997219,
       "type": "progress",
       "player": "233144431206490@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-question:176412191391926@lid:int0002": {
+      "at": 1791821623802,
+      "type": "progress",
+      "player": "176412191391926@lid"
     }
   },
   "world": {
@@ -296,7 +332,7 @@
         "176412191391926@lid": {
           "stage": 0,
           "completedStages": 0,
-          "totalCorrect": 10,
+          "totalCorrect": 11,
           "totalWrong": 0,
           "soloGames": 1,
           "groupGames": 1
