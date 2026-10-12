@@ -162,7 +162,7 @@
           "stage": 0,
           "completedStages": 0,
           "totalCorrect": 0,
-          "totalWrong": 0,
+          "totalWrong": 1,
           "soloGames": 1,
           "groupGames": 0
         }
