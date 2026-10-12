@@ -2,8 +2,8 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 3259,
-      "bank": 0,
+      "wallet": 3059,
+      "bank": 200,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -20,7 +20,7 @@
         "defense": 1
       },
       "lastDaily": 1791757232740,
-      "lastInterest": 1791820787030,
+      "lastInterest": 1791821658434,
       "createdAt": 1791757197518,
       "bankProfile": {
         "name": "سلمان",
@@ -74,13 +74,13 @@
       "createdAt": 1791817714505
     },
     "176412191391926@lid": {
-      "wallet": 2077,
+      "wallet": 2577,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 85,
-      "xp": 135,
+      "points": 110,
+      "xp": 185,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -91,8 +91,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 0,
-      "lastInterest": 1791821623802,
+      "lastDaily": 1791821681048,
+      "lastInterest": 1791821646184,
       "createdAt": 1791821623802
     }
   },
@@ -260,6 +260,20 @@
       "gold": 262,
       "points": 40,
       "xp": 60
+    },
+    {
+      "id": "tx_b67ff1e3-f6c0-439d-83e5-7a2865ba77ee",
+      "type": "deposit",
+      "at": 1791821679101,
+      "player": "233144431206490@lid",
+      "amount": 200
+    },
+    {
+      "id": "tx_18289bb4-ae18-4e9a-9426-6449aa73c855",
+      "type": "daily",
+      "at": 1791821681048,
+      "player": "176412191391926@lid",
+      "amount": 500
     }
   ],
   "processedResults": {
