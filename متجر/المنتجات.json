@@ -1,0 +1,47 @@
+[
+  {
+    "id": "hint_light",
+    "name": "تلميح خفيف",
+    "emoji": "💡",
+    "price": 100,
+    "description": "يعطيك دلالة عامة تساعدك على التفكير.",
+    "kind": "hint",
+    "tier": 1,
+    "usableIn": [
+      "intelligence",
+      "riddle",
+      "trap"
+    ],
+    "image": "صور/hint_light.png"
+  },
+  {
+    "id": "hint_medium",
+    "name": "تلميح متوسط",
+    "emoji": "🔎",
+    "price": 250,
+    "description": "يكشف الحرف الأول وعدد الحروف.",
+    "kind": "hint",
+    "tier": 2,
+    "usableIn": [
+      "intelligence",
+      "riddle",
+      "trap"
+    ],
+    "image": "صور/hint_medium.png"
+  },
+  {
+    "id": "hint_strong",
+    "name": "تلميح قوي",
+    "emoji": "✨",
+    "price": 500,
+    "description": "يكشف جزءًا كبيرًا من بداية الإجابة.",
+    "kind": "hint",
+    "tier": 3,
+    "usableIn": [
+      "intelligence",
+      "riddle",
+      "trap"
+    ],
+    "image": "صور/hint_strong.png"
+  }
+]
