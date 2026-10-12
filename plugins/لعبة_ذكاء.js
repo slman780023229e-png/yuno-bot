@@ -94,32 +94,43 @@ function isPrefixed(text) {
 }
 
 async function loadFlexible(baseName) {
+  // Prefer JSON first: a stale/broken ${baseName}.js beside a valid JSON file
+  // must not prevent the game from starting.
+  for (const dataDir of DATA_DIR_CANDIDATES) {
+    const jsonPath = path.join(dataDir, `${baseName}.json`);
+    try {
+      await fs.access(jsonPath);
+      const raw = await fs.readFile(jsonPath, "utf8");
+      try {
+        return JSON.parse(raw.replace(/^\uFEFF/, ""));
+      } catch (error) {
+        throw new Error(`تعذر تحليل ${jsonPath}: ${error.message}`);
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+
+  // Only use JS data files when no JSON file exists in any supported location.
   for (const dataDir of DATA_DIR_CANDIDATES) {
     const jsPath = path.join(dataDir, `${baseName}.js`);
-    const jsonPath = path.join(dataDir, `${baseName}.json`);
-
     try {
       await fs.access(jsPath);
       const url = pathToFileURL(jsPath);
       url.searchParams.set("reload", String(Date.now()));
       const module = await import(url.href);
       if (module.default === undefined) {
-        throw new Error(`${baseName}.js يجب أن يستخدم export default`);
+        throw new Error(`${jsPath} يجب أن يستخدم export default`);
       }
       return module.default;
     } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
-    }
-
-    try {
-      await fs.access(jsonPath);
-      return JSON.parse(await fs.readFile(jsonPath, "utf8"));
-    } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
+      if (error?.code !== "ENOENT") {
+        throw new Error(`تعذر تحميل ملف البيانات ${jsPath}: ${error.message}`);
+      }
     }
   }
 
-  throw new Error(`لم يتم العثور على ${baseName}.json أو ${baseName}.js في مجلد ذكاء بجانب plugins أو داخله.`);
+  throw new Error(`لم يتم العثور على ${baseName}.json أو ${baseName}.js. المسارات المفحوصة: ${DATA_DIR_CANDIDATES.join(" | ")}`);
 }
 
 async function loadData() {
