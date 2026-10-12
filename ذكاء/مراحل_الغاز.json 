@@ -1,0 +1,540 @@
+{
+  "version": 3,
+  "riddlesPerStage": 3,
+  "joinSeconds": 20,
+  "answerSeconds": 35,
+  "stages": [
+    {
+      "id": 1,
+      "name": "البداية الهادئة",
+      "difficulty": 1
+    },
+    {
+      "id": 2,
+      "name": "ملاحظة التفاصيل",
+      "difficulty": 2
+    },
+    {
+      "id": 3,
+      "name": "العين الثاقبة",
+      "difficulty": 3
+    },
+    {
+      "id": 4,
+      "name": "فك الشفرة",
+      "difficulty": 4
+    },
+    {
+      "id": 5,
+      "name": "صائد الأخطاء",
+      "difficulty": 5
+    },
+    {
+      "id": 6,
+      "name": "العقل المرن",
+      "difficulty": 6
+    },
+    {
+      "id": 7,
+      "name": "التركيز العالي",
+      "difficulty": 7
+    },
+    {
+      "id": 8,
+      "name": "اختبار الذاكرة",
+      "difficulty": 8
+    },
+    {
+      "id": 9,
+      "name": "المحقق الصغير",
+      "difficulty": 9
+    },
+    {
+      "id": 10,
+      "name": "بوابة الأذكياء",
+      "difficulty": 10
+    },
+    {
+      "id": 11,
+      "name": "لغز الممر",
+      "difficulty": 11
+    },
+    {
+      "id": 12,
+      "name": "سر الغرفة",
+      "difficulty": 12
+    },
+    {
+      "id": 13,
+      "name": "مفاتيح التفكير",
+      "difficulty": 13
+    },
+    {
+      "id": 14,
+      "name": "اختبار الربط",
+      "difficulty": 14
+    },
+    {
+      "id": 15,
+      "name": "المعلومة المخفية",
+      "difficulty": 15
+    },
+    {
+      "id": 16,
+      "name": "التركيز المزدوج",
+      "difficulty": 16
+    },
+    {
+      "id": 17,
+      "name": "تحدي الاستنتاج",
+      "difficulty": 17
+    },
+    {
+      "id": 18,
+      "name": "الذاكرة الحادة",
+      "difficulty": 18
+    },
+    {
+      "id": 19,
+      "name": "محقق ARTHUR",
+      "difficulty": 19
+    },
+    {
+      "id": 20,
+      "name": "بوابة الغموض",
+      "difficulty": 20
+    },
+    {
+      "id": 21,
+      "name": "المتاهة الأولى",
+      "difficulty": 21
+    },
+    {
+      "id": 22,
+      "name": "الرمز المفقود",
+      "difficulty": 22
+    },
+    {
+      "id": 23,
+      "name": "مراقب الظلال",
+      "difficulty": 23
+    },
+    {
+      "id": 24,
+      "name": "العقل التحليلي",
+      "difficulty": 24
+    },
+    {
+      "id": 25,
+      "name": "السر المقلوب",
+      "difficulty": 25
+    },
+    {
+      "id": 26,
+      "name": "خدعة الكلمات",
+      "difficulty": 26
+    },
+    {
+      "id": 27,
+      "name": "عين الصقر",
+      "difficulty": 27
+    },
+    {
+      "id": 28,
+      "name": "الملاحظة الدقيقة",
+      "difficulty": 28
+    },
+    {
+      "id": 29,
+      "name": "قفل الأسرار",
+      "difficulty": 29
+    },
+    {
+      "id": 30,
+      "name": "مستوى العباقرة",
+      "difficulty": 30
+    },
+    {
+      "id": 31,
+      "name": "لغز المحقق",
+      "difficulty": 31
+    },
+    {
+      "id": 32,
+      "name": "المنطق المتقدم",
+      "difficulty": 32
+    },
+    {
+      "id": 33,
+      "name": "رسالة مشفرة",
+      "difficulty": 33
+    },
+    {
+      "id": 34,
+      "name": "الخيط الخفي",
+      "difficulty": 34
+    },
+    {
+      "id": 35,
+      "name": "العلامة الغريبة",
+      "difficulty": 35
+    },
+    {
+      "id": 36,
+      "name": "اختبار الحدس",
+      "difficulty": 36
+    },
+    {
+      "id": 37,
+      "name": "الطريق المعقد",
+      "difficulty": 37
+    },
+    {
+      "id": 38,
+      "name": "الملف الأسود",
+      "difficulty": 38
+    },
+    {
+      "id": 39,
+      "name": "حارس الأسرار",
+      "difficulty": 39
+    },
+    {
+      "id": 40,
+      "name": "نخبة العقول",
+      "difficulty": 40
+    },
+    {
+      "id": 41,
+      "name": "غرفة بلا نوافذ",
+      "difficulty": 41
+    },
+    {
+      "id": 42,
+      "name": "الرمز المزدوج",
+      "difficulty": 42
+    },
+    {
+      "id": 43,
+      "name": "سلسلة الأدلة",
+      "difficulty": 43
+    },
+    {
+      "id": 44,
+      "name": "الذاكرة الحديدية",
+      "difficulty": 44
+    },
+    {
+      "id": 45,
+      "name": "فخ الانتباه",
+      "difficulty": 45
+    },
+    {
+      "id": 46,
+      "name": "المعلومة الناقصة",
+      "difficulty": 46
+    },
+    {
+      "id": 47,
+      "name": "استنتاج المحترف",
+      "difficulty": 47
+    },
+    {
+      "id": 48,
+      "name": "القرار الصعب",
+      "difficulty": 48
+    },
+    {
+      "id": 49,
+      "name": "لغز الساعة",
+      "difficulty": 49
+    },
+    {
+      "id": 50,
+      "name": "قمة التركيز",
+      "difficulty": 50
+    },
+    {
+      "id": 51,
+      "name": "المتاهة العميقة",
+      "difficulty": 51
+    },
+    {
+      "id": 52,
+      "name": "مفتاح الظل",
+      "difficulty": 52
+    },
+    {
+      "id": 53,
+      "name": "المحقق الخبير",
+      "difficulty": 53
+    },
+    {
+      "id": 54,
+      "name": "الرسالة الأخيرة",
+      "difficulty": 54
+    },
+    {
+      "id": 55,
+      "name": "تركيب الأدلة",
+      "difficulty": 55
+    },
+    {
+      "id": 56,
+      "name": "تحدي الغموض",
+      "difficulty": 56
+    },
+    {
+      "id": 57,
+      "name": "خارج الصندوق",
+      "difficulty": 57
+    },
+    {
+      "id": 58,
+      "name": "الشفرة المعقدة",
+      "difficulty": 58
+    },
+    {
+      "id": 59,
+      "name": "عقل استثنائي",
+      "difficulty": 59
+    },
+    {
+      "id": 60,
+      "name": "قائد المحققين",
+      "difficulty": 60
+    },
+    {
+      "id": 61,
+      "name": "الممر المستحيل",
+      "difficulty": 61
+    },
+    {
+      "id": 62,
+      "name": "عين النسر",
+      "difficulty": 62
+    },
+    {
+      "id": 63,
+      "name": "مخطط الأسرار",
+      "difficulty": 63
+    },
+    {
+      "id": 64,
+      "name": "اختبار الخبير",
+      "difficulty": 64
+    },
+    {
+      "id": 65,
+      "name": "اللغز المركب",
+      "difficulty": 65
+    },
+    {
+      "id": 66,
+      "name": "المعلومة المتضاربة",
+      "difficulty": 66
+    },
+    {
+      "id": 67,
+      "name": "تحليل النمط",
+      "difficulty": 67
+    },
+    {
+      "id": 68,
+      "name": "القرار الحاسم",
+      "difficulty": 68
+    },
+    {
+      "id": 69,
+      "name": "قفل النخبة",
+      "difficulty": 69
+    },
+    {
+      "id": 70,
+      "name": "العبقري الهادئ",
+      "difficulty": 70
+    },
+    {
+      "id": 71,
+      "name": "سر بلا أثر",
+      "difficulty": 71
+    },
+    {
+      "id": 72,
+      "name": "الرمز المتغير",
+      "difficulty": 72
+    },
+    {
+      "id": 73,
+      "name": "تحدي المحترفين",
+      "difficulty": 73
+    },
+    {
+      "id": 74,
+      "name": "ما وراء الدليل",
+      "difficulty": 74
+    },
+    {
+      "id": 75,
+      "name": "غرفة الألغاز",
+      "difficulty": 75
+    },
+    {
+      "id": 76,
+      "name": "المنطق الخفي",
+      "difficulty": 76
+    },
+    {
+      "id": 77,
+      "name": "محقق الظلام",
+      "difficulty": 77
+    },
+    {
+      "id": 78,
+      "name": "الاستنتاج النهائي",
+      "difficulty": 78
+    },
+    {
+      "id": 79,
+      "name": "الشفرة الملكية",
+      "difficulty": 79
+    },
+    {
+      "id": 80,
+      "name": "قائد العقول",
+      "difficulty": 80
+    },
+    {
+      "id": 81,
+      "name": "اختبار الأساطير",
+      "difficulty": 81
+    },
+    {
+      "id": 82,
+      "name": "لغز بلا مخرج",
+      "difficulty": 82
+    },
+    {
+      "id": 83,
+      "name": "العقل المطلق",
+      "difficulty": 83
+    },
+    {
+      "id": 84,
+      "name": "مفتاح الحقيقة",
+      "difficulty": 84
+    },
+    {
+      "id": 85,
+      "name": "دليل مستحيل",
+      "difficulty": 85
+    },
+    {
+      "id": 86,
+      "name": "تحدي العباقرة",
+      "difficulty": 86
+    },
+    {
+      "id": 87,
+      "name": "خريطة الأسرار",
+      "difficulty": 87
+    },
+    {
+      "id": 88,
+      "name": "آخر خيط",
+      "difficulty": 88
+    },
+    {
+      "id": 89,
+      "name": "العين التي لا تخطئ",
+      "difficulty": 89
+    },
+    {
+      "id": 90,
+      "name": "نخبة ARTHUR",
+      "difficulty": 90
+    },
+    {
+      "id": 91,
+      "name": "المرحلة الأسطورية",
+      "difficulty": 91
+    },
+    {
+      "id": 92,
+      "name": "عرش الذكاء",
+      "difficulty": 92
+    },
+    {
+      "id": 93,
+      "name": "عقل الظل",
+      "difficulty": 93
+    },
+    {
+      "id": 94,
+      "name": "سيد الاستنتاج",
+      "difficulty": 94
+    },
+    {
+      "id": 95,
+      "name": "الشفرة الأخيرة",
+      "difficulty": 95
+    },
+    {
+      "id": 96,
+      "name": "المحقق الأعظم",
+      "difficulty": 96
+    },
+    {
+      "id": 97,
+      "name": "ما وراء المنطق",
+      "difficulty": 97
+    },
+    {
+      "id": 98,
+      "name": "الاختبار المطلق",
+      "difficulty": 98
+    },
+    {
+      "id": 99,
+      "name": "أسطورة ARTHUR",
+      "difficulty": 99
+    },
+    {
+      "id": 100,
+      "name": "قمة الذكاء",
+      "difficulty": 100
+    }
+  ],
+  "soloReward": {
+    "gold": 100,
+    "points": 15,
+    "xp": 20
+  },
+  "stageReward": {
+    "gold": 250,
+    "points": 40,
+    "xp": 60
+  },
+  "groupRewards": {
+    "first": {
+      "gold": 1000,
+      "points": 200,
+      "xp": 300
+    },
+    "second": {
+      "gold": 700,
+      "points": 140,
+      "xp": 220
+    },
+    "third": {
+      "gold": 500,
+      "points": 100,
+      "xp": 160
+    },
+    "participant": {
+      "gold": 150,
+      "points": 30,
+      "xp": 50
+    }
+  }
+}
