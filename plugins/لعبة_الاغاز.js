@@ -21,7 +21,10 @@ import { getItemCount, consumeStoreItem, grantStoreItem } from "../utils/arthurS
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, "../ذكاء");
+const DATA_DIR_CANDIDATES = [
+  path.resolve(__dirname, "../ذكاء"), // preferred: sibling of plugins
+  path.resolve(__dirname, "ذكاء")     // compatibility: nested inside plugins
+];
 const active = new Map();
 const recentByChat = new Map();
 const lastStart = new Map();
@@ -78,28 +81,32 @@ function normalize(value) {
 }
 
 async function loadFlexible(baseName) {
-  const jsPath = path.join(DATA_DIR, `${baseName}.js`);
-  const jsonPath = path.join(DATA_DIR, `${baseName}.json`);
+  for (const dataDir of DATA_DIR_CANDIDATES) {
+    const jsPath = path.join(dataDir, `${baseName}.js`);
+    const jsonPath = path.join(dataDir, `${baseName}.json`);
 
-  let jsExists = false;
-  try {
-    await fs.access(jsPath);
-    jsExists = true;
-  } catch {}
-
-  if (jsExists) {
-    const url = pathToFileURL(jsPath);
-    url.searchParams.set("reload", String(Date.now()));
-    const module = await import(url.href);
-
-    if (module.default === undefined) {
-      throw new Error(`${baseName}.js يجب أن يستخدم export default`);
+    try {
+      await fs.access(jsPath);
+      const url = pathToFileURL(jsPath);
+      url.searchParams.set("reload", String(Date.now()));
+      const module = await import(url.href);
+      if (module.default === undefined) {
+        throw new Error(`${baseName}.js يجب أن يستخدم export default`);
+      }
+      return module.default;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
     }
 
-    return module.default;
+    try {
+      await fs.access(jsonPath);
+      return JSON.parse(await fs.readFile(jsonPath, "utf8"));
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
   }
 
-  return JSON.parse(await fs.readFile(jsonPath, "utf8"));
+  throw new Error(`لم يتم العثور على ${baseName}.json أو ${baseName}.js في مجلد ذكاء بجانب plugins أو داخله.`);
 }
 
 async function react(sock, msg, emoji) {
@@ -163,9 +170,9 @@ async function handleHintRequest(sock, chat, id, raw, game, msg) {
   if (!request.tier) {
     await send(sock, chat,
       "💡 متجر التلميحات — اختر القوة المناسبة:\n\n" +
-      "1️⃣ تلميح خفيف — 100 ذهب في المتجر\n" +
-      "2️⃣ تلميح متوسط — 250 ذهب في المتجر\n" +
-      "3️⃣ تلميح قوي — 500 ذهب في المتجر\n\n" +
+      "1️⃣ تلميح خفيف — 100 جواهر 💎 في المتجر\n" +
+      "2️⃣ تلميح متوسط — 250 جواهر 💎 في المتجر\n" +
+      "3️⃣ تلميح قوي — 500 جواهر 💎 في المتجر\n\n" +
       "الشراء: .متجر شراء 1 أو 2 أو 3\n" +
       "بعد الشراء اكتب: تلميح 1 أو تلميح 2 أو تلميح 3\n" +
       "التلميح يُستهلك من حقيبتك ويصل إليك على الخاص."
@@ -208,106 +215,144 @@ async function handleHintRequest(sock, chat, id, raw, game, msg) {
   return true;
 }
 
-async function startRiddle(sock, msg, context, type) {
+
+function shuffle(items) {
+  const copy = items.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function clearRiddle(game) {
+  if (game?.timer) clearTimeout(game.timer);
+  if (game?.chat && game?.sessionId) unregisterActiveGame(game.chat, `riddle:${game.sessionId}`);
+  if (game?.chat && active.get(game.chat) === game) active.delete(game.chat);
+}
+
+async function finishRiddle(sock, game, reason = "ended") {
+  if (!game || active.get(game.chat) !== game) return;
+  clearRiddle(game);
+  const reasonText = reason === "completed"
+    ? `🏆 أكملت جميع مراحل الألغاز حتى المرحلة ${game.stages[game.stages.length - 1]?.number || 1}!`
+    : reason === "timeout"
+      ? "⌛ انتهى وقت السؤال، وتم إيقاف فعالية الألغاز."
+      : "🛑 تم إنهاء فعالية الألغاز وإيقافها.";
+  await send(sock, game.chat, `${reasonText}\n\nاكتب «الغاز فردي» للعب وحدك أو «الغاز جماعي» للعب مع الجميع.`);
+}
+
+async function sendCurrentRiddle(sock, game) {
+  if (active.get(game.chat) !== game) return;
+  if (game.stageIndex >= game.stages.length) {
+    await finishRiddle(sock, game, "completed");
+    return;
+  }
+  const stage = game.stages[game.stageIndex];
+  if (game.questionIndex >= stage.items.length) {
+    game.stageIndex++;
+    game.questionIndex = 0;
+    if (game.stageIndex >= game.stages.length) {
+      await finishRiddle(sock, game, "completed");
+      return;
+    }
+    const next = game.stages[game.stageIndex];
+    await send(sock, game.chat, `🎉 اجتزتم المرحلة ${stage.number}!\n➡️ المرحلة التالية: ${next.number}`);
+    return sendCurrentRiddle(sock, game);
+  }
+
+  game.item = stage.items[game.questionIndex];
+  game.attempted = new Set();
+  game.hintsUsed = new Map();
+  game.transitioning = false;
+  const mode = game.mode === "solo" ? `👤 فردي — اللاعب: @${game.owner.split("@")[0]}` : "👥 جماعي — الإجابة متاحة للجميع";
+  await send(sock, game.chat,
+    `╭━━━〔 🧩 مراحل ألغاز ARTHUR 〕━━━╮\n\n` +
+    `${mode}\n📚 المرحلة: ${stage.number} / 100\n❓ السؤال: ${game.questionIndex + 1} / ${stage.items.length}\n\n` +
+    `${game.item.question}\n\n` +
+    `🏆 الجائزة: ${game.type === "فخ" ? "150 جواهر 💎 + 25 نقطة" : "100 جواهر 💎 + 15 نقطة"}\n` +
+    `💡 التلميح: تلميح ثم تلميح 1/2/3\n` +
+    `🛑 للإيقاف: انهاء أو توقف\n⏳ الوقت: 60 ثانية\n╰━━━━━━━━━━━━━━━━━━╯`,
+    game.mode === "solo" ? { mentions: [game.owner] } : {}
+  );
+  game.questionSentAt = Math.floor(Date.now() / 1000);
+
+  if (game.timer) clearTimeout(game.timer);
+  game.timer = setTimeout(async () => {
+    if (active.get(game.chat) !== game) return;
+    await send(sock, game.chat,
+      "⌛ انتهى الوقت، لكن السؤال لم يُحتسب محلولًا. سنعيد السؤال نفسه؛ لن تنتقل للمرحلة التالية إلا بعد إجابة صحيحة."
+    );
+    // Keep the same question and stage until someone answers correctly.
+    await sendCurrentRiddle(sock, game);
+  }, 60_000);
+}
+
+async function startRiddle(sock, msg, context, type, mode = "group") {
   const chat = chatId(msg, context) || msg.key.remoteJid;
-  if (!chat) return;
-
+  const owner = userId(msg, context);
+  if (!chat || !owner) return;
   if (hasActiveGameType(chat, "intelligence")) {
-    await send(sock, chat, "⚠️ يوجد تحدي ذكاء نشط في هذه المجموعة. أكملوا التحدي قبل بدء لغز جديد.");
+    await send(sock, chat, "⚠️ يوجد تحدي ذكاء نشط في هذه المجموعة. أكملوه قبل بدء الألغاز.");
     return;
   }
-
   if (active.has(chat)) {
-    await send(sock, chat, "🧩 يوجد لغز نشط بالفعل. حاول حله أولًا أو اكتب «لغز تلميح» لعرض التلميح.");
+    await send(sock, chat, "🧩 توجد فعالية ألغاز نشطة بالفعل. اكتب «انهاء» أو «توقف» لإيقافها.");
     return;
   }
-
   const last = lastStart.get(chat) || 0;
-  if (Date.now() - last < 2500) return;
+  if (Date.now() - last < 1500) return;
   lastStart.set(chat, Date.now());
 
   let riddles;
-
   try {
     riddles = await loadFlexible("الغاز_100_مرحلة");
   } catch (error) {
     console.error("[ARTHUR RIDDLES] Data load error:", error?.stack || error);
-    await send(sock, chat, "❌ تعذر قراءة plugins/ذكاء/الغاز_100_مرحلة.json أو ملف JS البديل.");
+    await send(sock, chat, "❌ تعذر قراءة ملف الألغاز داخل مجلد ذكاء بجانب plugins أو داخله.");
     return;
   }
-
   if (!Array.isArray(riddles)) {
     await send(sock, chat, "❌ ملف الألغاز يجب أن يحتوي على مصفوفة.");
     return;
   }
-
   const pool = riddles.filter(item =>
-    item &&
-    typeof item.question === "string" &&
-    Array.isArray(item.answers) &&
-    item.answers.length &&
+    item && typeof item.question === "string" &&
+    Array.isArray(item.answers) && item.answers.length &&
     (type === "all" || item.type === type)
   );
-
   if (!pool.length) {
     await send(sock, chat, "لا توجد أسئلة من هذا النوع في ملف الألغاز.");
     return;
   }
 
-  const recent = recentByChat.get(chat) || [];
-  let candidates = pool.filter(item => !recent.includes(item.id));
-  if (!candidates.length) candidates = pool.slice();
+  const stages = [];
+  for (let number = 1; number <= 100; number++) {
+    const items = shuffle(pool.filter(item => Number(item.difficulty) === number));
+    if (items.length) stages.push({ number, items });
+  }
+  if (!stages.length) {
+    await send(sock, chat, "لا توجد مراحل صالحة في ملف الألغاز.");
+    return;
+  }
 
-  const item = candidates[Math.floor(Math.random() * candidates.length)];
   const sessionId = `${chat}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const gameId = item.type === "فخ" ? "arthur_traps" : "arthur_riddles";
-
   const game = {
-    item,
-    chat,
-    sessionId,
-    gameId,
-    type: item.type,
-    attempted: new Set(),
-    hintsUsed: new Map(),
-    startedAt: Date.now(),
-    timer: null
+    chat, owner, mode, type, stages, stageIndex: 0, questionIndex: 0,
+    sessionId, gameId: type === "فخ" ? "arthur_traps" : "arthur_riddles",
+    attempted: new Set(), hintsUsed: new Map(), startedAt: Date.now(), timer: null
   };
-
   active.set(chat, game);
   registerActiveGame(chat, `riddle:${sessionId}`, "riddle");
-
-  const history = [...recent, item.id].slice(-25);
-  recentByChat.set(chat, history);
-
-  await send(sock, chat,
-    `╭━━━〔 ${item.type === "فخ" ? "🪤 تحدي الفخاخ" : "🧩 لغز ARTHUR"} 〕━━━╮\n\n` +
-    `❓ ${item.question}\n\n` +
-    `🏆 الجائزة: ${item.type === "فخ" ? "150 ذهب + 25 نقطة" : "100 ذهب + 15 نقطة"}\n` +
-    `✍️ أرسل الإجابة مباشرة دون أمر.\n` +
-    `💡 للتلميح المدفوع: تلميح ثم تلميح 1/2/3\n` +
-    `⏳ أمامكم 60 ثانية.\n` +
-    `╰━━━━━━━━━━━━━━━━━━╯`
-  );
-
-  game.timer = setTimeout(async () => {
-    if (active.get(chat) !== game) return;
-    active.delete(chat);
-    unregisterActiveGame(chat, `riddle:${sessionId}`);
-
-    await send(sock, chat,
-      `⌛ انتهى وقت اللغز!\nالإجابة: ${item.answers[0]}`
-    );
-  }, 60_000);
+  await send(sock, chat, `🚀 بدأت فعالية الألغاز ${mode === "solo" ? "الفردية" : "الجماعية"}! عدد المراحل المتاحة: ${stages.length}.\nيمكنك إيقافها في أي وقت بكتابة «انهاء» أو «توقف».`);
+  await sendCurrentRiddle(sock, game);
 }
 
 async function handleMessage(sock, msg, context = {}) {
   if (!msg?.key || msg.key.fromMe) return;
-
   const chat = chatId(msg, context) || msg.key.remoteJid;
   const id = userId(msg, context);
   const raw = getText(msg);
-
   if (!chat || !id || !raw) return;
 
   const command = cleanCommand(raw);
@@ -319,61 +364,68 @@ async function handleMessage(sock, msg, context = {}) {
     return { handled: true };
   }
 
-  if (["لغز", "الغاز", "فخ", "فخاخ"].includes(normalizedCommand)) {
-    const type = ["فخ", "فخاخ"].includes(normalizedCommand)
-      ? "فخ"
-      : normalizedCommand === "لغز" || normalizedCommand === "الغاز"
-        ? (normalizedCommand === "الغاز" ? "all" : "لغز")
-        : "all";
-
-    await startRiddle(sock, msg, context, type);
+  const game = active.get(chat);
+  if (["انهاء", "انهي", "توقف", "وقف", "الغاءالفعاليه"].includes(normalizedCommand)) {
+    if (!game) {
+      await send(sock, chat, "لا توجد فعالية ألغاز نشطة لإيقافها.");
+      return { handled: true };
+    }
+    if (game.owner !== id) {
+      await send(sock, chat, "إيقاف الفعالية متاح للشخص الذي بدأها فقط.");
+      return { handled: true };
+    }
+    await finishRiddle(sock, game, "ended");
     return { handled: true };
   }
 
-  const game = active.get(chat);
-  if (!game) return;
+  const isStart = /^(لغز|الغاز|فخ|فخاخ)(فردي|جماعي|للجميع)?$/.test(normalizedCommand);
+  if (isStart) {
+    const solo = normalizedCommand.includes("فردي");
+    let type = normalizedCommand.startsWith("فخ") ? "فخ" :
+      normalizedCommand.startsWith("لغز") ? "لغز" : "all";
+    if (normalizedCommand.startsWith("الغاز")) type = "all";
+    await startRiddle(sock, msg, context, type, solo ? "solo" : "group");
+    return { handled: true };
+  }
 
-  // Let other bot commands work while a riddle is active.
-  if (prefixed) return;
-
-  if (game.attempted.has(id)) return { handled: true };
-  game.attempted.add(id);
+  if (!game || prefixed) return;
+  if (game.transitioning) return { handled: true };
+  if (game.mode === "solo" && id !== game.owner) return { handled: true };
+  const messageTime = Number(msg.messageTimestamp || msg.message?.messageTimestamp || 0);
+  if (messageTime && game.questionSentAt && messageTime <= game.questionSentAt) return { handled: true };
 
   if (!matches(raw, game.item.answers)) {
     await react(sock, msg, "❌");
+    await send(sock, chat, "❌ إجابة غير صحيحة، جرّب مرة ثانية!");
     return { handled: true };
   }
 
-  active.delete(chat);
+  // The first correct answer claims this question; simultaneous answers are ignored.
+  game.transitioning = true;
+  game.attempted.add(id);
   clearTimeout(game.timer);
-  unregisterActiveGame(chat, `riddle:${game.sessionId}`);
+  game.timer = null;
   await react(sock, msg, "✅");
-
-  const rewards = game.type === "فخ"
+  const rewards = game.item?.type === "فخ"
     ? { gold: 150, points: 25, xp: 30 }
     : { gold: 100, points: 15, xp: 20 };
-
   const outcome = addProgress(id, {
-    ...rewards,
-    win: true,
-    idempotencyKey: `${game.gameId}:${game.sessionId}:${id}`
+    ...rewards, win: true,
+    idempotencyKey: `${game.gameId}:${game.sessionId}:${game.stageIndex}:${game.questionIndex}:${id}`
   });
-
   await send(sock, chat,
-    `🎉 إجابة صحيحة!\n` +
-    `🏆 حصلت على ${outcome.duplicate ? 0 : rewards.gold} ذهب\n` +
-    `⭐ حصلت على ${outcome.duplicate ? 0 : rewards.points} نقطة\n` +
-    `✨ حصلت على ${outcome.duplicate ? 0 : rewards.xp} خبرة\n\n` +
-    `الإجابة: ${game.item.answers[0]}`,
-    { quoted: msg }
+    `🎉 إجابة صحيحة يا ${msg.pushName || "لاعب"}!\n` +
+    `🏆 +${outcome.duplicate ? 0 : rewards.gold} جواهر 💎 | ⭐ +${outcome.duplicate ? 0 : rewards.points} نقطة | ✨ +${outcome.duplicate ? 0 : rewards.xp} خبرة\n` +
+    `الإجابة: ${game.item.answers[0]}`
   );
-
+  game.questionIndex++;
+  await sendCurrentRiddle(sock, game);
   return { handled: true };
 }
 
 export default {
   name: "arthur-riddles-traps",
-  command: ["لغز", "الغاز", "فخ", "فخاخ"],
+  command: ["لغز", "الغاز", "فخ", "فخاخ", "لغز فردي", "لغز جماعي", "الغاز فردي", "الغاز جماعي"],
   aliases: ["riddle", "trap"],
   category: "games",
   description: "ألغاز وفخاخ مع إجابة مباشرة وتفاعل ومكافآت البنك.",
