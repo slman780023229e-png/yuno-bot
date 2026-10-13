@@ -9,7 +9,6 @@ on:
         type: boolean
         default: false
 
-  # تشغيل احتياطي يومي
   schedule:
     - cron: "13 3 * * *"
 
@@ -17,7 +16,6 @@ permissions:
   contents: write
   actions: write
 
-# يمنع تشغيل نسختين من هذا البوت على الفرع نفسه في الوقت ذاته.
 concurrency:
   group: arthur-whatsapp-bot-${{ github.ref }}
   cancel-in-progress: false
@@ -47,7 +45,6 @@ jobs:
           NEW_SESSION: ${{ inputs.new_session }}
         run: |
           if [[ "$NEW_SESSION" == "true" ]]; then
-            echo "A new session was requested."
             rm -rf -- "ملف_الاتصال"
           fi
           mkdir -p -- "ملف_الاتصال"
@@ -80,106 +77,123 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Run ARTHUR BOT and save project changes
+      - name: Run ARTHUR BOT and sync project
         shell: bash
         env:
           BRANCH: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
+          ARTHUR_GITHUB_SYNC_MODE: git
         run: |
-          set +e
+          set -Eeuo pipefail
+
           BOT_PID=""
 
           stop_bot() {
             if [[ -n "$BOT_PID" ]] && kill -0 "$BOT_PID" 2>/dev/null; then
               echo "Stopping bot..."
-              kill -TERM "$BOT_PID" 2>/dev/null
-              for _ in {1..10}; do
+              kill -TERM "$BOT_PID" 2>/dev/null || true
+
+              for _ in {1..15}; do
                 kill -0 "$BOT_PID" 2>/dev/null || break
                 sleep 1
               done
+
               if kill -0 "$BOT_PID" 2>/dev/null; then
-                kill -KILL "$BOT_PID" 2>/dev/null
+                kill -KILL "$BOT_PID" 2>/dev/null || true
               fi
+
+              wait "$BOT_PID" 2>/dev/null || true
             fi
-            if [[ -n "$BOT_PID" ]]; then
-              wait "$BOT_PID" 2>/dev/null
-            fi
+
             BOT_PID=""
           }
 
           save_changes() {
-            echo "=== ARTHUR: project save started ==="
-            echo "Branch: $BRANCH"
-            echo "Workspace: $(pwd)"
+            echo "=== ARTHUR: saving project changes ==="
 
-            git status --short --untracked-files=all
-
+            # Exclude sessions, credentials, temporary files and private local data.
             if ! git add -A -- . \
               ':!ملف_الاتصال' \
               ':!ملف_الاتصال/**' \
+              ':!session' \
+              ':!session/**' \
               ':!node_modules' \
               ':!node_modules/**' \
+              ':!.git' \
               ':!.env' \
               ':!.env.*' \
               ':!**/.env' \
               ':!**/.env.*' \
               ':!**/creds.json' \
               ':!**/*.pem' \
-              ':!**/*.key'; then
+              ':!**/*.key' \
+              ':!**/*.log' \
+              ':!**/*.log.*' \
+              ':!**/*.tmp' \
+              ':!**/*.bak' \
+              ':!data/arthur_bank_games/state.json' \
+              ':!data/arthur_bank_games/state.json.bak'; then
               echo "ERROR: git add failed."
               return 1
             fi
 
-            echo "=== Staged files ==="
+            # Do not publish the bank/game database through Git in this workflow.
+            # Its dedicated sync must be configured separately if required.
             git diff --cached --name-status
 
             if ! git diff --cached --quiet; then
-              if ! git commit -m "Auto-save ARTHUR BOT updates"; then
-                echo "ERROR: git commit failed."
+              git commit -m "chore: auto-save ARTHUR BOT project" || {
+                echo "ERROR: commit failed."
                 return 1
-              fi
+              }
             else
-              echo "No staged changes detected."
+              echo "No project changes to commit."
             fi
 
+            # Save excluded, tracked runtime database changes temporarily so
+            # they do not block rebasing the project commits.
+            git stash push --include-untracked -m "arthur-runtime-save" -- \
+              data/arthur_bank_games/state.json \
+              data/arthur_bank_games/state.json.bak || true
+
             for attempt in 1 2 3 4 5; do
-              echo "=== GitHub sync attempt ${attempt}/5 ==="
+              echo "GitHub sync attempt ${attempt}/5"
 
               if ! git fetch origin "$BRANCH"; then
-                echo "WARNING: git fetch failed."
                 sleep 4
                 continue
               fi
 
               if ! git rebase "origin/$BRANCH"; then
-                echo "ERROR: Rebase conflict detected. Aborting rebase."
-                git rebase --abort
+                echo "ERROR: rebase conflict; aborting."
+                git rebase --abort || true
+                git stash pop || true
                 return 1
               fi
 
               if git diff --quiet "origin/$BRANCH" HEAD; then
-                echo "SUCCESS: No local commits remain to push."
+                echo "No local commits remain to push."
+                git stash pop || true
                 return 0
               fi
 
               if git push origin "HEAD:$BRANCH"; then
                 if git fetch origin "$BRANCH" &&
                    [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]]; then
-                  echo "SUCCESS: GitHub branch verified at $(git rev-parse --short HEAD)."
+                  echo "GitHub sync verified."
+                  git stash pop || true
                   return 0
                 fi
-                echo "WARNING: Push returned success but verification did not match."
-              else
-                echo "WARNING: git push failed."
               fi
 
               sleep 4
             done
 
-            echo "ERROR: Save failed after 5 attempts. Changes may remain only in this runner."
+            git stash pop || true
+            echo "ERROR: GitHub sync failed after 5 attempts."
             return 1
           }
+
           start_bot() {
             echo "Starting ARTHUR BOT..."
             node start.js &
@@ -187,14 +201,13 @@ jobs:
             sleep 10
 
             if ! kill -0 "$BOT_PID" 2>/dev/null; then
-              wait "$BOT_PID"
-              echo "Bot exited during startup."
+              wait "$BOT_PID" || true
               BOT_PID=""
+              echo "Bot exited during startup."
               return 1
             fi
 
             echo "Bot process is running."
-            return 0
           }
 
           trap 'stop_bot' EXIT INT TERM
@@ -205,31 +218,29 @@ jobs:
           fi
 
           start_bot
-          if [[ $? -ne 0 ]]; then
-            echo "WARNING: Initial bot startup failed; retry loop will continue."
-          fi
 
-          # Run for approximately 285 minutes, leaving time for final save/session cache.
+          # Keep the runner below the Actions job timeout.
           for ((i=1; i<=285; i++)); do
             sleep 60
 
             if [[ -z "$BOT_PID" ]] || ! kill -0 "$BOT_PID" 2>/dev/null; then
               if [[ -n "$BOT_PID" ]]; then
-                wait "$BOT_PID" 2>/dev/null
+                wait "$BOT_PID" 2>/dev/null || true
                 BOT_PID=""
               fi
-              echo "Bot stopped. Restarting after a short delay..."
+
+              echo "Bot stopped. Attempting restart..."
               sleep 10
-              start_bot || echo "WARNING: Bot restart failed."
+              start_bot || echo "WARNING: restart failed."
             fi
 
             if (( i % 5 == 0 )); then
-              save_changes || echo "WARNING: Periodic save failed; will retry later."
+              save_changes || echo "WARNING: periodic save failed."
             fi
           done
 
           stop_bot
-          save_changes || echo "WARNING: Final project save failed."
+          save_changes
           trap - EXIT INT TERM
 
       - name: Validate WhatsApp session
@@ -272,7 +283,6 @@ jobs:
           KEEP_KEY: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set +e
-          echo "Removing older session caches..."
 
           IDS=$(gh api --paginate \
             "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
@@ -283,12 +293,8 @@ jobs:
 
           for id in $IDS; do
             gh api -X DELETE \
-              "repos/$GITHUB_REPOSITORY/actions/caches/$id"
-            if [[ $? -eq 0 ]]; then
-              echo "Deleted old cache ID: $id"
-            else
-              echo "WARNING: Could not delete cache ID: $id"
-            fi
+              "repos/$GITHUB_REPOSITORY/actions/caches/$id" \
+              && echo "Deleted old cache ID: $id"
           done
 
       - name: Queue the next run
