@@ -1,0 +1,622 @@
+{
+  "version": 7,
+  "accounts": {
+    "233144431206490@lid": {
+      "wallet": 3383,
+      "bank": 1400,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 490,
+      "xp": 260,
+      "level": 2,
+      "wins": 14,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 1791757232740,
+      "lastInterest": 1791821658434,
+      "createdAt": 1791757197518,
+      "bankProfile": {
+        "name": "سلمان",
+        "logo": "♦️🩸",
+        "openedAt": 1791818876645,
+        "updatedAt": 1791818876645
+      }
+    },
+    "233144431206490": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1791788131957,
+      "createdAt": 1791788131957
+    },
+    "967715795639:6@s.whatsapp.net": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1791820717282,
+      "createdAt": 1791817714505
+    },
+    "176412191391926@lid": {
+      "wallet": 2377,
+      "bank": 200,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 110,
+      "xp": 185,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 1791821681048,
+      "lastInterest": 1791821646184,
+      "createdAt": 1791821623802
+    }
+  },
+  "clans": {},
+  "teams": {
+    "team_6e0f7e81-ac4b-4050-8bd9-76b745b48fb4": {
+      "id": "team_6e0f7e81-ac4b-4050-8bd9-76b745b48fb4",
+      "name": "فرسان الظل",
+      "description": "",
+      "owner": "233144431206490",
+      "members": {
+        "233144431206490": {
+          "role": "leader",
+          "joinedAt": 1791788131957,
+          "contribution": 0
+        }
+      },
+      "treasury": 0,
+      "invites": {},
+      "wins": 0,
+      "losses": 0,
+      "createdAt": 1791788131957,
+      "updatedAt": 1791788131957
+    }
+  },
+  "duels": {},
+  "xo": {},
+  "transactions": [
+    {
+      "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
+      "type": "daily",
+      "at": 1791757232740,
+      "player": "233144431206490@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_30c0250b-6b0f-4d1e-b0d0-808de5b94b3e",
+      "type": "team_create",
+      "at": 1791788131958,
+      "teamId": "team_6e0f7e81-ac4b-4050-8bd9-76b745b48fb4",
+      "owner": "233144431206490"
+    },
+    {
+      "id": "tx_7203196f-c6ad-4a9f-a385-ebeb39b7315f",
+      "type": "progress",
+      "at": 1791819014817,
+      "player": "233144431206490@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_fd5801ca-90e7-4c12-9d33-b7e89b6f57dc",
+      "type": "progress",
+      "at": 1791819849610,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_917cdb5f-a229-4e93-b98a-acb820249c6e",
+      "type": "progress",
+      "at": 1791819857578,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_ad2af9e6-02de-4c02-8b4a-da9f7148a5bd",
+      "type": "progress",
+      "at": 1791819879158,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_62b155c5-2ac4-4258-806f-5f688d187a89",
+      "type": "progress",
+      "at": 1791819879218,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_06f331e7-86a6-49bf-b375-5c59e6eea0d9",
+      "type": "progress",
+      "at": 1791819922169,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_ba2487e6-238c-4624-8e1a-3137634cf8c7",
+      "type": "progress",
+      "at": 1791819933831,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_b61ea163-ac19-4719-bf70-3bc527ef8646",
+      "type": "progress",
+      "at": 1791819943641,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_7694fe54-33d1-43e9-884a-7878d9abcde8",
+      "type": "progress",
+      "at": 1791819943701,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_b5ac9451-64b1-4d2c-bfaf-f37d09d44be6",
+      "type": "progress",
+      "at": 1791820997219,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_ed753732-c16c-4761-9dd7-97c35863baad",
+      "type": "progress",
+      "at": 1791821623802,
+      "player": "176412191391926@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_0f508666-4831-4691-ba74-816fd596811c",
+      "type": "progress",
+      "at": 1791821628946,
+      "player": "176412191391926@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_f4d111e2-2ef6-4b7b-b139-ad0c42bef3d1",
+      "type": "progress",
+      "at": 1791821635292,
+      "player": "176412191391926@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_dbd90877-211b-4da7-8d1b-5126e47c299b",
+      "type": "progress",
+      "at": 1791821635609,
+      "player": "176412191391926@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_b67ff1e3-f6c0-439d-83e5-7a2865ba77ee",
+      "type": "deposit",
+      "at": 1791821679101,
+      "player": "233144431206490@lid",
+      "amount": 200
+    },
+    {
+      "id": "tx_18289bb4-ae18-4e9a-9426-6449aa73c855",
+      "type": "daily",
+      "at": 1791821681048,
+      "player": "176412191391926@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_f2a9521e-7ed9-4a5d-9fac-1b5ab3269032",
+      "type": "deposit",
+      "at": 1791821702770,
+      "player": "176412191391926@lid",
+      "amount": 200
+    },
+    {
+      "id": "tx_745a58b5-f9e3-4b6c-a320-b4ebe115a592",
+      "type": "deposit",
+      "at": 1791821725336,
+      "player": "233144431206490@lid",
+      "amount": 200
+    },
+    {
+      "id": "tx_e248bb12-e549-4c79-aeee-5dc989d229ad",
+      "type": "deposit",
+      "at": 1791821741689,
+      "player": "233144431206490@lid",
+      "amount": 1000
+    },
+    {
+      "id": "tx_23783467-71d7-4206-b9a7-3bb2c9315e06",
+      "type": "progress",
+      "at": 1791821880784,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_f55bee16-529c-4cd5-9ecc-e679ed9c8377",
+      "type": "progress",
+      "at": 1791823314288,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_8795f890-97cf-494b-a625-a0f66bb4e496",
+      "type": "progress",
+      "at": 1791845048621,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_be40e012-2b83-4493-8c10-5fa1cd071e59",
+      "type": "progress",
+      "at": 1791845058992,
+      "player": "233144431206490@lid",
+      "gold": 157,
+      "points": 25,
+      "xp": 30
+    },
+    {
+      "id": "tx_861ef593-d897-4bf2-bc7f-1c9dcf3edcbc",
+      "type": "progress",
+      "at": 1791845068278,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_f0ccf626-79aa-440f-9a88-4bea3733791a",
+      "type": "progress",
+      "at": 1791845075469,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_842388d8-6519-4511-a8e0-df6c38e4bedf",
+      "type": "progress",
+      "at": 1791845113606,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_9752c979-102f-4b9d-8264-f07443d51b8e",
+      "type": "progress",
+      "at": 1791845134718,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_b6da76ab-09af-4420-810d-e87f0642699f",
+      "type": "progress",
+      "at": 1791845435202,
+      "player": "233144431206490@lid",
+      "gold": 157,
+      "points": 25,
+      "xp": 30
+    },
+    {
+      "id": "tx_9fb0e108-3aff-48e5-a96a-4c290ca7c912",
+      "type": "progress",
+      "at": 1791845444454,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_8f22a202-5d8c-423e-bcd8-d95d722442d7",
+      "type": "progress",
+      "at": 1791845458179,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_e9481499-bbdb-44d8-ac05-edd2b52ced3f",
+      "type": "progress",
+      "at": 1791845649023,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_57cb0bd1-23f4-4255-bdd7-2d040bb57e7f",
+      "type": "progress",
+      "at": 1791845664325,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_85b841fc-4b98-44f7-bac9-a5475e6da61e",
+      "type": "progress",
+      "at": 1791845676338,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    }
+  ],
+  "processedResults": {
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0001": {
+      "at": 1791819849610,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0003": {
+      "at": 1791819857577,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0002": {
+      "at": 1791819879158,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:1": {
+      "at": 1791819879218,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0006": {
+      "at": 1791819922169,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0005": {
+      "at": 1791819933831,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0004": {
+      "at": 1791819943641,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:2": {
+      "at": 1791819943701,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363413393470630@g.us_1791820989380_r82p4y:233144431206490@lid": {
+      "at": 1791820997219,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-question:176412191391926@lid:int0002": {
+      "at": 1791821623802,
+      "type": "progress",
+      "player": "176412191391926@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-question:176412191391926@lid:int0003": {
+      "at": 1791821628946,
+      "type": "progress",
+      "player": "176412191391926@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-question:176412191391926@lid:int0001": {
+      "at": 1791821635292,
+      "type": "progress",
+      "player": "176412191391926@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-stage:176412191391926@lid:1": {
+      "at": 1791821635609,
+      "type": "progress",
+      "player": "176412191391926@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0008": {
+      "at": 1791821880784,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791823295066_tfgm1v:0:0:233144431206490@lid": {
+      "at": 1791823314288,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791844956810_ecdzrk:0:0:233144431206490@lid": {
+      "at": 1791845048621,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791844956810_ecdzrk:0:1:233144431206490@lid": {
+      "at": 1791845058992,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791844956810_ecdzrk:0:2:233144431206490@lid": {
+      "at": 1791845068278,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791844956810_ecdzrk:1:0:233144431206490@lid": {
+      "at": 1791845075468,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791844956810_ecdzrk:1:1:233144431206490@lid": {
+      "at": 1791845113606,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791844956810_ecdzrk:1:2:233144431206490@lid": {
+      "at": 1791845134718,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791845419966_dbrtud:0:0:233144431206490@lid": {
+      "at": 1791845435202,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791845419966_dbrtud:0:1:233144431206490@lid": {
+      "at": 1791845444454,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791845419966_dbrtud:0:2:233144431206490@lid": {
+      "at": 1791845458179,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791845419966_dbrtud:1:0:233144431206490@lid": {
+      "at": 1791845649023,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791845419966_dbrtud:1:1:233144431206490@lid": {
+      "at": 1791845664325,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363432203024173@g.us_1791845419966_dbrtud:1:2:233144431206490@lid": {
+      "at": 1791845676338,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    }
+  },
+  "world": {
+    "market": [],
+    "games": {
+      "arthur_riddles": {
+        "id": "arthur_riddles",
+        "name": "ARTHUR Riddles",
+        "description": "ألغاز ذكية بإجابات مباشرة",
+        "enabled": true,
+        "registeredAt": 1791819608543,
+        "updatedAt": 1791865154552
+      },
+      "arthur_traps": {
+        "id": "arthur_traps",
+        "name": "ARTHUR Traps",
+        "description": "أسئلة فخاخ تحتاج إلى الانتباه",
+        "enabled": true,
+        "registeredAt": 1791819608544,
+        "updatedAt": 1791865154552
+      },
+      "arthur_intelligence": {
+        "id": "arthur_intelligence",
+        "name": "ARTHUR Intelligence",
+        "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
+        "enabled": true,
+        "registeredAt": 1791819608545,
+        "updatedAt": 1791847458119
+      }
+    },
+    "season": {
+      "id": 1,
+      "startedAt": 1791756776488
+    },
+    "arthurIntelligence": {
+      "players": {
+        "233144431206490@lid": {
+          "stage": 2,
+          "completedStages": 2,
+          "totalCorrect": 11,
+          "totalWrong": 5,
+          "soloGames": 4,
+          "groupGames": 1
+        },
+        "176412191391926@lid": {
+          "stage": 1,
+          "completedStages": 1,
+          "totalCorrect": 13,
+          "totalWrong": 0,
+          "soloGames": 1,
+          "groupGames": 1
+        }
+      }
+    }
+  },
+  "accountSetup": {
+    "967715795639:6@s.whatsapp.net": {
+      "step": "name",
+      "startedAt": 1791820723662
+    }
+  }
+}
