@@ -846,7 +846,12 @@ async function startBot() {
                             )
                         )
 
-                    } catch (error) {}
+                    } catch (error) {
+                        console.error(
+                            chalk.red('❌ Handler warmup failed:'),
+                            error?.stack || error?.message || error
+                        )
+                    }
 
 
                     try {
@@ -901,7 +906,12 @@ async function startBot() {
                                         }
                                     )
 
-                                } catch (error) {}
+                                } catch (error) {
+                                    console.error(
+                                        chalk.yellow('⚠️ Restart notification failed:'),
+                                        error?.message || error
+                                    )
+                                }
                             }
 
 
@@ -914,7 +924,12 @@ async function startBot() {
                             } catch {}
                         }
 
-                    } catch (error) {}
+                    } catch (error) {
+                        console.error(
+                            chalk.yellow('⚠️ Restart-file processing failed:'),
+                            error?.message || error
+                        )
+                    }
                 }
 
 
@@ -1049,7 +1064,12 @@ async function startBot() {
 
                                     await startBot()
 
-                                } catch (error) {}
+                                } catch (error) {
+                                    console.error(
+                                        chalk.red('❌ Reconnect attempt failed:'),
+                                        error?.stack || error?.message || error
+                                    )
+                                }
 
                             },
                             RECONNECT_DELAY
@@ -1060,7 +1080,7 @@ async function startBot() {
 
 
         // ========================================================
-        // MESSAGES
+        // MESSAGES — DIAGNOSTIC LOGGING
         // ========================================================
 
         sock.ev.on(
@@ -1077,22 +1097,37 @@ async function startBot() {
                         return
                     }
 
-                    
-                    // Accept fresh incoming messages, plus outgoing bot messages
-                    // from append so the handler can recognize the bot's commands.
-                    if (chatUpdate.type && chatUpdate.type !== 'notify') {
+                    const updateType =
+                        chatUpdate.type || 'unknown'
+
+                    console.log(
+                        chalk.cyan(
+                            `📩 messages.upsert: type=${updateType}, count=${chatUpdate.messages.length}`
+                        )
+                    )
+
+                    // Preserve the current policy: process notify messages
+                    // and append batches that contain a message sent by this bot.
+                    if (updateType !== 'notify') {
+
                         const hasOutgoingBotMessage =
-                            chatUpdate.type === 'append' &&
+                            updateType === 'append' &&
                             chatUpdate.messages.some(
-                                message => message?.key?.fromMe === true
-                            );
+                                message =>
+                                    message?.key?.fromMe === true
+                            )
 
                         if (!hasOutgoingBotMessage) {
-                            return;
+
+                            console.log(
+                                chalk.gray(
+                                    `⏭️ Ignored messages.upsert type: ${updateType}`
+                                )
+                            )
+
+                            return
                         }
                     }
-
-
 
                     for (
                         const mek
@@ -1108,15 +1143,34 @@ async function startBot() {
                                 mek
                             )
 
-                        } catch (error) {}
+                        } catch (error) {
+
+                            console.error(
+                                chalk.red('❌ serialize error:'),
+                                error?.stack || error?.message || error
+                            )
+                        }
                     }
 
+                    console.log(
+                        chalk.cyan(
+                            '⚙️ Passing message batch to handleMessages...'
+                        )
+                    )
 
-                    // Process every message in the upsert batch. The handler
-                    // queues messages per chat and allows independent chats to run concurrently.
-                    handleMessages(sock, chatUpdate)
+                    await handleMessages(
+                        sock,
+                        chatUpdate
+                    )
+
+                    console.log(
+                        chalk.green(
+                            '✅ handleMessages completed.'
+                        )
+                    )
 
                 } catch (error) {
+
                     console.error(
                         chalk.red('❌ messages.upsert handler error:'),
                         error?.stack || error?.message || error
@@ -1142,7 +1196,12 @@ async function startBot() {
                         update
                     )
 
-                } catch (error) {}
+                } catch (error) {
+                    console.error(
+                        chalk.red('❌ Group participant event failed:'),
+                        error?.message || error
+                    )
+                }
             }
         )
 
@@ -1163,7 +1222,12 @@ async function startBot() {
                         update
                     )
 
-                } catch (error) {}
+                } catch (error) {
+                    console.error(
+                        chalk.red('❌ Group join-request event failed:'),
+                        error?.message || error
+                    )
+                }
             }
         )
 
@@ -1181,7 +1245,7 @@ async function startBot() {
             chalk.red.bold(
                 '❌ Failed to start ARTHUR BOT:'
             ),
-            error
+            error?.stack || error?.message || error
         )
 
 
@@ -1218,9 +1282,13 @@ async function startBot() {
 
                             await startBot()
 
-                        } catch (
-                            retryError
-                        ) {}
+                        } catch (retryError) {
+
+                            console.error(
+                                chalk.red('❌ Startup retry failed:'),
+                                retryError?.stack || retryError?.message || retryError
+                            )
+                        }
 
                     },
                     RECONNECT_DELAY
@@ -1239,11 +1307,17 @@ async function startBot() {
 // ============================================================
 
 process.on('unhandledRejection', error => {
-    console.error(chalk.red('❌ Unhandled rejection:'), error?.stack || error?.message || error)
+    console.error(
+        chalk.red('❌ Unhandled rejection:'),
+        error?.stack || error?.message || error
+    )
 })
 
 process.on('uncaughtException', error => {
-    console.error(chalk.red('❌ Uncaught exception:'), error?.stack || error?.message || error)
+    console.error(
+        chalk.red('❌ Uncaught exception:'),
+        error?.stack || error?.message || error
+    )
 })
 
 
@@ -1357,5 +1431,10 @@ process.once(
 // ============================================================
 
 startBot().catch(
-    error => {}
+    error => {
+        console.error(
+            chalk.red('❌ Initial start failed:'),
+            error?.stack || error?.message || error
+        )
+    }
 )
