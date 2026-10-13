@@ -3,11 +3,11 @@ name: ARTHUR BOT Runner
 on:
   workflow_dispatch:
     inputs:
-      reset_session:
-        description: "حذف جلسة واتساب القديمة وبدء جلسة جديدة"
+      new_session:
+        description: 'ابدأ جلسة واتساب جديدة واحذف الجلسات القديمة'
         required: true
-        default: false
         type: boolean
+        default: true
   schedule:
     - cron: '17 */2 * * *'
 
@@ -15,7 +15,6 @@ permissions:
   contents: write
   actions: write
 
-# يمنع تشغيل نسختين من البوت على الفرع نفسه في الوقت ذاته.
 concurrency:
   group: arthur-whatsapp-bot-${{ github.ref }}
   cancel-in-progress: false
@@ -32,10 +31,10 @@ jobs:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
-      # عند طلب جلسة جديدة يدويًا، احذف Cache القديم لهذا الفرع قبل التشغيل.
-      # هذا لا يُنفّذ في التشغيل المجدول أو التشغيل اليدوي العادي.
-      - name: Delete Old WhatsApp Session Caches
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_session }}
+      # عند تشغيل workflow يدويًا، يكون new_session=true افتراضيًا:
+      # احذف مجلد الجلسة المحلي وكل نسخ الجلسة المخزنة قبل تشغيل البوت.
+      - name: Delete Old WhatsApp Session and Caches
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.new_session == true }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -44,61 +43,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          API_URL="https://api.github.com/repos/${REPOSITORY}/actions/caches"
-          PREFIX="arthur-session-${BRANCH_NAME}-"
-          CACHE_LIST="$(mktemp)"
-          trap 'rm -f "$CACHE_LIST"' EXIT
-          PAGE=1
-
-          echo "Finding old session caches for ${BRANCH_REF}..."
-          while true; do
-            DATA="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              --get \
-              --data-urlencode "ref=${BRANCH_REF}" \
-              --data-urlencode "per_page=100" \
-              --data-urlencode "page=${PAGE}" \
-              "$API_URL")"
-
-            COUNT="$(jq '.actions_caches | length' <<< "$DATA")"
-            jq -r --arg prefix "$PREFIX" '
-              .actions_caches[]?
-              | select(.key | startswith($prefix))
-              | .id
-            ' <<< "$DATA" >> "$CACHE_LIST"
-
-            [ "$COUNT" -lt 100 ] && break
-            PAGE=$((PAGE + 1))
-          done
-
-          while IFS= read -r CACHE_ID; do
-            [ -n "$CACHE_ID" ] || continue
-            echo "Deleting old session cache ID ${CACHE_ID}..."
-            curl --fail --silent --show-error -X DELETE \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "${API_URL}/${CACHE_ID}" >/dev/null
-          done < "$CACHE_LIST"
-
-          echo "Old session caches removed."
-
-      # في وضع إعادة الربط لا نستعيد أي Cache؛ نبدأ بمجلد جلسة فارغ.
-      - name: Prepare Fresh WhatsApp Session
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_session }}
-        shell: bash
-        run: |
-          set -euo pipefail
           rm -rf -- "ملف_الاتصال"
-          mkdir -p -- "ملف_الاتصال"
-          echo "Old local session removed. New WhatsApp pairing is required."
+          mkdir -p "ملف_الاتصال"
+          PREFIX="arthur-session-${BRANCH_NAME}-"
+          echo "Deleting old session caches for ${BRANCH_REF}..."
+          gh api --paginate "repos/${REPOSITORY}/actions/caches?ref=${BRANCH_REF}&per_page=100" \
+            --jq ".actions_caches[]? | select(.key | startswith(\"${PREFIX}\")) | .id" \
+            | while IFS= read -r CACHE_ID; do
+                [ -n "$CACHE_ID" ] || continue
+                echo "Deleting old cache ID: $CACHE_ID"
+                gh api --method DELETE "repos/${REPOSITORY}/actions/caches/${CACHE_ID}" || true
+              done
+          echo "Old local session and matching cache versions deleted."
 
-      # في التشغيل الطبيعي فقط، استعد أحدث Cache محفوظ.
+      # لا تستعد أي جلسة عند طلب جلسة جديدة. في التشغيل المجدول، استعد آخر جلسة محفوظة.
       - name: Restore WhatsApp Session
-        id: restore_session
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.reset_session) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.new_session == true) }}
         uses: actions/cache/restore@v4
         with:
           path: ملف_الاتصال/
@@ -110,11 +70,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install Dependencies
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
           if [ -f package-lock.json ]; then
             npm ci
           else
@@ -131,74 +92,40 @@ jobs:
         shell: bash
         run: |
           set +e
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           save_changes() {
-            echo "Checking repository changes..."
-
-            git add -A -- . \
-              ':(exclude)ملف_الاتصال' \
-              ':(exclude)ملف_الاتصال/**' \
-              ':(exclude).env' \
-              ':(exclude).env.*' \
-              ':(exclude)**/.env' \
-              ':(exclude)**/.env.*' \
-              ':(exclude)**/node_modules' \
-              ':(exclude)**/node_modules/**' \
-              ':(exclude)**/auth_info_baileys' \
-              ':(exclude)**/auth_info_baileys/**' \
-              ':(exclude)**/creds.json' \
-              ':(exclude)**/*.pem' \
-              ':(exclude)**/*.key' \
-              ':(exclude)**/*.p12' \
-              ':(exclude)**/*.pfx' || return 1
-
+            git add -A \
+              ':!ملف_الاتصال' \
+              ':!ملف_الاتصال/**' \
+              ':!node_modules' \
+              ':!node_modules/**' \
+              ':!.env' \
+              ':!**/.env' \
+              ':!*.key' \
+              ':!*.pem' \
+              ':!creds.json' \
+              ':!**/creds.json'
             if ! git diff --cached --quiet; then
-              git commit -m "Auto-save ARTHUR repository progress" || return 1
-            fi
-
-            git fetch origin \
-              "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1
-
-            if [ "$(git rev-list --count "origin/${GITHUB_REF_NAME}..HEAD")" -gt 0 ]; then
-              if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
-                echo "Push failed; trying to synchronize with GitHub..."
-                git fetch origin \
-                  "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1
-                git -c rebase.autoStash=true rebase \
-                  "origin/${GITHUB_REF_NAME}" || {
-                    git rebase --abort || true
-                    echo "Sync conflict. Changes remain in the runner."
-                    return 1
-                  }
-                git push origin "HEAD:${GITHUB_REF_NAME}" || return 1
-              fi
-              echo "Repository changes saved."
-            else
-              echo "No new commits to push."
+              git commit -m "chore: automatic bot updates [skip ci]"
+              git push origin "HEAD:${GITHUB_REF_NAME}"
             fi
           }
 
           node start.js &
           BOT_PID=$!
-          echo "ARTHUR BOT started. Auto-save interval: 5 minutes."
-
           while kill -0 "$BOT_PID" 2>/dev/null; do
             sleep 300
             if kill -0 "$BOT_PID" 2>/dev/null; then
-              save_changes || echo "Auto-save failed; will retry later."
+              save_changes
             fi
           done
-
           wait "$BOT_PID"
           BOT_STATUS=$?
-          echo "Bot stopped. Attempting final repository save..."
-          save_changes || echo "Final repository save failed."
+          save_changes
           exit "$BOT_STATUS"
 
-      # احفظ الجلسة فقط إذا كانت بيانات الاعتماد مسجلة وبنيتها الأساسية سليمة.
       - name: Validate WhatsApp Session Before Cache Save
         id: session_check
         if: always()
@@ -208,92 +135,43 @@ jobs:
           CREDS="ملف_الاتصال/creds.json"
           if [ ! -s "$CREDS" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Credentials missing; skipping cache save."
+            echo "No credentials file; session will not be cached."
             exit 0
           fi
-
-          if ! jq -e '
-            type == "object"
-            and .registered == true
-            and (.noiseKey.private.data | type == "array")
-            and (.signedIdentityKey.private.data | type == "array")
-            and (.signedPreKey.keyPair.private.data | type == "array")
-          ' "$CREDS" >/dev/null 2>&1; then
+          if ! jq -e 'type == "object" and .registered == true' "$CREDS" >/dev/null; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Credentials invalid or incomplete; skipping cache save."
+            echo "WhatsApp session is not registered; session will not be cached."
             exit 0
           fi
-
           echo "ready=true" >> "$GITHUB_OUTPUT"
-          echo "Credential structure looks valid."
+          echo "Registered WhatsApp session found."
 
-      - name: Save WhatsApp Session
+      - name: Save New WhatsApp Session
         id: save_session
-        if: always() && steps.session_check.outputs.ready == 'true'
+        if: ${{ always() && steps.session_check.outputs.ready == 'true' }}
         uses: actions/cache/save@v4
         with:
           path: ملف_الاتصال/
           key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # تنظيف Cache قديم بعد حفظ جلسة صالحة؛ الاحتفاظ بآخر نسختين.
-      - name: Clean Old Session Cache Versions
-        if: always() && steps.save_session.outcome == 'success'
+      # بعد حفظ الجلسة الجديدة بنجاح، احذف كل النسخ الأقدم لنفس الفرع.
+      - name: Delete Older Session Cache Versions
+        if: ${{ always() && steps.save_session.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           BRANCH_REF: ${{ github.ref }}
           BRANCH_NAME: ${{ github.ref_name }}
+          CURRENT_KEY: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
-          set -uo pipefail
-          API_URL="https://api.github.com/repos/${REPOSITORY}/actions/caches"
+          set -euo pipefail
           PREFIX="arthur-session-${BRANCH_NAME}-"
-          CACHE_LIST="$(mktemp)"
-          trap 'rm -f "$CACHE_LIST"' EXIT
-          PAGE=1
-
-          while true; do
-            if ! DATA="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              --get \
-              --data-urlencode "ref=${BRANCH_REF}" \
-              --data-urlencode "per_page=100" \
-              --data-urlencode "page=${PAGE}" \
-              "$API_URL" 2>/dev/null)"; then
-              echo "Cannot list caches; leaving them untouched."
-              exit 0
-            fi
-
-            COUNT="$(jq '.actions_caches | length' <<< "$DATA")"
-            jq -r --arg prefix "$PREFIX" '
-              .actions_caches[]?
-              | select(.key | startswith($prefix))
-              | [.id, .created_at]
-              | @tsv
-            ' <<< "$DATA" >> "$CACHE_LIST"
-            [ "$COUNT" -lt 100 ] && break
-            PAGE=$((PAGE + 1))
-          done
-
-          TOTAL="$(wc -l < "$CACHE_LIST" | tr -d ' ')"
-          if [ "$TOTAL" -le 2 ]; then
-            echo "Found ${TOTAL} caches; nothing to clean."
-            exit 0
-          fi
-
-          sort -t "$(printf '\t')" -k2,2r "$CACHE_LIST" \
-            | awk -F '\t' 'NR > 2 { print $1 }' \
+          gh api --paginate "repos/${REPOSITORY}/actions/caches?ref=${BRANCH_REF}&per_page=100" \
+            --jq ".actions_caches[]? | select(.key | startswith(\"${PREFIX}\")) | select(.key != \"${CURRENT_KEY}\") | .id" \
             | while IFS= read -r CACHE_ID; do
                 [ -n "$CACHE_ID" ] || continue
-                curl --fail --silent --show-error -X DELETE \
-                  -H "Authorization: Bearer ${GH_TOKEN}" \
-                  -H "Accept: application/vnd.github+json" \
-                  -H "X-GitHub-Api-Version: 2022-11-28" \
-                  "${API_URL}/${CACHE_ID}" >/dev/null \
-                  && echo "Removed old cache ID ${CACHE_ID}." \
-                  || echo "Could not remove cache ID ${CACHE_ID}; continuing."
+                echo "Deleting previous cache ID: $CACHE_ID"
+                gh api --method DELETE "repos/${REPOSITORY}/actions/caches/${CACHE_ID}" || true
               done
-
-          echo "Cache cleanup finished."
+          echo "Only the newly saved session cache is intended to remain."
