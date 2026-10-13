@@ -1389,8 +1389,10 @@ export function getHandlerStats() {
 
 export function handleMessages(sock, update) {
     try {
-        // Ignore history replay; it can contain old commands and duplicate notifications.
-        if (update?.type && update.type !== "notify") return 0;
+        // Accept normal incoming notifications and the outgoing append updates
+        // that main.js explicitly forwards. Ignore history replay and other update types.
+        const updateType = update?.type;
+        if (updateType && updateType !== "notify" && updateType !== "append") return 0;
 
         const messages = Array.isArray(update?.messages)
             ? update.messages
@@ -1401,7 +1403,13 @@ export function handleMessages(sock, update) {
         let queued = 0;
         for (const msg of messages) {
             if (!msg?.message || !msg?.key?.remoteJid) continue;
-            // Permit prefixed commands from the bot account in its own chat and in groups; ignore ordinary outgoing messages.
+
+            // main.js only forwards append updates containing outgoing messages.
+            // Keep this guard here too, so an append event cannot run incoming messages.
+            if (updateType === "append" && msg.key.fromMe !== true) continue;
+
+            // Permit only clearly prefixed commands sent by this bot account;
+            // ignore its ordinary replies to prevent loops.
             if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
             if (msg.key.remoteJid === "status@broadcast") continue;
 
