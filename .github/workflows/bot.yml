@@ -109,10 +109,13 @@ jobs:
           }
 
           save_changes() {
-            echo "=== Saving project changes ==="
+            echo "=== ARTHUR: project save started ==="
+            echo "Branch: $BRANCH"
+            echo "Workspace: $(pwd)"
 
-            # Stage project files while excluding session data and secrets.
-            git add -A -- . \
+            git status --short --untracked-files=all
+
+            if ! git add -A -- . \
               ':!ملف_الاتصال' \
               ':!ملف_الاتصال/**' \
               ':!node_modules' \
@@ -123,54 +126,60 @@ jobs:
               ':!**/.env.*' \
               ':!**/creds.json' \
               ':!**/*.pem' \
-              ':!**/*.key'
+              ':!**/*.key'; then
+              echo "ERROR: git add failed."
+              return 1
+            fi
+
+            echo "=== Staged files ==="
+            git diff --cached --name-status
 
             if ! git diff --cached --quiet; then
-              git commit -m "Auto-save ARTHUR BOT updates"
-              if [[ $? -ne 0 ]]; then
-                echo "ERROR: Commit failed."
+              if ! git commit -m "Auto-save ARTHUR BOT updates"; then
+                echo "ERROR: git commit failed."
                 return 1
               fi
             else
-              echo "No new staged changes."
+              echo "No staged changes detected."
             fi
 
-            # Retry fetch/rebase/push to handle a branch updated by another writer.
             for attempt in 1 2 3 4 5; do
-              echo "Synchronization attempt ${attempt}/5"
+              echo "=== GitHub sync attempt ${attempt}/5 ==="
 
               if ! git fetch origin "$BRANCH"; then
-                echo "WARNING: Fetch failed."
-                sleep 3
+                echo "WARNING: git fetch failed."
+                sleep 4
                 continue
               fi
 
-              # Nothing local to push after fetching.
-              if git diff --quiet "origin/$BRANCH" HEAD; then
-                echo "Project is synchronized with GitHub."
-                return 0
-              fi
-
-              # Rebase local commits on the latest remote branch.
               if ! git rebase "origin/$BRANCH"; then
-                echo "ERROR: Rebase conflict. Aborting rebase to avoid partial state."
+                echo "ERROR: Rebase conflict detected. Aborting rebase."
                 git rebase --abort
                 return 1
               fi
 
-              if git push origin "HEAD:$BRANCH"; then
-                echo "SUCCESS: Project changes pushed to GitHub."
+              if git diff --quiet "origin/$BRANCH" HEAD; then
+                echo "SUCCESS: No local commits remain to push."
                 return 0
               fi
 
-              echo "WARNING: Push failed; retrying."
-              sleep 3
+              if git push origin "HEAD:$BRANCH"; then
+                if git fetch origin "$BRANCH" &&
+                   [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]]; then
+                  echo "SUCCESS: GitHub branch verified at $(git rev-parse --short HEAD)."
+                  return 0
+                fi
+                echo "WARNING: Push returned success but verification did not match."
+              else
+                echo "WARNING: git push failed."
+              fi
+
+              sleep 4
             done
 
-            echo "ERROR: Could not push changes after 5 attempts."
+            echo "ERROR: Save failed after 5 attempts. Changes may remain only in this runner."
             return 1
           }
-
           start_bot() {
             echo "Starting ARTHUR BOT..."
             node start.js &
