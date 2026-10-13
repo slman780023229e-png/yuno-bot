@@ -1,47 +1,68 @@
-
 import fs from "fs";
 import path from "path";
 import archiver from "archiver";
+import { fileURLToPath } from "url";
 
-// دالة للتحقق مما إذا كان المستخدم من النخبة
-const checkElitePermission = (msg, data) => {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// مسار ملف النخبة الموحد تماماً مثل الكود الشغال
+const eliteFile = path.join(
+    process.cwd(),
+    "data/النخبة.json"
+);
+
+function getElite() {
     try {
-        const senderJid = msg.key.participant || data.jid || "";
-        const senderNumber = senderJid.replace(/[^0-9]/g, "");
-        const dataDir = path.join(process.cwd(), "data");
-
-        if (!fs.existsSync(dataDir)) return false;
-
-        const files = fs.readdirSync(dataDir);
-        const eliteFile = files.find(f => /نخبة|elite/i.test(f));
-
-        if (!eliteFile) return false;
-
-        const filePath = path.join(dataDir, eliteFile);
-        const fileContent = fs.readFileSync(filePath, "utf8");
-
-        if (fileContent.includes("{") || fileContent.includes("[")) {
-            const parsed = JSON.parse(fileContent);
-            const stringified = JSON.stringify(parsed);
-            return stringified.includes(senderNumber);
-        } else {
-            return fileContent.includes(senderNumber);
+        if (!fs.existsSync(eliteFile)) {
+            const dir = path.dirname(eliteFile);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(
+                eliteFile,
+                JSON.stringify([], null, 2)
+            );
         }
-    } catch (e) {
-        return false;
+        return JSON.parse(
+            fs.readFileSync(
+                eliteFile,
+                "utf-8"
+            )
+        );
+    } catch {
+        return [];
     }
+}
+
+const checkElitePermission = (senderJid) => {
+    if (!senderJid) return false;
+    const cleanSender = senderJid.replace(/[^0-9]/g, "");
+    const eliteUsers = getElite();
+    return eliteUsers.some(num => num.replace(/[^0-9]/g, "") === cleanSender);
 };
 
 export default {
   command: 'جلبمجلد',
   description: 'جلب المجلدات عبر كتابة اسمها أو الرقم الترتيبي في المشروع (خاص بالنخبة فقط)',
   category: 'المطور',
-    ownerOnly: true,
+  ownerOnly: true,
 
   execute: async (sock, msg, data) => {
     try {
       const jid = data?.jid || msg.key.remoteJid;
-      
+      // تصحيح جلب معرف المرسل تماماً مثل الكود الشغال
+      const senderJid = data.sender || msg.key.participant || msg.key.remoteJid;
+
+      // التحقق من صلاحيات النخبة بالدالة الصحيحة
+      const isElite = checkElitePermission(senderJid);
+      if (!isElite) {
+        return await sock.sendMessage(jid, {
+            text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n❌ *هذا الأمر مخصص لأعضاء النخبة فقط.*\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
+            quoted: msg
+        });
+      }
+
       const input = data?.text ? data.text.trim() : "";
       const args = input.replace(/^\.جلبمجلد/, "").trim().split(/\s+/);
       const query = args[0] ? args[0].toLowerCase() : "";
@@ -53,15 +74,6 @@ export default {
               key: msg.key
           }
         }).catch(() => {});
-      }
-
-      // التحقق من صلاحيات النخبة
-      const isElite = checkElitePermission(msg, data);
-      if (!isElite) {
-        return await sock.sendMessage(jid, {
-            text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
-            quoted: msg
-        });
       }
 
       // جلب جميع المجلدات الموجودة في المسار الحالي
@@ -107,7 +119,7 @@ export default {
       if (!targetFolderName) {
         return sock.sendMessage(
           jid,
-          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
+          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n❌ *لم يتم العثور على المجلد المطلوب.*\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
           { quoted: msg }
         );
       }
@@ -115,7 +127,7 @@ export default {
       const targetPath = path.join(process.cwd(), targetFolderName);
 
       await sock.sendMessage(jid,
-          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
+          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n⏳ *جاري ضغط وجلب المجلد:* \`${targetFolderName}\`...\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
           { quoted: msg });
 
       const zipName = `${targetFolderName}_backup.zip`;
@@ -162,7 +174,7 @@ export default {
       console.error("أمر جلبمجلد خطأ:", e);
       return sock.sendMessage(
         data?.jid || msg.key.remoteJid,
-        { text: '*◇❐ ═━╾ 🩸 ╼━═ ❐◇*' },
+        { text: '*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n❌ حدث خطأ أثناء تنفيذ الأمر.' },
         { quoted: msg }
       );
     }
