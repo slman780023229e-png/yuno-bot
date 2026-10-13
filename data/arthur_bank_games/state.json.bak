@@ -569,7 +569,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1791878932845
+        "updatedAt": 1791897667705
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -577,7 +577,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1791878932846
+        "updatedAt": 1791895452050
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -585,7 +585,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1791878850915
+        "updatedAt": 1791897667704
       }
     },
     "season": {
@@ -598,8 +598,8 @@
           "stage": 2,
           "completedStages": 2,
           "totalCorrect": 11,
-          "totalWrong": 5,
-          "soloGames": 4,
+          "totalWrong": 11,
+          "soloGames": 6,
           "groupGames": 1
         },
         "176412191391926@lid": {
