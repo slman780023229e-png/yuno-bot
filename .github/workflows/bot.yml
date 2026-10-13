@@ -1,4 +1,3 @@
-
 name: ARTHUR BOT Runner
 
 on:
@@ -10,7 +9,7 @@ on:
         type: boolean
         default: false
 
-  # تشغيل احتياطي يومي إذا تعذر استمرار التشغيل التلقائي
+  # تشغيل احتياطي يومي
   schedule:
     - cron: "13 3 * * *"
 
@@ -18,6 +17,7 @@ permissions:
   contents: write
   actions: write
 
+# يمنع تشغيل نسختين من هذا البوت على الفرع نفسه في الوقت ذاته.
 concurrency:
   group: arthur-whatsapp-bot-${{ github.ref }}
   cancel-in-progress: false
@@ -33,6 +33,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -46,10 +47,10 @@ jobs:
           NEW_SESSION: ${{ inputs.new_session }}
         run: |
           if [[ "$NEW_SESSION" == "true" ]]; then
-            echo "Starting a fresh WhatsApp session."
-            rm -rf "ملف_الاتصال"
+            echo "A new session was requested."
+            rm -rf -- "ملف_الاتصال"
           fi
-          mkdir -p "ملف_الاتصال"
+          mkdir -p -- "ملف_الاتصال"
 
       - name: Restore latest session cache
         if: ${{ inputs.new_session != true }}
@@ -61,10 +62,12 @@ jobs:
             arthur-session-${{ github.ref_name }}-
 
       - name: Install dependencies
+        shell: bash
         run: |
-          if [ -f package-lock.json ]; then
+          set -e
+          if [[ -f package-lock.json ]]; then
             npm ci
-          elif [ -f package.json ]; then
+          elif [[ -f package.json ]]; then
             npm install
           else
             echo "ERROR: package.json was not found."
@@ -72,44 +75,43 @@ jobs:
           fi
 
       - name: Configure Git
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Run ARTHUR BOT and recover from crashes
+      - name: Run ARTHUR BOT and save project changes
         shell: bash
         env:
           BRANCH: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set +e
-
           BOT_PID=""
 
           stop_bot() {
             if [[ -n "$BOT_PID" ]] && kill -0 "$BOT_PID" 2>/dev/null; then
-              echo "Stopping bot gracefully..."
+              echo "Stopping bot..."
               kill -TERM "$BOT_PID" 2>/dev/null
-
               for _ in {1..10}; do
                 kill -0 "$BOT_PID" 2>/dev/null || break
                 sleep 1
               done
-
               if kill -0 "$BOT_PID" 2>/dev/null; then
                 kill -KILL "$BOT_PID" 2>/dev/null
               fi
             fi
-
             if [[ -n "$BOT_PID" ]]; then
               wait "$BOT_PID" 2>/dev/null
             fi
-
             BOT_PID=""
           }
 
           save_changes() {
-            echo "Checking for project changes..."
+            echo "=== Saving project changes ==="
 
+            # Stage project files while excluding session data and secrets.
             git add -A -- . \
               ':!ملف_الاتصال' \
               ':!ملف_الاتصال/**' \
@@ -123,32 +125,50 @@ jobs:
               ':!**/*.pem' \
               ':!**/*.key'
 
-            if git diff --cached --quiet; then
-              echo "No changes to commit."
-              return 0
+            if ! git diff --cached --quiet; then
+              git commit -m "Auto-save ARTHUR BOT updates"
+              if [[ $? -ne 0 ]]; then
+                echo "ERROR: Commit failed."
+                return 1
+              fi
+            else
+              echo "No new staged changes."
             fi
 
-            git commit -m "Auto-save ARTHUR BOT updates"
+            # Retry fetch/rebase/push to handle a branch updated by another writer.
+            for attempt in 1 2 3 4 5; do
+              echo "Synchronization attempt ${attempt}/5"
 
-            if [ $? -ne 0 ]; then
-              echo "Commit failed."
-              return 1
-            fi
+              if ! git fetch origin "$BRANCH"; then
+                echo "WARNING: Fetch failed."
+                sleep 3
+                continue
+              fi
 
-            git pull --rebase origin "$BRANCH"
-            if [ $? -ne 0 ]; then
-              echo "Rebase failed; changes may need manual resolution."
-              return 1
-            fi
+              # Nothing local to push after fetching.
+              if git diff --quiet "origin/$BRANCH" HEAD; then
+                echo "Project is synchronized with GitHub."
+                return 0
+              fi
 
-            git push origin "HEAD:$BRANCH"
-            if [ $? -ne 0 ]; then
-              echo "Push failed; changes remain in this runner only."
-              return 1
-            fi
+              # Rebase local commits on the latest remote branch.
+              if ! git rebase "origin/$BRANCH"; then
+                echo "ERROR: Rebase conflict. Aborting rebase to avoid partial state."
+                git rebase --abort
+                return 1
+              fi
 
-            echo "Project changes saved."
-            return 0
+              if git push origin "HEAD:$BRANCH"; then
+                echo "SUCCESS: Project changes pushed to GitHub."
+                return 0
+              fi
+
+              echo "WARNING: Push failed; retrying."
+              sleep 3
+            done
+
+            echo "ERROR: Could not push changes after 5 attempts."
+            return 1
           }
 
           start_bot() {
@@ -170,45 +190,43 @@ jobs:
 
           trap 'stop_bot' EXIT INT TERM
 
-          if [ ! -f start.js ]; then
+          if [[ ! -f start.js ]]; then
             echo "ERROR: start.js was not found."
             exit 1
           fi
 
-          start_bot || true
+          start_bot
+          if [[ $? -ne 0 ]]; then
+            echo "WARNING: Initial bot startup failed; retry loop will continue."
+          fi
 
-          # 285 دقيقة تقريبًا؛ نترك وقتًا لحفظ الجلسة والتغييرات.
+          # Run for approximately 285 minutes, leaving time for final save/session cache.
           for ((i=1; i<=285; i++)); do
             sleep 60
 
-            # إعادة التشغيل فقط عند توقف عملية البوت.
             if [[ -z "$BOT_PID" ]] || ! kill -0 "$BOT_PID" 2>/dev/null; then
               if [[ -n "$BOT_PID" ]]; then
                 wait "$BOT_PID" 2>/dev/null
                 BOT_PID=""
               fi
-
-              echo "Bot stopped. Waiting before restart..."
+              echo "Bot stopped. Restarting after a short delay..."
               sleep 10
-              start_bot || true
+              start_bot || echo "WARNING: Bot restart failed."
             fi
 
-            # حفظ تغييرات المشروع كل 5 دقائق.
             if (( i % 5 == 0 )); then
-              save_changes || echo "WARNING: Project save failed."
+              save_changes || echo "WARNING: Periodic save failed; will retry later."
             fi
           done
 
           stop_bot
           save_changes || echo "WARNING: Final project save failed."
-
           trap - EXIT INT TERM
 
       - name: Validate WhatsApp session
-        id: validate_session
         shell: bash
         run: |
-          if [ ! -f "ملف_الاتصال/creds.json" ]; then
+          if [[ ! -f "ملف_الاتصال/creds.json" ]]; then
             echo "ERROR: WhatsApp credentials file is missing."
             exit 1
           fi
@@ -230,7 +248,6 @@ jobs:
           '
 
       - name: Save current session cache
-        id: save_session
         if: ${{ success() }}
         uses: actions/cache/save@v4
         with:
@@ -246,8 +263,7 @@ jobs:
           KEEP_KEY: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set +e
-
-          echo "Removing old session caches after saving the new session..."
+          echo "Removing older session caches..."
 
           IDS=$(gh api --paginate \
             "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
@@ -259,7 +275,7 @@ jobs:
           for id in $IDS; do
             gh api -X DELETE \
               "repos/$GITHUB_REPOSITORY/actions/caches/$id"
-            if [ $? -eq 0 ]; then
+            if [[ $? -eq 0 ]]; then
               echo "Deleted old cache ID: $id"
             else
               echo "WARNING: Could not delete cache ID: $id"
@@ -268,6 +284,7 @@ jobs:
 
       - name: Queue the next run
         if: ${{ success() }}
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
