@@ -1,15 +1,18 @@
+
 name: ARTHUR BOT Runner
 
 on:
   workflow_dispatch:
     inputs:
       new_session:
-        description: 'ابدأ جلسة واتساب جديدة واحذف الجلسات القديمة'
-        required: true
+        description: "بدء جلسة واتساب جديدة"
+        required: false
         type: boolean
-        default: true
+        default: false
+
+  # تشغيل احتياطي يومي إذا تعذر استمرار التشغيل التلقائي
   schedule:
-    - cron: '17 */2 * * *'
+    - cron: "13 3 * * *"
 
 permissions:
   contents: write
@@ -25,153 +28,250 @@ jobs:
     timeout-minutes: 330
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
-      # عند تشغيل workflow يدويًا، يكون new_session=true افتراضيًا:
-      # احذف مجلد الجلسة المحلي وكل نسخ الجلسة المخزنة قبل تشغيل البوت.
-      - name: Delete Old WhatsApp Session and Caches
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.new_session == true }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          BRANCH_REF: ${{ github.ref }}
-          BRANCH_NAME: ${{ github.ref_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf -- "ملف_الاتصال"
-          mkdir -p "ملف_الاتصال"
-          PREFIX="arthur-session-${BRANCH_NAME}-"
-          echo "Deleting old session caches for ${BRANCH_REF}..."
-          gh api --paginate "repos/${REPOSITORY}/actions/caches?ref=${BRANCH_REF}&per_page=100" \
-            --jq ".actions_caches[]? | select(.key | startswith(\"${PREFIX}\")) | .id" \
-            | while IFS= read -r CACHE_ID; do
-                [ -n "$CACHE_ID" ] || continue
-                echo "Deleting old cache ID: $CACHE_ID"
-                gh api --method DELETE "repos/${REPOSITORY}/actions/caches/${CACHE_ID}" || true
-              done
-          echo "Old local session and matching cache versions deleted."
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
 
-      # لا تستعد أي جلسة عند طلب جلسة جديدة. في التشغيل المجدول، استعد آخر جلسة محفوظة.
-      - name: Restore WhatsApp Session
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.new_session == true) }}
+      - name: Prepare session folder
+        shell: bash
+        env:
+          NEW_SESSION: ${{ inputs.new_session }}
+        run: |
+          if [[ "$NEW_SESSION" == "true" ]]; then
+            echo "Starting a fresh WhatsApp session."
+            rm -rf "ملف_الاتصال"
+          fi
+          mkdir -p "ملف_الاتصال"
+
+      - name: Restore latest session cache
+        if: ${{ inputs.new_session != true }}
         uses: actions/cache/restore@v4
         with:
-          path: ملف_الاتصال/
+          path: ملف_الاتصال
           key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             arthur-session-${{ github.ref_name }}-
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Dependencies
-        shell: bash
+      - name: Install dependencies
         run: |
-          set -e
           if [ -f package-lock.json ]; then
             npm ci
-          else
+          elif [ -f package.json ]; then
             npm install
+          else
+            echo "ERROR: package.json was not found."
+            exit 1
           fi
 
-      - name: Run Bot with Automatic Repository Saving
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
-          ARTHUR_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REF: ${{ github.ref }}
-        shell: bash
+      - name: Configure Git
         run: |
-          set +e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Run ARTHUR BOT and recover from crashes
+        shell: bash
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set +e
+
+          BOT_PID=""
+
+          stop_bot() {
+            if [[ -n "$BOT_PID" ]] && kill -0 "$BOT_PID" 2>/dev/null; then
+              echo "Stopping bot gracefully..."
+              kill -TERM "$BOT_PID" 2>/dev/null
+
+              for _ in {1..10}; do
+                kill -0 "$BOT_PID" 2>/dev/null || break
+                sleep 1
+              done
+
+              if kill -0 "$BOT_PID" 2>/dev/null; then
+                kill -KILL "$BOT_PID" 2>/dev/null
+              fi
+            fi
+
+            if [[ -n "$BOT_PID" ]]; then
+              wait "$BOT_PID" 2>/dev/null
+            fi
+
+            BOT_PID=""
+          }
+
           save_changes() {
-            git add -A \
+            echo "Checking for project changes..."
+
+            git add -A -- . \
               ':!ملف_الاتصال' \
               ':!ملف_الاتصال/**' \
               ':!node_modules' \
               ':!node_modules/**' \
               ':!.env' \
+              ':!.env.*' \
               ':!**/.env' \
-              ':!*.key' \
-              ':!*.pem' \
-              ':!creds.json' \
-              ':!**/creds.json'
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: automatic bot updates [skip ci]"
-              git push origin "HEAD:${GITHUB_REF_NAME}"
+              ':!**/.env.*' \
+              ':!**/creds.json' \
+              ':!**/*.pem' \
+              ':!**/*.key'
+
+            if git diff --cached --quiet; then
+              echo "No changes to commit."
+              return 0
             fi
+
+            git commit -m "Auto-save ARTHUR BOT updates"
+
+            if [ $? -ne 0 ]; then
+              echo "Commit failed."
+              return 1
+            fi
+
+            git pull --rebase origin "$BRANCH"
+            if [ $? -ne 0 ]; then
+              echo "Rebase failed; changes may need manual resolution."
+              return 1
+            fi
+
+            git push origin "HEAD:$BRANCH"
+            if [ $? -ne 0 ]; then
+              echo "Push failed; changes remain in this runner only."
+              return 1
+            fi
+
+            echo "Project changes saved."
+            return 0
           }
 
-          node start.js &
-          BOT_PID=$!
-          while kill -0 "$BOT_PID" 2>/dev/null; do
-            sleep 300
-            if kill -0 "$BOT_PID" 2>/dev/null; then
-              save_changes
+          start_bot() {
+            echo "Starting ARTHUR BOT..."
+            node start.js &
+            BOT_PID=$!
+            sleep 10
+
+            if ! kill -0 "$BOT_PID" 2>/dev/null; then
+              wait "$BOT_PID"
+              echo "Bot exited during startup."
+              BOT_PID=""
+              return 1
+            fi
+
+            echo "Bot process is running."
+            return 0
+          }
+
+          trap 'stop_bot' EXIT INT TERM
+
+          if [ ! -f start.js ]; then
+            echo "ERROR: start.js was not found."
+            exit 1
+          fi
+
+          start_bot || true
+
+          # 285 دقيقة تقريبًا؛ نترك وقتًا لحفظ الجلسة والتغييرات.
+          for ((i=1; i<=285; i++)); do
+            sleep 60
+
+            # إعادة التشغيل فقط عند توقف عملية البوت.
+            if [[ -z "$BOT_PID" ]] || ! kill -0 "$BOT_PID" 2>/dev/null; then
+              if [[ -n "$BOT_PID" ]]; then
+                wait "$BOT_PID" 2>/dev/null
+                BOT_PID=""
+              fi
+
+              echo "Bot stopped. Waiting before restart..."
+              sleep 10
+              start_bot || true
+            fi
+
+            # حفظ تغييرات المشروع كل 5 دقائق.
+            if (( i % 5 == 0 )); then
+              save_changes || echo "WARNING: Project save failed."
             fi
           done
-          wait "$BOT_PID"
-          BOT_STATUS=$?
-          save_changes
-          exit "$BOT_STATUS"
 
-      - name: Validate WhatsApp Session Before Cache Save
-        id: session_check
-        if: always()
+          stop_bot
+          save_changes || echo "WARNING: Final project save failed."
+
+          trap - EXIT INT TERM
+
+      - name: Validate WhatsApp session
+        id: validate_session
         shell: bash
         run: |
-          set -u
-          CREDS="ملف_الاتصال/creds.json"
-          if [ ! -s "$CREDS" ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "No credentials file; session will not be cached."
-            exit 0
+          if [ ! -f "ملف_الاتصال/creds.json" ]; then
+            echo "ERROR: WhatsApp credentials file is missing."
+            exit 1
           fi
-          if ! jq -e 'type == "object" and .registered == true' "$CREDS" >/dev/null; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "WhatsApp session is not registered; session will not be cached."
-            exit 0
-          fi
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-          echo "Registered WhatsApp session found."
 
-      - name: Save New WhatsApp Session
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const p = "ملف_الاتصال/creds.json";
+            try {
+              const c = JSON.parse(fs.readFileSync(p, "utf8"));
+              if (c.registered !== true) {
+                console.error("WhatsApp session is not registered.");
+                process.exit(1);
+              }
+              console.log("WhatsApp session validated.");
+            } catch (e) {
+              console.error("Session validation failed:", e.message);
+              process.exit(1);
+            }
+          '
+
+      - name: Save current session cache
         id: save_session
-        if: ${{ always() && steps.session_check.outputs.ready == 'true' }}
+        if: ${{ success() }}
         uses: actions/cache/save@v4
         with:
-          path: ملف_الاتصال/
+          path: ملف_الاتصال
           key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # بعد حفظ الجلسة الجديدة بنجاح، احذف كل النسخ الأقدم لنفس الفرع.
-      - name: Delete Older Session Cache Versions
-        if: ${{ always() && steps.save_session.outcome == 'success' }}
+      - name: Remove older session caches
+        if: ${{ success() }}
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          BRANCH_REF: ${{ github.ref }}
-          BRANCH_NAME: ${{ github.ref_name }}
-          CURRENT_KEY: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
-        shell: bash
+          SESSION_PREFIX: arthur-session-${{ github.ref_name }}-
+          KEEP_KEY: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          set -euo pipefail
-          PREFIX="arthur-session-${BRANCH_NAME}-"
-          gh api --paginate "repos/${REPOSITORY}/actions/caches?ref=${BRANCH_REF}&per_page=100" \
-            --jq ".actions_caches[]? | select(.key | startswith(\"${PREFIX}\")) | select(.key != \"${CURRENT_KEY}\") | .id" \
-            | while IFS= read -r CACHE_ID; do
-                [ -n "$CACHE_ID" ] || continue
-                echo "Deleting previous cache ID: $CACHE_ID"
-                gh api --method DELETE "repos/${REPOSITORY}/actions/caches/${CACHE_ID}" || true
-              done
-          echo "Only the newly saved session cache is intended to remain."
+          set +e
+
+          echo "Removing old session caches after saving the new session..."
+
+          IDS=$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
+            --jq '.actions_caches[]
+              | select(.key | startswith(env.SESSION_PREFIX))
+              | select(.key != env.KEEP_KEY)
+              | .id')
+
+          for id in $IDS; do
+            gh api -X DELETE \
+              "repos/$GITHUB_REPOSITORY/actions/caches/$id"
+            if [ $? -eq 0 ]; then
+              echo "Deleted old cache ID: $id"
+            else
+              echo "WARNING: Could not delete cache ID: $id"
+            fi
+          done
+
+      - name: Queue the next run
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Queueing the next ARTHUR BOT run..."
+          gh workflow run "$GITHUB_WORKFLOW" \
+            --ref "$GITHUB_REF_NAME" \
+            -f new_session=false
