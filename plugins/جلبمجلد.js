@@ -1,12 +1,8 @@
 import fs from "fs";
 import path from "path";
 import archiver from "archiver";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// مسار ملف النخبة الموحد تماماً مثل الكود الشغال
+// مسار ملف النخبة الموحد
 const eliteFile = path.join(
     process.cwd(),
     "data/النخبة.json"
@@ -37,50 +33,47 @@ function getElite() {
 
 const checkElitePermission = (senderJid) => {
     if (!senderJid) return false;
-    const cleanSender = senderJid.replace(/[^0-9]/g, "");
+    const cleanSender = String(senderJid).replace(/[^0-9]/g, "");
     const eliteUsers = getElite();
-    return eliteUsers.some(num => num.replace(/[^0-9]/g, "") === cleanSender);
+    return eliteUsers.some(num => String(num).replace(/[^0-9]/g, "") === cleanSender);
 };
 
 export default {
-  command: 'جلبمجلد',
+  command: ['جلبمجلد', 'جلب_مجلد'],
   description: 'جلب المجلدات عبر كتابة اسمها أو الرقم الترتيبي في المشروع (خاص بالنخبة فقط)',
-  category: 'المطور',
-  ownerOnly: true,
+  category: 'النخبة',
 
   execute: async (sock, msg, data) => {
     try {
-      const jid = data?.jid || msg.key.remoteJid;
-      // تصحيح جلب معرف المرسل تماماً مثل الكود الشغال
-      const senderJid = data.sender || msg.key.participant || msg.key.remoteJid;
+      const chatId = data?.jid || msg.key.remoteJid;
+      // استخراج معرف المرسل بدقة مطابقة لكود "كود"
+      const senderJid = data?.sender || msg.key.participant || msg.key.remoteJid;
 
-      // التحقق من صلاحيات النخبة بالدالة الصحيحة
-      const isElite = checkElitePermission(senderJid);
-      if (!isElite) {
-        return await sock.sendMessage(jid, {
+      // التحقق من صلاحيات النخبة
+      if (!checkElitePermission(senderJid)) {
+        return await sock.sendMessage(chatId, {
             text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n❌ *هذا الأمر مخصص لأعضاء النخبة فقط.*\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
             quoted: msg
         });
       }
 
-      const input = data?.text ? data.text.trim() : "";
-      const args = input.replace(/^\.جلبمجلد/, "").trim().split(/\s+/);
-      const query = args[0] ? args[0].toLowerCase() : "";
+      // تفاعل بالدم 🩸
+      await sock.sendMessage(chatId, {
+          react: { text: "🩸", key: msg.key }
+      }).catch(() => {});
 
-      if (!query) {
-        await sock.sendMessage(jid, {
-          react: {
-              text: "📁",
-              key: msg.key
-          }
-        }).catch(() => {});
-      }
+      let rawText = data?.text ? data.text.trim() : "";
+      const args = rawText.split(/\s+/);
+      args.shift(); // إزالة اسم الأمر الرئيسي
+      const queryArg = args.join(" ").trim();
 
       // جلب جميع المجلدات الموجودة في المسار الحالي
       const items = fs.readdirSync(process.cwd(), { withFileTypes: true });
-      const folders = items.filter(item => item.isDirectory() && !item.name.startsWith('.'));
+      const excludedFolders = new Set(['node_modules', '.git', 'session', 'sessions']);
+      const folders = items.filter(item => item.isDirectory() && !item.name.startsWith('.') && !excludedFolders.has(item.name));
 
-      if (!query) {
+      // 1. عرض القائمة إذا لم يحدد مجلداً
+      if (!queryArg) {
         let listText = `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n`;
         listText += `       *𝚫𝚪𝚻𝚮𝚼𝚪 • 𝚩𝚯𝚻 2026*\n`;
         listText += `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n`;
@@ -93,24 +86,23 @@ export default {
         listText += `\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n`;
         listText += `💡 *طريقة الاستخدام:*\n`;
         listText += `\`.جلبمجلد [الاسم أو الرقم]\`\n`;
-        listText += `*مثال:* \`.جلبمجلد 1\` أو \`.جلبمجلد data\`\n`;
+        listText += `*مثال:* \`.جلبمجلد 1\` أو \`.جلبمجلد plugins\`\n`;
         listText += `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`;
 
-        return sock.sendMessage(jid, { text: listText }, { quoted: msg });
+        return sock.sendMessage(chatId, { text: listText }, { quoted: msg });
       }
 
-      const inputArg = args.join(' ').trim();
       let targetFolderName = '';
 
       // التحقق مما إذا كان المدخل رقماً أم نصاً
-      if (!isNaN(inputArg)) {
-        const index = parseInt(inputArg) - 1;
+      if (!isNaN(queryArg)) {
+        const index = parseInt(queryArg) - 1;
         if (index >= 0 && index < folders.length) {
           targetFolderName = folders[index].name;
         }
       } else {
         // البحث بالاسم المباشر
-        const found = folders.find(f => f.name.toLowerCase() === inputArg.toLowerCase());
+        const found = folders.find(f => f.name.toLowerCase() === queryArg.toLowerCase());
         if (found) {
           targetFolderName = found.name;
         }
@@ -118,16 +110,16 @@ export default {
 
       if (!targetFolderName) {
         return sock.sendMessage(
-          jid,
-          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n❌ *لم يتم العثور على المجلد المطلوب.*\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
+          chatId,
+          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n❌ *لم يتم العثور على مجلد باسم أو رقم:* \`${queryArg}\`\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
           { quoted: msg }
         );
       }
 
       const targetPath = path.join(process.cwd(), targetFolderName);
 
-      await sock.sendMessage(jid,
-          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n⏳ *جاري ضغط وجلب المجلد:* \`${targetFolderName}\`...\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
+      await sock.sendMessage(chatId,
+          { text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n⏳ *جاري ضغط وحزم المجلد:* \`${targetFolderName}\`...\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*` },
           { quoted: msg });
 
       const zipName = `${targetFolderName}_backup.zip`;
@@ -140,7 +132,7 @@ export default {
         output.on('close', async () => {
           try {
             await sock.sendMessage(
-              jid,
+              chatId,
               {
                 document: fs.readFileSync(outputPath),
                 mimetype: 'application/zip',
