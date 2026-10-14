@@ -74,13 +74,13 @@
       "createdAt": 1791817714505
     },
     "176412191391926@lid": {
-      "wallet": 2377,
+      "wallet": 2877,
       "bank": 212,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 110,
-      "xp": 215,
+      "points": 135,
+      "xp": 265,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -91,7 +91,7 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1791821681048,
+      "lastDaily": 1791994580502,
       "lastInterest": 1791994446184,
       "createdAt": 1791821623802,
       "bankProfile": {
@@ -685,6 +685,13 @@
       "type": "daily",
       "at": 1791994572062,
       "player": "233144431206490@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_6f2de4e5-1ba9-43be-9e59-c20eba40080b",
+      "type": "daily",
+      "at": 1791994580502,
+      "player": "176412191391926@lid",
       "amount": 500
     }
   ],
