@@ -124,7 +124,7 @@
       "playerX": "233144431206490@lid",
       "playerO": "176412191391926@lid",
       "invited": "176412191391926@lid",
-      "started": false,
+      "started": true,
       "isVsBot": false,
       "turn": "233144431206490@lid",
       "createdAt": 1791993388895,
