@@ -1,4 +1,3 @@
-// utils/arthurGithubSync.js
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -11,51 +10,24 @@ const DB_FILE = path.join(
 
 const REMOTE_PATH = 'data/arthur_bank_games/state.json';
 const DEBOUNCE_MS = 2500;
-const RETRY_MS = 15000;
 
 let timer = null;
 let dirty = false;
 let running = null;
 let lastError = null;
-let stopped = false;
 
 function getConfig() {
-  const token =
-    process.env.ARTHUR_GITHUB_TOKEN ||
-    process.env.GITHUB_TOKEN;
-
+  const token = process.env.ARTHUR_GITHUB_TOKEN;
   const repository = process.env.GITHUB_REPOSITORY;
-  const branch =
-    process.env.GITHUB_REF_NAME ||
-    process.env.GITHUB_HEAD_REF;
+  const branch = process.env.GITHUB_REF_NAME;
 
   if (!token || !repository || !branch) {
     throw new Error(
-      'GitHub sync configuration is missing. Check Actions permissions and environment variables.'
+      'GitHub sync configuration is missing.'
     );
   }
 
   return { token, repository, branch };
-}
-
-function makeHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28'
-  };
-}
-
-async function readResponse(response) {
-  const text = await response.text();
-
-  if (!text) return {};
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text };
-  }
 }
 
 async function uploadSnapshot(content) {
@@ -65,28 +37,27 @@ async function uploadSnapshot(content) {
     `https://api.github.com/repos/${repository}/contents/` +
     REMOTE_PATH.split('/').map(encodeURIComponent).join('/');
 
-  const headers = makeHeaders(token);
-
   for (let attempt = 1; attempt <= 5; attempt++) {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+
     const query = new URLSearchParams({ ref: branch });
 
-    const readResponseResult = await fetch(
-      `${apiUrl}?${query}`,
-      { headers }
-    );
+    const response = await fetch(`${apiUrl}?${query}`, {
+      headers
+    });
 
     let sha;
 
-    if (readResponseResult.ok) {
-      const existing = await readResponseResult.json();
+    if (response.ok) {
+      const existing = await response.json();
       sha = existing.sha;
-    } else if (readResponseResult.status !== 404) {
-      const details = await readResponse(readResponseResult);
-
+    } else if (response.status !== 404) {
       throw new Error(
-        `GitHub read failed: HTTP ${readResponseResult.status}: ${
-          details.message || 'Unknown error'
-        }`
+        `GitHub read failed: HTTP ${response.status}`
       );
     }
 
@@ -112,23 +83,21 @@ async function uploadSnapshot(content) {
       return;
     }
 
+    // Retry conflicts by fetching the newest file SHA.
     if (
       attempt < 5 &&
-      [409, 422].includes(result.status)
+      (result.status === 409 || result.status === 422)
     ) {
       await new Promise(resolve =>
         setTimeout(resolve, attempt * 1000)
       );
-
       continue;
     }
 
-    const details = await readResponse(result);
+    const details = await result.text();
 
     throw new Error(
-      `GitHub upload failed: HTTP ${result.status}: ${
-        details.message || 'Unknown error'
-      }`
+      `GitHub upload failed: HTTP ${result.status}: ${details}`
     );
   }
 }
@@ -138,61 +107,46 @@ async function drainQueue() {
     dirty = false;
 
     if (!fs.existsSync(DB_FILE)) {
-      throw new Error(
-        `Local database not found: ${DB_FILE}`
-      );
+      throw new Error('Local game database was not found.');
     }
 
-    // Read the latest version immediately before upload.
+    // Read the latest snapshot immediately before uploading.
     const snapshot = fs.readFileSync(DB_FILE, 'utf8');
-
     await uploadSnapshot(snapshot);
   }
 }
 
-function scheduleRetry() {
-  if (stopped || timer || !dirty) return;
-
-  timer = setTimeout(() => {
-    timer = null;
-
-    void flushArthurGithubSync().catch(error => {
-      lastError = error;
-      console.error(
-        '[ARTHUR GITHUB SYNC] Retry failed:',
-        error.message
-      );
-
-      scheduleRetry();
-    });
-  }, RETRY_MS);
-
-  // Do not keep Node.js alive solely for the retry timer.
-  timer.unref?.();
-}
-
 export function scheduleArthurGithubSync() {
   dirty = true;
-  stopped = false;
 
   if (timer) clearTimeout(timer);
 
   timer = setTimeout(() => {
     timer = null;
 
-    void flushArthurGithubSync().catch(error => {
-      lastError = error;
+    if (!running) {
+      running = drainQueue()
+        .catch(error => {
+          lastError = error;
+          dirty = true;
+          console.error(
+            '[ARTHUR GITHUB SYNC]',
+            error.message
+          );
+        })
+        .finally(() => {
+          running = null;
 
-      console.error(
-        '[ARTHUR GITHUB SYNC]',
-        error.message
-      );
-
-      scheduleRetry();
-    });
+          // Retry later if a previous upload failed.
+          if (dirty && !timer) {
+            timer = setTimeout(() => {
+              timer = null;
+              void flushArthurGithubSync().catch(() => {});
+            }, 15000);
+          }
+        });
+    }
   }, DEBOUNCE_MS);
-
-  timer.unref?.();
 }
 
 export async function flushArthurGithubSync() {
@@ -201,7 +155,6 @@ export async function flushArthurGithubSync() {
     timer = null;
   }
 
-  // If another upload is active, wait for it first.
   if (running) {
     await running;
   }
@@ -212,7 +165,6 @@ export async function flushArthurGithubSync() {
     try {
       await running;
     } catch (error) {
-      dirty = true;
       lastError = error;
       throw error;
     } finally {
@@ -220,9 +172,7 @@ export async function flushArthurGithubSync() {
     }
   }
 
-  if (lastError) {
-    throw lastError;
-  }
+  if (lastError) throw lastError;
 }
 
 export function getArthurGithubSyncStatus() {
