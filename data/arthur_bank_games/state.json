@@ -2,7 +2,7 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 5086,
+      "wallet": 4586,
       "bank": 1442,
       "vault": 0,
       "debt": 0,
@@ -16,7 +16,7 @@
       "inventory": [
         {
           "id": "hint_strong",
-          "qty": 1
+          "qty": 2
         }
       ],
       "skills": {
