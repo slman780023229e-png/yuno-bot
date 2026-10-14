@@ -2,13 +2,13 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 5219,
+      "wallet": 5586,
       "bank": 1400,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 760,
-      "xp": 690,
+      "points": 815,
+      "xp": 775,
       "level": 2,
       "wins": 14,
       "losses": 0,
@@ -538,6 +538,24 @@
       "gold": 105,
       "points": 15,
       "xp": 25
+    },
+    {
+      "id": "tx_67a330fd-4e45-4e80-a3fe-3f3a0dfb2b96",
+      "type": "progress",
+      "at": 1791992650566,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_8ac1900d-d4ea-4c3d-94d3-e4691961bcf7",
+      "type": "progress",
+      "at": 1791992650782,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -740,6 +758,16 @@
       "at": 1791992410959,
       "type": "progress",
       "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0017": {
+      "at": 1791992650566,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:6": {
+      "at": 1791992650782,
+      "type": "progress",
+      "player": "233144431206490@lid"
     }
   },
   "world": {
@@ -777,9 +805,9 @@
     "arthurIntelligence": {
       "players": {
         "233144431206490@lid": {
-          "stage": 5,
-          "completedStages": 5,
-          "totalCorrect": 22,
+          "stage": 6,
+          "completedStages": 6,
+          "totalCorrect": 23,
           "totalWrong": 20,
           "soloGames": 11,
           "groupGames": 1
