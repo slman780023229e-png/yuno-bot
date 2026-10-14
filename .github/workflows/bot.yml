@@ -1,309 +1,133 @@
 name: ARTHUR BOT Runner
 
 on:
-  workflow_dispatch:
-    inputs:
-      new_session:
-        description: "بدء جلسة واتساب جديدة"
-        required: false
-        type: boolean
-        default: false
-
-  schedule:
-    - cron: "13 3 * * *"
+workflow_dispatch:
+schedule:
+- cron: '17 */2 * * *'
 
 permissions:
-  contents: write
-  actions: write
+contents: write
+actions: write
 
 concurrency:
-  group: arthur-whatsapp-bot-${{ github.ref }}
-  cancel-in-progress: false
+group: arthur-whatsapp-bot
+cancel-in-progress: false
 
 jobs:
-  build-and-run:
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
+build-and-run:
+runs-on: ubuntu-latest
+timeout-minutes: 330
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
-          persist-credentials: true
+steps:  
+  - name: Checkout Code  
+    uses: actions/checkout@v4  
+    with:  
+      ref: ${{ github.ref_name }}  
+      fetch-depth: 0  
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
+  - name: Restore WhatsApp Session  
+    uses: actions/cache/restore@v4  
+    with:  
+      path: ملف_الاتصال/  
+      key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}  
+      restore-keys: |  
+        arthur-session-${{ github.ref_name }}-  
 
-      - name: Prepare session folder
-        shell: bash
-        env:
-          NEW_SESSION: ${{ inputs.new_session }}
-        run: |
-          if [[ "$NEW_SESSION" == "true" ]]; then
-            rm -rf -- "ملف_الاتصال"
-          fi
-          mkdir -p -- "ملف_الاتصال"
+  - name: Setup Node.js  
+    uses: actions/setup-node@v4  
+    with:  
+      node-version: '20'  
 
-      - name: Restore latest session cache
-        if: ${{ inputs.new_session != true }}
-        uses: actions/cache/restore@v4
-        with:
-          path: ملف_الاتصال
-          key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            arthur-session-${{ github.ref_name }}-
+  - name: Install Dependencies  
+    run: npm install  
 
-      - name: Install dependencies
-        shell: bash
-        run: |
-          set -e
-          if [[ -f package-lock.json ]]; then
-            npm ci
-          elif [[ -f package.json ]]; then
-            npm install
-          else
-            echo "ERROR: package.json was not found."
-            exit 1
-          fi
+  - name: Run Bot with Automatic Repository Saving  
+    env:  
+      NODE_OPTIONS: "--max-old-space-size=4096"  
+      ARTHUR_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      GITHUB_REPOSITORY: ${{ github.repository }}  
+      GITHUB_REF_NAME: ${{ github.ref_name }}  
+    shell: bash  
+    run: |  
+      set +e  
 
-      - name: Configure Git
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      git config user.name "github-actions[bot]"  
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"  
 
-      - name: Run ARTHUR BOT and sync project
-        shell: bash
-        env:
-          BRANCH: ${{ github.ref_name }}
-          GH_TOKEN: ${{ github.token }}
-          ARTHUR_GITHUB_SYNC_MODE: git
-        run: |
-          set -Eeuo pipefail
+      save_changes() {  
+        echo "Checking repository changes..."  
 
-          BOT_PID=""
+        git add -A -- . \  
+          ':(exclude)ملف_الاتصال' \  
+          ':(exclude)ملف_الاتصال/**' \  
+          ':(exclude).env' \  
+          ':(exclude).env.*' \  
+          ':(exclude)**/.env' \  
+          ':(exclude)**/.env.*' \  
+          ':(exclude)**/node_modules' \  
+          ':(exclude)**/node_modules/**' \  
+          ':(exclude)**/auth_info_baileys' \  
+          ':(exclude)**/auth_info_baileys/**' \  
+          ':(exclude)**/creds.json' \  
+          ':(exclude)**/*.pem' \  
+          ':(exclude)**/*.key' \  
+          ':(exclude)**/*.p12' \  
+          ':(exclude)**/*.pfx' || return 1  
 
-          stop_bot() {
-            if [[ -n "$BOT_PID" ]] && kill -0 "$BOT_PID" 2>/dev/null; then
-              echo "Stopping bot..."
-              kill -TERM "$BOT_PID" 2>/dev/null || true
+        if ! git diff --cached --quiet; then  
+          git commit -m "Auto-save ARTHUR repository progress" || return 1  
+        fi  
 
-              for _ in {1..15}; do
-                kill -0 "$BOT_PID" 2>/dev/null || break
-                sleep 1
-              done
+        git fetch origin \  
+          "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1  
 
-              if kill -0 "$BOT_PID" 2>/dev/null; then
-                kill -KILL "$BOT_PID" 2>/dev/null || true
-              fi
+        if [ "$(git rev-list --count "origin/${GITHUB_REF_NAME}..HEAD")" -gt 0 ]; then  
+          if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then  
+            echo "Push failed; trying to synchronize with GitHub..."  
 
-              wait "$BOT_PID" 2>/dev/null || true
-            fi
+            git fetch origin \  
+              "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1  
 
-            BOT_PID=""
-          }
+            git -c rebase.autoStash=true rebase \  
+              "origin/${GITHUB_REF_NAME}" || {  
+                git rebase --abort || true  
+                echo "Sync conflict. Changes remain in the runner."  
+                return 1  
+              }  
 
-          save_changes() {
-            echo "=== ARTHUR: saving project changes ==="
+            git push origin "HEAD:${GITHUB_REF_NAME}" || return 1  
+          fi  
 
-            # Exclude sessions, credentials, temporary files and private local data.
-            if ! git add -A -- . \
-              ':!ملف_الاتصال' \
-              ':!ملف_الاتصال/**' \
-              ':!session' \
-              ':!session/**' \
-              ':!node_modules' \
-              ':!node_modules/**' \
-              ':!.git' \
-              ':!.env' \
-              ':!.env.*' \
-              ':!**/.env' \
-              ':!**/.env.*' \
-              ':!**/creds.json' \
-              ':!**/*.pem' \
-              ':!**/*.key' \
-              ':!**/*.log' \
-              ':!**/*.log.*' \
-              ':!**/*.tmp' \
-              ':!**/*.bak' \
-              ':!data/arthur_bank_games/state.json' \
-              ':!data/arthur_bank_games/state.json.bak'; then
-              echo "ERROR: git add failed."
-              return 1
-            fi
+          echo "Repository changes saved."  
+        else  
+          echo "No new commits to push."  
+        fi  
+      }  
 
-            # Do not publish the bank/game database through Git in this workflow.
-            # Its dedicated sync must be configured separately if required.
-            git diff --cached --name-status
+      node start.js &  
+      BOT_PID=$!  
 
-            if ! git diff --cached --quiet; then
-              git commit -m "chore: auto-save ARTHUR BOT project" || {
-                echo "ERROR: commit failed."
-                return 1
-              }
-            else
-              echo "No project changes to commit."
-            fi
+      echo "ARTHUR BOT started. Auto-save interval: 5 minutes."  
 
-            # Save excluded, tracked runtime database changes temporarily so
-            # they do not block rebasing the project commits.
-            git stash push --include-untracked -m "arthur-runtime-save" -- \
-              data/arthur_bank_games/state.json \
-              data/arthur_bank_games/state.json.bak || true
+      while kill -0 "$BOT_PID" 2>/dev/null; do  
+        sleep 300  
 
-            for attempt in 1 2 3 4 5; do
-              echo "GitHub sync attempt ${attempt}/5"
+        if kill -0 "$BOT_PID" 2>/dev/null; then  
+          save_changes || echo "Auto-save failed; will retry later."  
+        fi  
+      done  
 
-              if ! git fetch origin "$BRANCH"; then
-                sleep 4
-                continue
-              fi
+      wait "$BOT_PID"  
+      BOT_STATUS=$?  
 
-              if ! git rebase "origin/$BRANCH"; then
-                echo "ERROR: rebase conflict; aborting."
-                git rebase --abort || true
-                git stash pop || true
-                return 1
-              fi
+      echo "Bot stopped. Attempting final save..."  
+      save_changes || echo "Final save failed."  
 
-              if git diff --quiet "origin/$BRANCH" HEAD; then
-                echo "No local commits remain to push."
-                git stash pop || true
-                return 0
-              fi
+      exit "$BOT_STATUS"  
 
-              if git push origin "HEAD:$BRANCH"; then
-                if git fetch origin "$BRANCH" &&
-                   [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]]; then
-                  echo "GitHub sync verified."
-                  git stash pop || true
-                  return 0
-                fi
-              fi
-
-              sleep 4
-            done
-
-            git stash pop || true
-            echo "ERROR: GitHub sync failed after 5 attempts."
-            return 1
-          }
-
-          start_bot() {
-            echo "Starting ARTHUR BOT..."
-            node start.js &
-            BOT_PID=$!
-            sleep 10
-
-            if ! kill -0 "$BOT_PID" 2>/dev/null; then
-              wait "$BOT_PID" || true
-              BOT_PID=""
-              echo "Bot exited during startup."
-              return 1
-            fi
-
-            echo "Bot process is running."
-          }
-
-          trap 'stop_bot' EXIT INT TERM
-
-          if [[ ! -f start.js ]]; then
-            echo "ERROR: start.js was not found."
-            exit 1
-          fi
-
-          start_bot
-
-          # Keep the runner below the Actions job timeout.
-          for ((i=1; i<=285; i++)); do
-            sleep 60
-
-            if [[ -z "$BOT_PID" ]] || ! kill -0 "$BOT_PID" 2>/dev/null; then
-              if [[ -n "$BOT_PID" ]]; then
-                wait "$BOT_PID" 2>/dev/null || true
-                BOT_PID=""
-              fi
-
-              echo "Bot stopped. Attempting restart..."
-              sleep 10
-              start_bot || echo "WARNING: restart failed."
-            fi
-
-            if (( i % 5 == 0 )); then
-              save_changes || echo "WARNING: periodic save failed."
-            fi
-          done
-
-          stop_bot
-          save_changes
-          trap - EXIT INT TERM
-
-      - name: Validate WhatsApp session
-        shell: bash
-        run: |
-          if [[ ! -f "ملف_الاتصال/creds.json" ]]; then
-            echo "ERROR: WhatsApp credentials file is missing."
-            exit 1
-          fi
-
-          node --input-type=module -e '
-            import fs from "node:fs";
-            const p = "ملف_الاتصال/creds.json";
-            try {
-              const c = JSON.parse(fs.readFileSync(p, "utf8"));
-              if (c.registered !== true) {
-                console.error("WhatsApp session is not registered.");
-                process.exit(1);
-              }
-              console.log("WhatsApp session validated.");
-            } catch (e) {
-              console.error("Session validation failed:", e.message);
-              process.exit(1);
-            }
-          '
-
-      - name: Save current session cache
-        if: ${{ success() }}
-        uses: actions/cache/save@v4
-        with:
-          path: ملف_الاتصال
-          key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - name: Remove older session caches
-        if: ${{ success() }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SESSION_PREFIX: arthur-session-${{ github.ref_name }}-
-          KEEP_KEY: arthur-session-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set +e
-
-          IDS=$(gh api --paginate \
-            "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
-            --jq '.actions_caches[]
-              | select(.key | startswith(env.SESSION_PREFIX))
-              | select(.key != env.KEEP_KEY)
-              | .id')
-
-          for id in $IDS; do
-            gh api -X DELETE \
-              "repos/$GITHUB_REPOSITORY/actions/caches/$id" \
-              && echo "Deleted old cache ID: $id"
-          done
-
-      - name: Queue the next run
-        if: ${{ success() }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Queueing the next ARTHUR BOT run..."
-          gh workflow run "$GITHUB_WORKFLOW" \
-            --ref "$GITHUB_REF_NAME" \
-            -f new_session=false
+  - name: Save WhatsApp Session  
+    if: always()  
+    uses: actions/cache/save@v4  
+    with:  
+      path: ملف_الاتصال/  
+      key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}
