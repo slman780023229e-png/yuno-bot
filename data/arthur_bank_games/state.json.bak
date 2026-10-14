@@ -2,14 +2,14 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 3383,
-      "bank": 1400,
+      "wallet": 6367,
+      "bank": 1485,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 490,
-      "xp": 260,
-      "level": 2,
+      "points": 1145,
+      "xp": 460,
+      "level": 3,
       "wins": 14,
       "losses": 0,
       "title": "",
@@ -19,8 +19,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1791757232740,
-      "lastInterest": 1791821658434,
+      "lastDaily": 1791994572062,
+      "lastInterest": 1791994458434,
       "createdAt": 1791757197518,
       "bankProfile": {
         "name": "سلمان",
@@ -74,13 +74,13 @@
       "createdAt": 1791817714505
     },
     "176412191391926@lid": {
-      "wallet": 2377,
-      "bank": 200,
+      "wallet": 2877,
+      "bank": 212,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 110,
-      "xp": 185,
+      "points": 135,
+      "xp": 265,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -91,9 +91,15 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1791821681048,
-      "lastInterest": 1791821646184,
-      "createdAt": 1791821623802
+      "lastDaily": 1791994580502,
+      "lastInterest": 1791994446184,
+      "createdAt": 1791821623802,
+      "bankProfile": {
+        "name": "Mohammed7",
+        "logo": "🐬",
+        "openedAt": 1791993762534,
+        "updatedAt": 1791993762534
+      }
     }
   },
   "clans": {},
@@ -421,6 +427,299 @@
       "gold": 105,
       "points": 15,
       "xp": 20
+    },
+    {
+      "id": "tx_73b1bcfc-3b48-48b6-b4be-f615e0633452",
+      "type": "progress",
+      "at": 1791977612838,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_b422caa0-84f6-4870-bcfb-5d72ecf00197",
+      "type": "progress",
+      "at": 1791977633237,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_197f941c-4b89-48b3-a884-b6c89d225f53",
+      "type": "progress",
+      "at": 1791977633706,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_477b4b89-1454-45ee-b745-c55525b82986",
+      "type": "progress",
+      "at": 1791977665431,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_a38b6e51-5a9f-4678-8578-5e2888a600a3",
+      "type": "progress",
+      "at": 1791977673622,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_22e34a40-210a-408d-b74d-fbff401b508f",
+      "type": "progress",
+      "at": 1791977680834,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_066d0e41-b0fe-44fb-9c33-b220db1224d8",
+      "type": "progress",
+      "at": 1791977681234,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_2c277d4c-8b68-4c8e-8ccd-623ffadfdaa2",
+      "type": "progress",
+      "at": 1791977716942,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_7ce416b6-d399-4e31-88bd-78d86af1331d",
+      "type": "progress",
+      "at": 1791977728569,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_879c763e-db38-4dfb-8694-aa20c03d7401",
+      "type": "progress",
+      "at": 1791977788253,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_8f0cd252-aac7-4b2a-ad0e-8b07101194d5",
+      "type": "progress",
+      "at": 1791977788686,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_56b2a1fe-1b5f-4a7f-a858-22fbceca08ef",
+      "type": "progress",
+      "at": 1791992402935,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_607bd09c-f9ef-41b8-a276-c05aaa691858",
+      "type": "progress",
+      "at": 1791992410959,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_67a330fd-4e45-4e80-a3fe-3f3a0dfb2b96",
+      "type": "progress",
+      "at": 1791992650566,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_8ac1900d-d4ea-4c3d-94d3-e4691961bcf7",
+      "type": "progress",
+      "at": 1791992650782,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_e36700a1-2546-44f6-96de-4a300dc05fff",
+      "type": "progress",
+      "at": 1791992951815,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_0f2e6818-76f6-44fa-b119-b7d474d6b0e2",
+      "type": "progress",
+      "at": 1791992963527,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_9c9e77a7-c9c4-4649-824f-7e605f0ebab6",
+      "type": "progress",
+      "at": 1791993001833,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_56ae903f-9e3c-4de4-ae31-37f08583e09b",
+      "type": "progress",
+      "at": 1791993002054,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_84201815-c266-44ac-8372-7be08c8caa80",
+      "type": "progress",
+      "at": 1791993136737,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_79655eee-5e69-4a03-a325-25702a2929eb",
+      "type": "progress",
+      "at": 1791993197679,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_8f089add-0a76-44b6-84a6-c753642036ac",
+      "type": "progress",
+      "at": 1791993219040,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_93c9e26f-4690-48bc-ab97-eb7d87f5abd7",
+      "type": "progress",
+      "at": 1791993219256,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_091a352f-b7b4-4352-951d-9820339c13ed",
+      "type": "progress",
+      "at": 1791993278963,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_d8af40a3-fc6c-4d5b-a450-09188c2527b5",
+      "type": "progress",
+      "at": 1791993542567,
+      "player": "233144431206490@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_5d8fbdce-4eda-494a-b5d3-c6ca0e37a3f7",
+      "type": "progress",
+      "at": 1791993542567,
+      "player": "176412191391926@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_4e24e433-fc3d-4bf0-bce8-007650595a1e",
+      "type": "progress",
+      "at": 1791993663321,
+      "player": "233144431206490@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_6e45bdd2-ec66-46d6-b717-90e0c751497a",
+      "type": "progress",
+      "at": 1791993663321,
+      "player": "176412191391926@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_e542531c-8c65-4511-a983-b335aaf286a3",
+      "type": "daily",
+      "at": 1791994572062,
+      "player": "233144431206490@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_6f2de4e5-1ba9-43be-9e59-c20eba40080b",
+      "type": "daily",
+      "at": 1791994580502,
+      "player": "176412191391926@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_6f243556-8dd8-4e7e-bae5-e24f03f63ba3",
+      "type": "progress",
+      "at": 1791994621350,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_154f0d2e-c03a-4d12-861a-a376adcc44ca",
+      "type": "progress",
+      "at": 1791994647864,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_d56355c5-5d89-455c-8914-f6d73ff21466",
+      "type": "progress",
+      "at": 1791994648015,
+      "player": "233144431206490@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -558,6 +857,141 @@
       "at": 1791845676338,
       "type": "progress",
       "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0009": {
+      "at": 1791977612838,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0007": {
+      "at": 1791977633237,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:3": {
+      "at": 1791977633706,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0010": {
+      "at": 1791977665431,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0012": {
+      "at": 1791977673622,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0011": {
+      "at": 1791977680834,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:4": {
+      "at": 1791977681234,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0014": {
+      "at": 1791977716942,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0013": {
+      "at": 1791977728569,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0015": {
+      "at": 1791977788253,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:5": {
+      "at": 1791977788686,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0016": {
+      "at": 1791992402935,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0018": {
+      "at": 1791992410959,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0017": {
+      "at": 1791992650566,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:6": {
+      "at": 1791992650782,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0020": {
+      "at": 1791992951815,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0019": {
+      "at": 1791992963527,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0021": {
+      "at": 1791993001833,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:7": {
+      "at": 1791993002054,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0022": {
+      "at": 1791993136737,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0024": {
+      "at": 1791993197679,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0023": {
+      "at": 1791993219040,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:8": {
+      "at": 1791993219256,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0025": {
+      "at": 1791993278963,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0026": {
+      "at": 1791994621350,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-question:233144431206490@lid:int0027": {
+      "at": 1791994647864,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:intelligence-solo-stage:233144431206490@lid:9": {
+      "at": 1791994648015,
+      "type": "progress",
+      "player": "233144431206490@lid"
     }
   },
   "world": {
@@ -569,7 +1003,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1791897667705
+        "updatedAt": 1791998359985
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -577,7 +1011,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1791895452050
+        "updatedAt": 1791995291620
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -585,7 +1019,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1791897667704
+        "updatedAt": 1791998359984
       }
     },
     "season": {
@@ -595,20 +1029,20 @@
     "arthurIntelligence": {
       "players": {
         "233144431206490@lid": {
-          "stage": 2,
-          "completedStages": 2,
-          "totalCorrect": 11,
-          "totalWrong": 11,
-          "soloGames": 6,
-          "groupGames": 1
+          "stage": 9,
+          "completedStages": 9,
+          "totalCorrect": 38,
+          "totalWrong": 26,
+          "soloGames": 15,
+          "groupGames": 2
         },
         "176412191391926@lid": {
           "stage": 1,
           "completedStages": 1,
-          "totalCorrect": 13,
+          "totalCorrect": 47,
           "totalWrong": 0,
           "soloGames": 1,
-          "groupGames": 1
+          "groupGames": 2
         }
       }
     }
