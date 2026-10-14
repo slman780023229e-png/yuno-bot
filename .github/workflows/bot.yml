@@ -1,133 +1,135 @@
 name: ARTHUR BOT Runner
 
 on:
-workflow_dispatch:
-schedule:
-- cron: '17 */2 * * *'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */2 * * *'
 
 permissions:
-contents: write
-actions: write
+  contents: write
+  actions: write
 
 concurrency:
-group: arthur-whatsapp-bot
-cancel-in-progress: false
+  group: arthur-whatsapp-bot
+  cancel-in-progress: false
 
 jobs:
-build-and-run:
-runs-on: ubuntu-latest
-timeout-minutes: 330
+  build-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
 
-steps:  
-  - name: Checkout Code  
-    uses: actions/checkout@v4  
-    with:  
-      ref: ${{ github.ref_name }}  
-      fetch-depth: 0  
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  - name: Restore WhatsApp Session  
-    uses: actions/cache/restore@v4  
-    with:  
-      path: ملف_الاتصال/  
-      key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}  
-      restore-keys: |  
-        arthur-session-${{ github.ref_name }}-  
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-  - name: Setup Node.js  
-    uses: actions/setup-node@v4  
-    with:  
-      node-version: '20'  
+      - name: Restore Latest WhatsApp Session
+        id: restore-session
+        uses: actions/cache/restore@v4
+        with:
+          path: ملف_الاتصال/
+          key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            arthur-session-${{ github.ref_name }}-
 
-  - name: Install Dependencies  
-    run: npm install  
+      - name: Install Dependencies
+        run: npm install
 
-  - name: Run Bot with Automatic Repository Saving  
-    env:  
-      NODE_OPTIONS: "--max-old-space-size=4096"  
-      ARTHUR_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-      GITHUB_REPOSITORY: ${{ github.repository }}  
-      GITHUB_REF_NAME: ${{ github.ref_name }}  
-    shell: bash  
-    run: |  
-      set +e  
+      - name: Run Bot with Automatic Repository Saving
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          ARTHUR_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set +e
 
-      git config user.name "github-actions[bot]"  
-      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"  
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      save_changes() {  
-        echo "Checking repository changes..."  
+          save_changes() {
+            echo "Checking repository changes..."
 
-        git add -A -- . \  
-          ':(exclude)ملف_الاتصال' \  
-          ':(exclude)ملف_الاتصال/**' \  
-          ':(exclude).env' \  
-          ':(exclude).env.*' \  
-          ':(exclude)**/.env' \  
-          ':(exclude)**/.env.*' \  
-          ':(exclude)**/node_modules' \  
-          ':(exclude)**/node_modules/**' \  
-          ':(exclude)**/auth_info_baileys' \  
-          ':(exclude)**/auth_info_baileys/**' \  
-          ':(exclude)**/creds.json' \  
-          ':(exclude)**/*.pem' \  
-          ':(exclude)**/*.key' \  
-          ':(exclude)**/*.p12' \  
-          ':(exclude)**/*.pfx' || return 1  
+            git add -A -- . \
+              ':(exclude)ملف_الاتصال' \
+              ':(exclude)ملف_الاتصال/**' \
+              ':(exclude).env' \
+              ':(exclude).env.*' \
+              ':(exclude)**/.env' \
+              ':(exclude)**/.env.*' \
+              ':(exclude)**/node_modules' \
+              ':(exclude)**/node_modules/**' \
+              ':(exclude)**/auth_info_baileys' \
+              ':(exclude)**/auth_info_baileys/**' \
+              ':(exclude)**/creds.json' \
+              ':(exclude)**/*.pem' \
+              ':(exclude)**/*.key' \
+              ':(exclude)**/*.p12' \
+              ':(exclude)**/*.pfx' || return 1
 
-        if ! git diff --cached --quiet; then  
-          git commit -m "Auto-save ARTHUR repository progress" || return 1  
-        fi  
+            if ! git diff --cached --quiet; then
+              git commit -m "Auto-save ARTHUR repository progress" || return 1
+            fi
 
-        git fetch origin \  
-          "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1  
+            git fetch origin \
+              "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1
 
-        if [ "$(git rev-list --count "origin/${GITHUB_REF_NAME}..HEAD")" -gt 0 ]; then  
-          if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then  
-            echo "Push failed; trying to synchronize with GitHub..."  
+            if [ "$(git rev-list --count "origin/${GITHUB_REF_NAME}..HEAD")" -gt 0 ]; then
+              if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
+                echo "Push failed; synchronizing with GitHub..."
 
-            git fetch origin \  
-              "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1  
+                git fetch origin \
+                  "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1
 
-            git -c rebase.autoStash=true rebase \  
-              "origin/${GITHUB_REF_NAME}" || {  
-                git rebase --abort || true  
-                echo "Sync conflict. Changes remain in the runner."  
-                return 1  
-              }  
+                git -c rebase.autoStash=true rebase \
+                  "origin/${GITHUB_REF_NAME}" || {
+                    git rebase --abort || true
+                    echo "Sync conflict. Changes remain in the runner."
+                    return 1
+                  }
 
-            git push origin "HEAD:${GITHUB_REF_NAME}" || return 1  
-          fi  
+                git push origin "HEAD:${GITHUB_REF_NAME}" || return 1
+              fi
 
-          echo "Repository changes saved."  
-        else  
-          echo "No new commits to push."  
-        fi  
-      }  
+              echo "Repository changes saved."
+            else
+              echo "No new commits to push."
+            fi
+          }
 
-      node start.js &  
-      BOT_PID=$!  
+          node start.js &
+          BOT_PID=$!
 
-      echo "ARTHUR BOT started. Auto-save interval: 5 minutes."  
+          echo "ARTHUR BOT started. Auto-save interval: 5 minutes."
 
-      while kill -0 "$BOT_PID" 2>/dev/null; do  
-        sleep 300  
+          while kill -0 "$BOT_PID" 2>/dev/null; do
+            sleep 300
 
-        if kill -0 "$BOT_PID" 2>/dev/null; then  
-          save_changes || echo "Auto-save failed; will retry later."  
-        fi  
-      done  
+            if kill -0 "$BOT_PID" 2>/dev/null; then
+              save_changes || echo "Auto-save failed; will retry later."
+            fi
+          done
 
-      wait "$BOT_PID"  
-      BOT_STATUS=$?  
+          wait "$BOT_PID"
+          BOT_STATUS=$?
 
-      echo "Bot stopped. Attempting final save..."  
-      save_changes || echo "Final save failed."  
+          echo "Bot stopped. Attempting final save..."
+          save_changes || echo "Final save failed."
 
-      exit "$BOT_STATUS"  
+          exit "$BOT_STATUS"
 
-  - name: Save WhatsApp Session  
-    if: always()  
-    uses: actions/cache/save@v4  
-    with:  
-      path: ملف_الاتصال/  
-      key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}
+      - name: Save WhatsApp Session
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ملف_الاتصال/
+          key: arthur-session-${{ github.ref_name }}-${{ github.run_id }}
