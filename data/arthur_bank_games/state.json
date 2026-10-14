@@ -2,8 +2,8 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 6839,
-      "bank": 1485,
+      "wallet": 3839,
+      "bank": 4485,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -756,6 +756,13 @@
       "gold": 105,
       "points": 15,
       "xp": 20
+    },
+    {
+      "id": "tx_8be79981-a5df-4bc7-b076-271454c62b89",
+      "type": "deposit",
+      "at": 1792011998063,
+      "player": "233144431206490@lid",
+      "amount": 3000
     }
   ],
   "processedResults": {
