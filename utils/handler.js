@@ -1344,6 +1344,8 @@ function releaseMessageWorker() {
     activeMessageWorkers = Math.max(0, activeMessageWorkers - 1);
 }
 
+let fallbackQueueSequence = 0;
+
 function queueMessage(sock, msg) {
     const id = msg?.key?.id;
     const jid = String(msg?.key?.remoteJid || `unknown:${id || Date.now()}`);
@@ -1353,14 +1355,20 @@ function queueMessage(sock, msg) {
         msg?.key?.remoteJid ||
         "unknown"
     );
-    // Serialize a whole chat/group so shared game and moderation state cannot race.
-    const queueKey = jid;
+
+    // Deduplicate each sender's message, but do not serialize an entire chat.
+    // A slow command (such as a media download) must not block the next command
+    // sent in the same conversation. The worker pool still caps total concurrency.
     const scope = `${jid}:${participant}`;
     if (id && wasProcessed(id, sock, scope)) return false;
-    const previous = chatMessageQueues.get(queueKey) || Promise.resolve();
+
+    const queueKey = id
+        ? `${jid}:${id}`
+        : `${jid}:no-id:${++fallbackQueueSequence}`;
+
     pendingMessageCount++;
 
-    const task = previous.catch(() => {}).then(async () => {
+    const task = (async () => {
         await acquireMessageWorker();
         try {
             await executeHandlerLogic(sock, msg);
@@ -1369,9 +1377,11 @@ function queueMessage(sock, msg) {
         } finally {
             pendingMessageCount = Math.max(0, pendingMessageCount - 1);
             releaseMessageWorker();
-            if (chatMessageQueues.get(queueKey) === task) chatMessageQueues.delete(queueKey);
+            if (chatMessageQueues.get(queueKey) === task) {
+                chatMessageQueues.delete(queueKey);
+            }
         }
-    });
+    })();
 
     chatMessageQueues.set(queueKey, task);
     return true;
