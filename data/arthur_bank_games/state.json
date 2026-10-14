@@ -13,12 +13,7 @@
       "wins": 14,
       "losses": 0,
       "title": "",
-      "inventory": [
-        {
-          "id": "hint_strong",
-          "qty": 1
-        }
-      ],
+      "inventory": [],
       "skills": {
         "luck": 1,
         "strength": 1,
