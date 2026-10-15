@@ -108,7 +108,7 @@
       "debt": 0,
       "creditScore": 100,
       "points": 0,
-      "xp": 15,
+      "xp": 30,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -147,28 +147,7 @@
     }
   },
   "duels": {},
-  "xo": {
-    "120363413393470630@g.us_1792083947194_9b6d72": {
-      "playerX": "135974805860531@lid",
-      "playerO": "BOT",
-      "invited": "",
-      "started": true,
-      "isVsBot": true,
-      "turn": "135974805860531@lid",
-      "createdAt": 1792083947194,
-      "b": [
-        "O",
-        "O",
-        "X",
-        "X",
-        "X",
-        "O",
-        "O",
-        "X",
-        ""
-      ]
-    }
-  },
+  "xo": {},
   "transactions": [
     {
       "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
@@ -811,6 +790,15 @@
       "id": "tx_626be497-9255-409f-a781-9accfe6c0d3c",
       "type": "progress",
       "at": 1792083933951,
+      "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_0f6980bf-7441-4eb0-9d39-d2c68b20af1d",
+      "type": "progress",
+      "at": 1792083996997,
       "player": "135974805860531@lid",
       "gold": 0,
       "points": 0,
