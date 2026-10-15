@@ -7,6 +7,7 @@ import {
 
 const BASE_URL = 'https://www.pinterest.com';
 const SEARCH_URL = `${BASE_URL}/resource/BaseSearchResource/get/`;
+
 const MAX_IMAGES = 30;
 const CARDS_PER_CAROUSEL = 10;
 
@@ -27,7 +28,7 @@ const http = axios.create({
   validateStatus: status => status >= 200 && status < 300
 });
 
-function getJid(msg, data) {
+function getJid(msg, data = {}) {
   return (
     data?.jid ||
     data?.chat ||
@@ -41,26 +42,37 @@ function getQuery(data = {}) {
   if (Array.isArray(data.args) && data.args.length) {
     const args = [...data.args];
 
-    if (/^(بنترست|بينترست|بينتر|pinterest)$/i.test(String(args[0]))) {
+    if (
+      /^(بنترست|بينترست|بينتر|pinterest)$/i.test(
+        String(args[0])
+      )
+    ) {
       args.shift();
     }
 
-    if (args.length) return args.join(' ').trim();
+    if (args.length) {
+      return args.join(' ').trim();
+    }
   }
 
   for (const key of ['query', 'noPrefixText', 'text']) {
     let value = data[key];
 
-    if (Array.isArray(value)) value = value.join(' ');
+    if (Array.isArray(value)) {
+      value = value.join(' ');
+    }
+
     if (typeof value !== 'string') continue;
 
     value = value.trim();
     if (!value) continue;
 
-    value = value.replace(
-      /^(?:[.!/#،]\s*)?(?:بنترست|بينترست|بينتر|pinterest)\b\s*/i,
-      ''
-    ).trim();
+    value = value
+      .replace(
+        /^(?:[.!/#،]\s*)?(?:بنترست|بينترست|بينتر|pinterest)\b\s*/i,
+        ''
+      )
+      .trim();
 
     if (value) return value;
   }
@@ -76,14 +88,19 @@ async function getCookies() {
   const setCookie = response.headers['set-cookie'];
 
   if (!Array.isArray(setCookie) || !setCookie.length) {
-    throw new Error('Pinterest did not provide session cookies');
+    throw new Error(
+      'Pinterest did not provide session cookies'
+    );
   }
 
-  return setCookie.map(cookie => cookie.split(';')[0]).join('; ');
+  return setCookie
+    .map(cookie => cookie.split(';')[0])
+    .join('; ');
 }
 
 function extractImageUrls(response) {
-  const results = response?.resource_response?.data?.results;
+  const results =
+    response?.resource_response?.data?.results;
 
   if (!Array.isArray(results)) return [];
 
@@ -100,7 +117,10 @@ function extractImageUrls(response) {
       images['474x']?.url ||
       images['236x']?.url;
 
-    if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    if (
+      typeof url === 'string' &&
+      /^https?:\/\//i.test(url)
+    ) {
       urls.push(url);
     }
   }
@@ -108,10 +128,13 @@ function extractImageUrls(response) {
   return [...new Set(urls)];
 }
 
-async function searchPinterest(query, limit = MAX_IMAGES) {
+async function searchPinterest(
+  query,
+  limit = MAX_IMAGES
+) {
   const cookies = await getCookies();
-  const found = new Set();
 
+  const found = new Set();
   let bookmark = '';
   let page = 0;
 
@@ -119,7 +142,8 @@ async function searchPinterest(query, limit = MAX_IMAGES) {
     page++;
 
     const params = {
-      source_url: `/search/pins/?q=${encodeURIComponent(query)}`,
+      source_url:
+        `/search/pins/?q=${encodeURIComponent(query)}`,
       data: JSON.stringify({
         options: {
           query,
@@ -143,9 +167,14 @@ async function searchPinterest(query, limit = MAX_IMAGES) {
 
     const resource = response.data?.resource_response;
 
-    if (resource?.status && resource.status !== 'success') {
+    if (
+      resource?.status &&
+      resource.status !== 'success'
+    ) {
       throw new Error(
-        `Pinterest search failed: ${resource.message || resource.status}`
+        `Pinterest search failed: ${
+          resource.message || resource.status
+        }`
       );
     }
 
@@ -153,12 +182,18 @@ async function searchPinterest(query, limit = MAX_IMAGES) {
 
     for (const url of urls) {
       found.add(url);
+
       if (found.size >= limit) break;
     }
 
     const next = resource?.bookmark;
 
-    if (!next || next === '-end-' || next === bookmark || !urls.length) {
+    if (
+      !next ||
+      next === '-end-' ||
+      next === bookmark ||
+      !urls.length
+    ) {
       break;
     }
 
@@ -182,7 +217,9 @@ async function downloadImage(url) {
   ).toLowerCase();
 
   if (!contentType.startsWith('image/')) {
-    throw new Error(`URL did not return an image: ${contentType}`);
+    throw new Error(
+      `URL did not return an image: ${contentType || 'unknown content type'}`
+    );
   }
 
   const buffer = Buffer.from(response.data);
@@ -194,118 +231,200 @@ async function downloadImage(url) {
   return buffer;
 }
 
+/*
+ * الإصلاح الأساسي:
+ * لا نستخدم Card.fromObject.
+ * كل بطاقة تُبنى كـ InteractiveMessage.
+ */
 async function makeCard(sock, url, index, query) {
   const buffer = await downloadImage(url);
 
   if (typeof sock.waUploadToServer !== 'function') {
-    throw new Error('Socket waUploadToServer is unavailable');
+    throw new Error(
+      'Socket waUploadToServer is unavailable'
+    );
   }
 
-  const { imageMessage } = await generateWAMessageContent(
+  const media = await generateWAMessageContent(
     { image: buffer },
     { upload: sock.waUploadToServer }
   );
 
+  const imageMessage = media?.imageMessage;
+
   if (!imageMessage) {
-    throw new Error('Baileys could not prepare the image');
+    throw new Error(
+      'Baileys could not prepare the image'
+    );
   }
 
-  return proto.Message.InteractiveMessage.Card.fromObject({
-    body: proto.Message.InteractiveMessage.Body.fromObject({
-      text: `📸 صورة ${index} | 🔎 ${query}`
-    }),
+  const InteractiveMessage =
+    proto.Message?.InteractiveMessage;
 
-    header: proto.Message.InteractiveMessage.Header.fromObject({
+  if (
+    typeof InteractiveMessage?.fromObject !== 'function'
+  ) {
+    throw new Error(
+      'InteractiveMessage.fromObject is unavailable in this Baileys build'
+    );
+  }
+
+  return InteractiveMessage.fromObject({
+    body: {
+      text: `📸 صورة ${index} | 🔎 ${query}`
+    },
+
+    header: {
       hasMediaAttachment: true,
       imageMessage
-    }),
+    },
 
-    nativeFlowMessage:
-      proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-        buttons: [
-          {
-            name: 'cta_url',
-            buttonParamsJson: JSON.stringify({
-              display_text: '📌 فتح Pinterest',
-              url: `${BASE_URL}/search/pins/?q=${encodeURIComponent(query)}`
-            })
-          }
-        ]
-      })
+    nativeFlowMessage: {
+      buttons: [
+        {
+          name: 'cta_url',
+          buttonParamsJson: JSON.stringify({
+            display_text: '📌 فتح Pinterest',
+            url:
+              `${BASE_URL}/search/pins/?q=` +
+              encodeURIComponent(query)
+          })
+        }
+      ]
+    }
   });
 }
 
-async function sendCarousel(sock, jid, quoted, cards, query, batch, total) {
+async function sendCarousel(
+  sock,
+  jid,
+  quoted,
+  cards,
+  query,
+  batch,
+  total
+) {
+  const InteractiveMessage =
+    proto.Message?.InteractiveMessage;
+
+  if (
+    typeof InteractiveMessage?.fromObject !== 'function'
+  ) {
+    throw new Error(
+      'InteractiveMessage.fromObject is unavailable'
+    );
+  }
+
+  if (
+    typeof InteractiveMessage.CarouselMessage
+      ?.fromObject !== 'function'
+  ) {
+    throw new Error(
+      'CarouselMessage.fromObject is unavailable in this Baileys build'
+    );
+  }
+
   const interactiveMessage =
-    proto.Message.InteractiveMessage.fromObject({
-      body: proto.Message.InteractiveMessage.Body.create({
+    InteractiveMessage.fromObject({
+      body: {
         text:
           `📌 نتائج Pinterest: ${query}\n` +
           `🖼️ صور هذه المجموعة: ${cards.length}\n` +
           `📚 المجموعة ${batch} | إجمالي الصور: ${total}`
-      }),
+      },
 
-      footer: proto.Message.InteractiveMessage.Footer.create({
+      footer: {
         text: globalThis.watermark || '🩸 ARTHUR BOT 🩸'
-      }),
+      },
 
-      carouselMessage:
-        proto.Message.InteractiveMessage.CarouselMessage.fromObject({
-          cards
-        })
+      carouselMessage: {
+        cards
+      }
     });
 
   const message = generateWAMessageFromContent(
     jid,
     {
       viewOnceMessage: {
-        message: { interactiveMessage }
+        message: {
+          interactiveMessage
+        }
       }
     },
     { quoted }
   );
 
-  await sock.relayMessage(jid, message.message, {
-    messageId: message.key.id
-  });
+  await sock.relayMessage(
+    jid,
+    message.message,
+    {
+      messageId: message.key.id
+    }
+  );
 }
 
 export default {
   name: 'بنترست',
-  command: ['بنترست', 'بينترست', 'بينتر', 'pinterest'],
+
+  command: [
+    'بنترست',
+    'بينترست',
+    'بينتر',
+    'pinterest'
+  ],
+
   aliases: ['pin'],
   category: 'media',
-  description: 'البحث عن صور Pinterest وإرسالها في Carousel',
+
+  description:
+    'البحث عن صور Pinterest وإرسالها في Carousel',
+
   usage: '.بنترست anime',
 
   async execute(sock, msg, data = {}) {
     const jid = getJid(msg, data);
 
     if (!jid) {
-      console.error('[ARTHUR PINTEREST] Could not determine chat JID');
+      console.error(
+        '[ARTHUR PINTEREST] Could not determine chat JID'
+      );
       return;
     }
 
     const query = getQuery(data);
+
     let stage = 'قراءة أمر البحث';
-    let progress;
+    let progress = null;
 
     const react = async emoji => {
       try {
         if (msg?.key) {
           await sock.sendMessage(jid, {
-            react: { text: emoji, key: msg.key }
+            react: {
+              text: emoji,
+              key: msg.key
+            }
           });
         }
-      } catch {}
+      } catch (error) {
+        console.error(
+          '[ARTHUR PINTEREST REACTION ERROR]',
+          error?.message || error
+        );
+      }
     };
 
     if (!query) {
       await sock.sendMessage(
         jid,
-        { text: '📌 أرسل كلمة البحث.\nمثال: .بنترست anime' },
+        {
+          text:
+            '📌 أرسل كلمة البحث.\n' +
+            'مثال: .بنترست anime'
+        },
         { quoted: msg }
       );
+
       return;
     }
 
@@ -314,29 +433,37 @@ export default {
       await react('🔎');
 
       stage = 'إرسال رسالة الانتظار';
+
       progress = await sock.sendMessage(
         jid,
         {
-          text: `🔎 يبحث ARTHUR BOT عن صور Pinterest لـ: ${query}\nيرجى الانتظار...`
+          text:
+            `🔎 يبحث ARTHUR BOT عن صور Pinterest لـ: ${query}\n` +
+            'يرجى الانتظار...'
         },
         { quoted: msg }
       );
 
       stage = 'الاتصال بـ Pinterest واستخراج النتائج';
-      const imageUrls = await searchPinterest(query, MAX_IMAGES);
+
+      const imageUrls = await searchPinterest(
+        query,
+        MAX_IMAGES
+      );
 
       console.log(
-        `[ARTHUR PINTEREST] Search returned ${imageUrls.length} images`
+        '[ARTHUR PINTEREST] Search results:',
+        imageUrls.length
       );
 
       if (!imageUrls.length) {
-        stage = 'لا توجد نتائج صور';
         throw new Error(
-          'Pinterest returned no usable image URLs for this query'
+          'Pinterest returned no usable image URLs'
         );
       }
 
       stage = 'تجهيز الصور';
+
       const cards = [];
 
       for (let i = 0; i < imageUrls.length; i++) {
@@ -350,17 +477,22 @@ export default {
 
           cards.push(card);
         } catch (error) {
-          console.error('[ARTHUR PINTEREST IMAGE ERROR]', {
-            imageNumber: i + 1,
-            message: error?.message || String(error)
-          });
+          console.error(
+            '[ARTHUR PINTEREST IMAGE ERROR]',
+            {
+              imageNumber: i + 1,
+              stage: 'تنزيل الصورة أو تجهيز البطاقة',
+              message:
+                error?.message || String(error),
+              stack: error?.stack
+            }
+          );
         }
       }
 
       if (!cards.length) {
-        stage = 'فشل تجهيز جميع الصور';
         throw new Error(
-          'Search returned image URLs, but no image could be prepared'
+          'All image cards failed. Check ARTHUR PINTEREST IMAGE ERROR logs.'
         );
       }
 
@@ -373,7 +505,7 @@ export default {
           });
         } catch (error) {
           console.error(
-            '[ARTHUR PINTEREST] Could not delete progress message:',
+            '[ARTHUR PINTEREST] Progress deletion failed:',
             error?.message || error
           );
         }
@@ -386,7 +518,10 @@ export default {
         start < cards.length;
         start += CARDS_PER_CAROUSEL, batch++
       ) {
-        const group = cards.slice(start, start + CARDS_PER_CAROUSEL);
+        const group = cards.slice(
+          start,
+          start + CARDS_PER_CAROUSEL
+        );
 
         stage = `إرسال Carousel رقم ${batch}`;
 
@@ -402,37 +537,46 @@ export default {
       }
 
       stage = 'إنهاء الأمر';
+
       await react('✅');
 
       console.log(
-        `[ARTHUR PINTEREST] Success: query="${query}", images=${cards.length}`
+        '[ARTHUR PINTEREST] Success:',
+        {
+          query,
+          images: cards.length
+        }
       );
     } catch (error) {
-      console.error('[ARTHUR PINTEREST ERROR]', {
-        stage,
-        query,
-        status: error?.response?.status,
-        response: error?.response?.data,
-        message: error?.message || String(error),
-        stack: error?.stack
-      });
+      console.error(
+        '[ARTHUR PINTEREST ERROR]',
+        {
+          stage,
+          query,
+          status: error?.response?.status,
+          response: error?.response?.data,
+          message:
+            error?.message || String(error),
+          stack: error?.stack
+        }
+      );
 
       await react('❌');
 
-      try {
-        if (progress?.key) {
+      if (progress?.key) {
+        try {
           await sock.sendMessage(jid, {
             delete: progress.key
           });
-        }
-      } catch {}
+        } catch {}
+      }
 
       try {
         await sock.sendMessage(
           jid,
           {
             text:
-              `❌ تعذر تنفيذ أمر Pinterest.\n` +
+              '❌ تعذر تنفيذ أمر Pinterest.\n' +
               `📍 المرحلة: ${stage}\n` +
               `⚠️ السبب: ${error?.message || 'خطأ غير معروف'}\n` +
               'راجع سجل تشغيل البوت لمعرفة التفاصيل.'
