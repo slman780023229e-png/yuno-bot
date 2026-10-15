@@ -102,7 +102,7 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 1500,
+      "wallet": 1000,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -121,7 +121,13 @@
       },
       "lastDaily": 0,
       "lastInterest": 1792083933949,
-      "createdAt": 1792083933949
+      "createdAt": 1792083933949,
+      "bankProfile": {
+        "name": "سلماة",
+        "logo": "👑",
+        "openedAt": 1792084347356,
+        "updatedAt": 1792084347356
+      }
     }
   },
   "clans": {},
@@ -1106,7 +1112,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792084087071
+        "updatedAt": 1792084602363
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -1122,7 +1128,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792084087069
+        "updatedAt": 1792084602362
       }
     },
     "season": {
@@ -1150,7 +1156,7 @@
         "13409642873055@lid": {
           "stage": 0,
           "completedStages": 0,
-          "totalCorrect": 1,
+          "totalCorrect": 4,
           "totalWrong": 0,
           "soloGames": 0,
           "groupGames": 1
@@ -1158,7 +1164,7 @@
         "135974805860531@lid": {
           "stage": 0,
           "completedStages": 0,
-          "totalCorrect": 0,
+          "totalCorrect": 12,
           "totalWrong": 0,
           "soloGames": 0,
           "groupGames": 1
