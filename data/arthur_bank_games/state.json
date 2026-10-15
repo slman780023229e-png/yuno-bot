@@ -3,7 +3,7 @@
   "accounts": {
     "233144431206490@lid": {
       "wallet": 3839,
-      "bank": 4485,
+      "bank": 4619,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -20,7 +20,7 @@
         "defense": 1
       },
       "lastDaily": 1791994572062,
-      "lastInterest": 1791994458434,
+      "lastInterest": 1792080858434,
       "createdAt": 1791757197518,
       "bankProfile": {
         "name": "سلمان",
