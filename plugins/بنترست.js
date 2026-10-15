@@ -40,9 +40,11 @@ function getJid(msg, data) {
 function getQuery(data = {}) {
   if (Array.isArray(data.args) && data.args.length) {
     const args = [...data.args];
+
     if (/^(بنترست|بينترست|بينتر|pinterest)$/i.test(String(args[0]))) {
       args.shift();
     }
+
     if (args.length) return args.join(' ').trim();
   }
 
@@ -81,8 +83,7 @@ async function getCookies() {
 }
 
 function extractImageUrls(response) {
-  const resource = response?.resource_response;
-  const results = resource?.data?.results;
+  const results = response?.resource_response?.data?.results;
 
   if (!Array.isArray(results)) return [];
 
@@ -104,12 +105,13 @@ function extractImageUrls(response) {
     }
   }
 
-  return urls;
+  return [...new Set(urls)];
 }
 
 async function searchPinterest(query, limit = MAX_IMAGES) {
   const cookies = await getCookies();
   const found = new Set();
+
   let bookmark = '';
   let page = 0;
 
@@ -156,12 +158,7 @@ async function searchPinterest(query, limit = MAX_IMAGES) {
 
     const next = resource?.bookmark;
 
-    if (
-      !next ||
-      next === '-end-' ||
-      next === bookmark ||
-      !urls.length
-    ) {
+    if (!next || next === '-end-' || next === bookmark || !urls.length) {
       break;
     }
 
@@ -215,7 +212,7 @@ async function makeCard(sock, url, index, query) {
 
   return proto.Message.InteractiveMessage.Card.fromObject({
     body: proto.Message.InteractiveMessage.Body.fromObject({
-      text: `📸 صورة ${index} من نتائج: ${query}`
+      text: `📸 صورة ${index} | 🔎 ${query}`
     }),
 
     header: proto.Message.InteractiveMessage.Header.fromObject({
@@ -244,7 +241,7 @@ async function sendCarousel(sock, jid, quoted, cards, query, batch, total) {
       body: proto.Message.InteractiveMessage.Body.create({
         text:
           `📌 نتائج Pinterest: ${query}\n` +
-          `🖼️ الصور في هذه المجموعة: ${cards.length}\n` +
+          `🖼️ صور هذه المجموعة: ${cards.length}\n` +
           `📚 المجموعة ${batch} | إجمالي الصور: ${total}`
       }),
 
@@ -284,37 +281,39 @@ export default {
   async execute(sock, msg, data = {}) {
     const jid = getJid(msg, data);
 
-    if (!jid) return;
+    if (!jid) {
+      console.error('[ARTHUR PINTEREST] Could not determine chat JID');
+      return;
+    }
 
     const query = getQuery(data);
+    let stage = 'قراءة أمر البحث';
+    let progress;
+
+    const react = async emoji => {
+      try {
+        if (msg?.key) {
+          await sock.sendMessage(jid, {
+            react: { text: emoji, key: msg.key }
+          });
+        }
+      } catch {}
+    };
 
     if (!query) {
       await sock.sendMessage(
         jid,
-        {
-          text: '📌 أرسل كلمة البحث.\nمثال: .بنترست anime'
-        },
+        { text: '📌 أرسل كلمة البحث.\nمثال: .بنترست anime' },
         { quoted: msg }
       );
       return;
     }
 
-    const react = async emoji => {
-      try {
-        await sock.sendMessage(jid, {
-          react: {
-            text: emoji,
-            key: msg.key
-          }
-        });
-      } catch {}
-    };
-
-    let progress;
-
     try {
+      stage = 'إضافة تفاعل البحث';
       await react('🔎');
 
+      stage = 'إرسال رسالة الانتظار';
       progress = await sock.sendMessage(
         jid,
         {
@@ -323,15 +322,21 @@ export default {
         { quoted: msg }
       );
 
+      stage = 'الاتصال بـ Pinterest واستخراج النتائج';
       const imageUrls = await searchPinterest(query, MAX_IMAGES);
 
+      console.log(
+        `[ARTHUR PINTEREST] Search returned ${imageUrls.length} images`
+      );
+
       if (!imageUrls.length) {
-        await sock.sendMessage(jid, {
-          text: '❌ لم يعثر Pinterest على صور. جرّب كلمة بحث أخرى.'
-        });
-        return;
+        stage = 'لا توجد نتائج صور';
+        throw new Error(
+          'Pinterest returned no usable image URLs for this query'
+        );
       }
 
+      stage = 'تجهيز الصور';
       const cards = [];
 
       for (let i = 0; i < imageUrls.length; i++) {
@@ -345,26 +350,36 @@ export default {
 
           cards.push(card);
         } catch (error) {
-          console.error(
-            `[ARTHUR PINTEREST] Failed image ${i + 1}:`,
-            error?.message || error
-          );
+          console.error('[ARTHUR PINTEREST IMAGE ERROR]', {
+            imageNumber: i + 1,
+            message: error?.message || String(error)
+          });
         }
       }
 
       if (!cards.length) {
+        stage = 'فشل تجهيز جميع الصور';
         throw new Error(
-          'Search returned images, but none could be prepared for WhatsApp'
+          'Search returned image URLs, but no image could be prepared'
         );
       }
+
+      stage = 'حذف رسالة الانتظار';
 
       if (progress?.key) {
         try {
           await sock.sendMessage(jid, {
             delete: progress.key
           });
-        } catch {}
+        } catch (error) {
+          console.error(
+            '[ARTHUR PINTEREST] Could not delete progress message:',
+            error?.message || error
+          );
+        }
       }
+
+      stage = 'إرسال Carousel إلى واتساب';
 
       for (
         let start = 0, batch = 1;
@@ -372,6 +387,8 @@ export default {
         start += CARDS_PER_CAROUSEL, batch++
       ) {
         const group = cards.slice(start, start + CARDS_PER_CAROUSEL);
+
+        stage = `إرسال Carousel رقم ${batch}`;
 
         await sendCarousel(
           sock,
@@ -384,6 +401,7 @@ export default {
         );
       }
 
+      stage = 'إنهاء الأمر';
       await react('✅');
 
       console.log(
@@ -391,24 +409,42 @@ export default {
       );
     } catch (error) {
       console.error('[ARTHUR PINTEREST ERROR]', {
+        stage,
         query,
         status: error?.response?.status,
         response: error?.response?.data,
-        message: error?.message,
+        message: error?.message || String(error),
         stack: error?.stack
       });
 
       await react('❌');
 
-      await sock.sendMessage(
-        jid,
-        {
-          text:
-            '❌ تعذر البحث عن الصور أو إرسالها.\n' +
-            'راجع سجل تشغيل البوت وابحث عن [ARTHUR PINTEREST ERROR].'
-        },
-        { quoted: msg }
-      );
+      try {
+        if (progress?.key) {
+          await sock.sendMessage(jid, {
+            delete: progress.key
+          });
+        }
+      } catch {}
+
+      try {
+        await sock.sendMessage(
+          jid,
+          {
+            text:
+              `❌ تعذر تنفيذ أمر Pinterest.\n` +
+              `📍 المرحلة: ${stage}\n` +
+              `⚠️ السبب: ${error?.message || 'خطأ غير معروف'}\n` +
+              'راجع سجل تشغيل البوت لمعرفة التفاصيل.'
+          },
+          { quoted: msg }
+        );
+      } catch (sendError) {
+        console.error(
+          '[ARTHUR PINTEREST ERROR MESSAGE FAILED]',
+          sendError?.stack || sendError
+        );
+      }
     }
   }
 };
