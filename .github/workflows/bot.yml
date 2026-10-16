@@ -1,4 +1,4 @@
-name: ARTHUR BOT Runner
+Name: ARTHUR BOT Runner
 
 on:
   workflow_dispatch:
@@ -59,9 +59,10 @@ jobs:
           save_changes() {
             echo "Checking repository changes..."
 
+            # إضافة جميع الملفات والمجلدات الجديدة مع استثناء ملفات الأمان والجلسة الحساسة فقط
             git add -A -- . \
-              ':(exclude)ملف_الاتصال' \
-              ':(exclude)ملف_الاتصال/**' \
+              ':(exclude)ملف_الاتصال/creds.json' \
+              ':(exclude)ملف_الاتصال/*.json' \
               ':(exclude).env' \
               ':(exclude).env.*' \
               ':(exclude)**/.env' \
@@ -70,7 +71,6 @@ jobs:
               ':(exclude)**/node_modules/**' \
               ':(exclude)**/auth_info_baileys' \
               ':(exclude)**/auth_info_baileys/**' \
-              ':(exclude)**/creds.json' \
               ':(exclude)**/*.pem' \
               ':(exclude)**/*.key' \
               ':(exclude)**/*.p12' \
@@ -78,6 +78,9 @@ jobs:
 
             if ! git diff --cached --quiet; then
               git commit -m "Auto-save ARTHUR repository progress" || return 1
+            else
+              echo "No new changes to commit."
+              return 0
             fi
 
             git fetch origin \
@@ -100,7 +103,7 @@ jobs:
                 git push origin "HEAD:${GITHUB_REF_NAME}" || return 1
               fi
 
-              echo "Repository changes saved."
+              echo "Repository changes saved successfully."
             else
               echo "No new commits to push."
             fi
