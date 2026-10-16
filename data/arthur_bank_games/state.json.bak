@@ -95,20 +95,20 @@
       "lastInterest": 1792080846184,
       "createdAt": 1791821623802,
       "bankProfile": {
-        "name": "Mohammed7",
-        "logo": "🐬",
+        "name": "Mohammed17",
+        "logo": "🌑",
         "openedAt": 1791993762534,
-        "updatedAt": 1791993762534
+        "updatedAt": 1792156495882
       }
     },
     "135974805860531@lid": {
-      "wallet": 1000,
+      "wallet": 2654,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 0,
-      "xp": 30,
+      "points": 195,
+      "xp": 350,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -119,14 +119,14 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 0,
-      "lastInterest": 1792156383077,
+      "lastDaily": 1792156556578,
+      "lastInterest": 1792156549878,
       "createdAt": 1792083933949,
       "bankProfile": {
-        "name": "سلماة",
-        "logo": "👑",
+        "name": "slman",
+        "logo": "🩸",
         "openedAt": 1792084347356,
-        "updatedAt": 1792084347356
+        "updatedAt": 1792156538979
       }
     }
   },
@@ -953,6 +953,85 @@
       "gold": 262,
       "points": 40,
       "xp": 60
+    },
+    {
+      "id": "tx_91393328-91de-443f-8d6a-00528dd63485",
+      "type": "daily",
+      "at": 1792156556578,
+      "player": "135974805860531@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_19f1db5b-fd70-442c-824c-15b1ddfd3f38",
+      "type": "progress",
+      "at": 1792156578213,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_b7f902b5-d25f-49cb-b704-4278e3cb7109",
+      "type": "progress",
+      "at": 1792156589846,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_c9d16262-8f13-44cf-afc8-e2e47858a9d2",
+      "type": "progress",
+      "at": 1792156677447,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_e5762b18-7f9f-4c12-8f2d-a8edd843265b",
+      "type": "progress",
+      "at": 1792156677655,
+      "player": "135974805860531@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_73ae5344-95c5-4783-a9e9-a8ba8a11283d",
+      "type": "progress",
+      "at": 1792156696736,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_ace09ed1-9bfc-4864-a215-39b2ba50b7de",
+      "type": "progress",
+      "at": 1792156702767,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_a2bad7b4-2722-4cb9-865c-f0e1fc4588f8",
+      "type": "progress",
+      "at": 1792156708629,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_a64a7d1d-4fb7-4a40-9ed2-cfed20b3a65f",
+      "type": "progress",
+      "at": 1792156708842,
+      "player": "135974805860531@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -1325,6 +1404,46 @@
       "at": 1792156355131,
       "type": "progress",
       "player": "176412191391926@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0002": {
+      "at": 1792156578213,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0003": {
+      "at": 1792156589846,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0001": {
+      "at": 1792156677447,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-stage:135974805860531@lid:1": {
+      "at": 1792156677654,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0006": {
+      "at": 1792156696736,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0004": {
+      "at": 1792156702767,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0005": {
+      "at": 1792156708629,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-stage:135974805860531@lid:2": {
+      "at": 1792156708842,
+      "type": "progress",
+      "player": "135974805860531@lid"
     }
   },
   "world": {
@@ -1386,11 +1505,11 @@
           "groupGames": 2
         },
         "135974805860531@lid": {
-          "stage": 0,
-          "completedStages": 0,
-          "totalCorrect": 12,
-          "totalWrong": 0,
-          "soloGames": 0,
+          "stage": 2,
+          "completedStages": 2,
+          "totalCorrect": 18,
+          "totalWrong": 3,
+          "soloGames": 2,
           "groupGames": 1
         }
       }
@@ -1400,11 +1519,6 @@
     "967715795639:6@s.whatsapp.net": {
       "step": "name",
       "startedAt": 1791820723662
-    },
-    "176412191391926@lid": {
-      "step": "name",
-      "startedAt": 1792156436361,
-      "editing": true
     }
   }
 }
