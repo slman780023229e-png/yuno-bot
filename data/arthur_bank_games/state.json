@@ -102,13 +102,13 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 2182,
+      "wallet": 2287,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 125,
-      "xp": 240,
+      "points": 140,
+      "xp": 265,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -1005,6 +1005,15 @@
       "gold": 105,
       "points": 15,
       "xp": 25
+    },
+    {
+      "id": "tx_ace09ed1-9bfc-4864-a215-39b2ba50b7de",
+      "type": "progress",
+      "at": 1792156702767,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
     }
   ],
   "processedResults": {
@@ -1402,6 +1411,11 @@
       "at": 1792156696736,
       "type": "progress",
       "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:intelligence-solo-question:135974805860531@lid:int0004": {
+      "at": 1792156702767,
+      "type": "progress",
+      "player": "135974805860531@lid"
     }
   },
   "world": {
@@ -1465,7 +1479,7 @@
         "135974805860531@lid": {
           "stage": 1,
           "completedStages": 1,
-          "totalCorrect": 16,
+          "totalCorrect": 17,
           "totalWrong": 3,
           "soloGames": 2,
           "groupGames": 1
