@@ -75,7 +75,7 @@
     },
     "176412191391926@lid": {
       "wallet": 5885,
-      "bank": 212,
+      "bank": 218,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -92,7 +92,7 @@
         "defense": 1
       },
       "lastDaily": 1791994580502,
-      "lastInterest": 1791994446184,
+      "lastInterest": 1792080846184,
       "createdAt": 1791821623802,
       "bankProfile": {
         "name": "Mohammed7",
