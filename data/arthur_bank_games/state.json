@@ -120,7 +120,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1792084614221,
+      "lastInterest": 1792156383077,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "سلماة",
@@ -1400,6 +1400,11 @@
     "967715795639:6@s.whatsapp.net": {
       "step": "name",
       "startedAt": 1791820723662
+    },
+    "176412191391926@lid": {
+      "step": "name",
+      "startedAt": 1792156436361,
+      "editing": true
     }
   }
 }
