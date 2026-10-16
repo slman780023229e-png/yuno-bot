@@ -1,4 +1,4 @@
-Name: ARTHUR BOT Runner
+name: ARTHUR BOT Runner
 
 on:
   workflow_dispatch:
@@ -59,7 +59,6 @@ jobs:
           save_changes() {
             echo "Checking repository changes..."
 
-            # إضافة جميع الملفات والمجلدات الجديدة مع استثناء ملفات الأمان والجلسة الحساسة فقط
             git add -A -- . \
               ':(exclude)ملف_الاتصال/creds.json' \
               ':(exclude)ملف_الاتصال/*.json' \
