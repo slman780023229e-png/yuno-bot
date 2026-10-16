@@ -1402,9 +1402,10 @@
       "startedAt": 1791820723662
     },
     "135974805860531@lid": {
-      "step": "name",
+      "step": "logo",
       "startedAt": 1792156520034,
-      "editing": true
+      "editing": true,
+      "name": "slman"
     }
   }
 }
