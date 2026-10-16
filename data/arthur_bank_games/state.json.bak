@@ -74,13 +74,13 @@
       "createdAt": 1791817714505
     },
     "176412191391926@lid": {
-      "wallet": 2877,
+      "wallet": 3087,
       "bank": 212,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 135,
-      "xp": 265,
+      "points": 165,
+      "xp": 315,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -809,6 +809,24 @@
       "gold": 0,
       "points": 0,
       "xp": 15
+    },
+    {
+      "id": "tx_501543ef-37d5-4686-8022-41b64d1b0ff9",
+      "type": "progress",
+      "at": 1792156161949,
+      "player": "176412191391926@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_4a071fff-ac18-4aa4-b14c-16219c641752",
+      "type": "progress",
+      "at": 1792156167244,
+      "player": "176412191391926@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
     }
   ],
   "processedResults": {
@@ -1101,6 +1119,16 @@
       "at": 1792011915119,
       "type": "progress",
       "player": "233144431206490@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-question:176412191391926@lid:int0006": {
+      "at": 1792156161948,
+      "type": "progress",
+      "player": "176412191391926@lid"
+    },
+    "progress:176412191391926@lid:intelligence-solo-question:176412191391926@lid:int0004": {
+      "at": 1792156167244,
+      "type": "progress",
+      "player": "176412191391926@lid"
     }
   },
   "world": {
@@ -1120,7 +1148,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792149283491
+        "updatedAt": 1792154855679
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -1148,9 +1176,9 @@
         "176412191391926@lid": {
           "stage": 1,
           "completedStages": 1,
-          "totalCorrect": 109,
+          "totalCorrect": 111,
           "totalWrong": 0,
-          "soloGames": 1,
+          "soloGames": 2,
           "groupGames": 3
         },
         "13409642873055@lid": {
