@@ -1402,9 +1402,10 @@
       "startedAt": 1791820723662
     },
     "176412191391926@lid": {
-      "step": "name",
+      "step": "logo",
       "startedAt": 1792156436361,
-      "editing": true
+      "editing": true,
+      "name": "Mohammed17"
     }
   }
 }
