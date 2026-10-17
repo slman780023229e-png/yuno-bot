@@ -2,18 +2,23 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 3839,
+      "wallet": 3916,
       "bank": 4619,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1215,
-      "xp": 550,
+      "points": 1300,
+      "xp": 660,
       "level": 3,
-      "wins": 18,
+      "wins": 23,
       "losses": 0,
       "title": "",
-      "inventory": [],
+      "inventory": [
+        {
+          "id": "hint_strong",
+          "qty": 1
+        }
+      ],
       "skills": {
         "luck": 1,
         "strength": 1,
@@ -108,7 +113,7 @@
       "debt": 0,
       "creditScore": 100,
       "points": 195,
-      "xp": 350,
+      "xp": 365,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -128,6 +133,50 @@
         "openedAt": 1792084347356,
         "updatedAt": 1792156538979
       }
+    },
+    "31581632733225@lid": {
+      "wallet": 2392,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 140,
+      "xp": 220,
+      "level": 1,
+      "wins": 1,
+      "losses": 1,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1792243488144,
+      "createdAt": 1792243488144
+    },
+    "202285040795807@lid": {
+      "wallet": 1815,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 50,
+      "xp": 75,
+      "level": 1,
+      "wins": 1,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1792261293045,
+      "createdAt": 1792261293045
     }
   },
   "clans": {},
@@ -1032,6 +1081,141 @@
       "gold": 262,
       "points": 40,
       "xp": 60
+    },
+    {
+      "id": "tx_27918f70-38d8-4a29-ad32-5b2bd91b5497",
+      "type": "progress",
+      "at": 1792243488145,
+      "player": "31581632733225@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_f8a4fbb3-470e-4e18-9c13-948171f1558b",
+      "type": "progress",
+      "at": 1792243507810,
+      "player": "31581632733225@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_f285e006-2d86-4577-9854-391969b64c14",
+      "type": "progress",
+      "at": 1792243664871,
+      "player": "31581632733225@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 25
+    },
+    {
+      "id": "tx_ff372efa-30ff-4fd6-b374-14b0fe1ae764",
+      "type": "progress",
+      "at": 1792243665196,
+      "player": "31581632733225@lid",
+      "gold": 262,
+      "points": 40,
+      "xp": 60
+    },
+    {
+      "id": "tx_08687f9f-ba35-482c-9ed2-5a0806708d14",
+      "type": "progress",
+      "at": 1792243680783,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_4cb2e0b2-6a04-40d9-8bf4-cc6758c975b1",
+      "type": "progress",
+      "at": 1792243689665,
+      "player": "233144431206490@lid",
+      "gold": 157,
+      "points": 25,
+      "xp": 30
+    },
+    {
+      "id": "tx_4144c6e1-c25b-4812-bf29-a5da9a9bf3c1",
+      "type": "progress",
+      "at": 1792243701182,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_aa1247f1-cfbf-49a6-939f-6a85edd8a9df",
+      "type": "progress",
+      "at": 1792243712178,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_5a10121b-f137-4307-8cef-3277d89c61be",
+      "type": "progress",
+      "at": 1792243718702,
+      "player": "233144431206490@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_3b4933cf-63f4-4dd4-bd83-4b9abec286f5",
+      "type": "progress",
+      "at": 1792261086132,
+      "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_f38b6820-9ef5-4ad0-abcc-b8adbd6d6f7d",
+      "type": "progress",
+      "at": 1792261293046,
+      "player": "202285040795807@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_914ed925-fa7d-4e48-94b2-e1af48bb0adf",
+      "type": "progress",
+      "at": 1792261375669,
+      "player": "202285040795807@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_cf9c8004-33b6-48a0-a8ec-974037e19795",
+      "type": "progress",
+      "at": 1792261424237,
+      "player": "31581632733225@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_169fb5de-c2c4-460d-9589-94543a5d9526",
+      "type": "progress",
+      "at": 1792261583908,
+      "player": "31581632733225@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_13127e60-e349-4c18-ab1d-e5a33767301d",
+      "type": "progress",
+      "at": 1792261688642,
+      "player": "31581632733225@lid",
+      "gold": 0,
+      "points": 5,
+      "xp": 10
     }
   ],
   "processedResults": {
@@ -1444,6 +1628,51 @@
       "at": 1792156708842,
       "type": "progress",
       "player": "135974805860531@lid"
+    },
+    "progress:31581632733225@lid:intelligence-solo-question:31581632733225@lid:int0002": {
+      "at": 1792243488145,
+      "type": "progress",
+      "player": "31581632733225@lid"
+    },
+    "progress:31581632733225@lid:intelligence-solo-question:31581632733225@lid:int0003": {
+      "at": 1792243507810,
+      "type": "progress",
+      "player": "31581632733225@lid"
+    },
+    "progress:31581632733225@lid:intelligence-solo-question:31581632733225@lid:int0001": {
+      "at": 1792243664871,
+      "type": "progress",
+      "player": "31581632733225@lid"
+    },
+    "progress:31581632733225@lid:intelligence-solo-stage:31581632733225@lid:1": {
+      "at": 1792243665196,
+      "type": "progress",
+      "player": "31581632733225@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363413393470630@g.us_1792243672217_qh643e:0:0:233144431206490@lid": {
+      "at": 1792243680782,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363413393470630@g.us_1792243672217_qh643e:0:1:233144431206490@lid": {
+      "at": 1792243689665,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363413393470630@g.us_1792243672217_qh643e:0:2:233144431206490@lid": {
+      "at": 1792243701182,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363413393470630@g.us_1792243672217_qh643e:1:0:233144431206490@lid": {
+      "at": 1792243712178,
+      "type": "progress",
+      "player": "233144431206490@lid"
+    },
+    "progress:233144431206490@lid:arthur_riddles:120363413393470630@g.us_1792243672217_qh643e:1:1:233144431206490@lid": {
+      "at": 1792243718702,
+      "type": "progress",
+      "player": "233144431206490@lid"
     }
   },
   "world": {
@@ -1455,7 +1684,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792227670146
+        "updatedAt": 1792268819886
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -1463,7 +1692,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792227670146
+        "updatedAt": 1792268819887
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -1471,7 +1700,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792227670144
+        "updatedAt": 1792268819874
       }
     },
     "season": {
@@ -1511,6 +1740,14 @@
           "totalWrong": 3,
           "soloGames": 2,
           "groupGames": 1
+        },
+        "31581632733225@lid": {
+          "stage": 1,
+          "completedStages": 1,
+          "totalCorrect": 3,
+          "totalWrong": 9,
+          "soloGames": 1,
+          "groupGames": 0
         }
       }
     }
