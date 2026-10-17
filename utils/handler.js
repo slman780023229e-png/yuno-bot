@@ -1399,8 +1399,9 @@ export function getHandlerStats() {
 
 export function handleMessages(sock, update) {
     try {
-        // Accept normal incoming notifications and the outgoing append updates
-        // that main.js explicitly forwards. Ignore history replay and other update types.
+        // Accept normal incoming notifications and outgoing append updates.
+        // main.js may normalize an incoming append batch to notify before forwarding it.
+        // Do not accept arbitrary update types: history/replay events must not execute commands.
         const updateType = update?.type;
         if (updateType && updateType !== "notify" && updateType !== "append") return 0;
 
@@ -2102,9 +2103,11 @@ export function clearHandlerCaches() {
         groupCache.clear();
         groupLoading.clear();
 
+        // Clear deduplication/runtime caches without resetting live worker state.
+        // Active tasks and queued workers must finish through their own finally blocks;
+        // resetting these counters here can make diagnostics inaccurate and disturb
+        // duplicate tracking while messages are still being processed.
         processedMessages.clear();
-        chatMessageQueues.clear();
-        pendingMessageCount = 0;
         pluginRuntimeCache = { source: null, commandIndex: new Map(), onMessagePlugins: [] };
         strictModeMtime = -1;
         strictEliteSignature = "";
