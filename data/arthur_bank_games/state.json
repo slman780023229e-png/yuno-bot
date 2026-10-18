@@ -2,7 +2,7 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 8961,
+      "wallet": 0,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -179,7 +179,7 @@
       "createdAt": 1792261293045
     },
     "116853997338673@lid": {
-      "wallet": 1500,
+      "wallet": 10461,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -1345,6 +1345,14 @@
       "at": 1792350096928,
       "player": "233144431206490@lid",
       "amount": 5045
+    },
+    {
+      "id": "tx_01da22bc-b881-4fd0-8885-0b7ece2fae60",
+      "type": "transfer",
+      "at": 1792350131309,
+      "from": "233144431206490@lid",
+      "to": "116853997338673@lid",
+      "amount": 8961
     }
   ],
   "processedResults": {
