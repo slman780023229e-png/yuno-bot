@@ -2,8 +2,8 @@
   "version": 7,
   "accounts": {
     "233144431206490@lid": {
-      "wallet": 3916,
-      "bank": 5045,
+      "wallet": 8961,
+      "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -1338,6 +1338,13 @@
       "at": 1792349973387,
       "player": "135974805860531@lid",
       "amount": 500
+    },
+    {
+      "id": "tx_de1a9c1c-9587-4493-90b9-100ff228e4fb",
+      "type": "withdraw",
+      "at": 1792350096928,
+      "player": "233144431206490@lid",
+      "amount": 5045
     }
   ],
   "processedResults": {
