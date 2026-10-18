@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1792349973387,
-      "lastInterest": 1792349950342,
+      "lastInterest": 1792349999935,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -177,6 +177,28 @@
       "lastDaily": 0,
       "lastInterest": 1792261293045,
       "createdAt": 1792261293045
+    },
+    "116853997338673@lid": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1792350056187,
+      "createdAt": 1792350056187
     }
   },
   "clans": {},
