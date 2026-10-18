@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1792349973387,
-      "lastInterest": 1792350204433,
+      "lastInterest": 1792354246133,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -219,7 +219,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1792353208458,
+      "lastInterest": 1792356138715,
       "createdAt": 1792350422956
     },
     "967715795639:10@s.whatsapp.net": {
@@ -263,7 +263,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1792353095154,
+      "lastInterest": 1792354071418,
       "createdAt": 1792353095154
     }
   },
@@ -1929,7 +1929,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792346800368
+        "updatedAt": 1792358177355
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -1937,7 +1937,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792346800369
+        "updatedAt": 1792358177356
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -1945,7 +1945,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792346800368
+        "updatedAt": 1792358177345
       }
     },
     "season": {
