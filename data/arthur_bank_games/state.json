@@ -101,9 +101,9 @@
       "createdAt": 1791821623802,
       "bankProfile": {
         "name": "Mohammed17",
-        "logo": "🌑",
+        "logo": "🌍",
         "openedAt": 1791993762534,
-        "updatedAt": 1792156495882
+        "updatedAt": 1792351003622
       }
     },
     "135974805860531@lid": {
@@ -221,6 +221,28 @@
       "lastDaily": 0,
       "lastInterest": 1792350422956,
       "createdAt": 1792350422956
+    },
+    "967715795639:10@s.whatsapp.net": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1792351005888,
+      "createdAt": 1792351005888
     }
   },
   "clans": {},
@@ -1915,12 +1937,6 @@
     "967715795639:6@s.whatsapp.net": {
       "step": "name",
       "startedAt": 1791820723662
-    },
-    "176412191391926@lid": {
-      "step": "logo",
-      "startedAt": 1792350961243,
-      "editing": true,
-      "name": "Mohammed17"
     }
   }
 }
