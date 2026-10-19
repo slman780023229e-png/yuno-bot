@@ -82,7 +82,7 @@ export default {
 
             const folders = getFolders();
 
-            // التعامل مع أمر مسح مجلد كامل (.مسح مجلد [الاسم أو الرقم])
+            // التعامل مع أمر مسح مجلد كامل (.مسح مجلد [الاسم أو الرقم] أو بالنطاق)
             if (subCommand === 'مجلد') {
                 const folderQuery = args.slice(1).join(' ').trim();
 
@@ -99,53 +99,69 @@ export default {
                     listText += `\n*◇❐ ═━╾ 🩸 ╼━═ ❐◇*\n`;
                     listText += `💡 *طريقة الاستخدام:*\n`;
                     listText += `\`.مسح مجلد [الاسم أو الرقم]\`\n`;
-                    listText += `*مثال:* \`.مسح مجلد 1\` أو \`.مسح مجلد temp\`\n`;
+                    listText += `*مثال:* \`.مسح مجلد 1\` أو \`.مسح مجلد temp\` أو \`.مسح مجلد 2-5\`\n`;
                     listText += `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`;
 
                     return sock.sendMessage(chatId, { text: listText }, { quoted: msg });
                 }
 
-                let targetFolderName = '';
+                const protectedFolders = ['data', 'node_modules', '.git'];
+                let targetFolderNames = [];
 
-                if (!isNaN(folderQuery)) {
+                // التحقق مما إذا كان المدخل نطاق حذف جماعي للمجلدات (مثل 2-5 أو 2+5)
+                const rangeMatch = folderQuery.match(/^(\d+)([-+]?)(\d*)$/);
+                if (rangeMatch && rangeMatch[2]) {
+                    const start = parseInt(rangeMatch[1]);
+                    const end = rangeMatch[3] ? parseInt(rangeMatch[3]) : start;
+                    const min = Math.min(start, end);
+                    const max = Math.max(start, end);
+
+                    for (let i = min; i <= max; i++) {
+                        const idx = i - 1;
+                        if (folders[idx]) {
+                            const fName = folders[idx];
+                            if (!protectedFolders.includes(fName.toLowerCase())) {
+                                targetFolderNames.push(fName);
+                            }
+                        }
+                    }
+                } else if (!isNaN(folderQuery)) {
                     const index = parseInt(folderQuery) - 1;
                     if (index >= 0 && index < folders.length) {
-                        targetFolderName = folders[index];
+                        const fName = folders[index];
+                        if (!protectedFolders.includes(fName.toLowerCase())) {
+                            targetFolderNames.push(fName);
+                        }
                     }
                 } else {
                     const found = folders.find(f => f.toLowerCase() === folderQuery.toLowerCase());
-                    if (found) {
-                        targetFolderName = found;
+                    if (found && !protectedFolders.includes(found.toLowerCase())) {
+                        targetFolderNames.push(found);
                     }
                 }
 
-                if (!targetFolderName) {
+                if (targetFolderNames.length === 0) {
                     return sock.sendMessage(chatId, {
                         text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
                     }, { quoted: msg });
                 }
 
-                // حماية المجلدات الأساسية
-                const protectedFolders = ['data', 'node_modules', '.git'];
-                if (protectedFolders.includes(targetFolderName.toLowerCase())) {
-                    return sock.sendMessage(chatId, {
-                        text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
-                    }, { quoted: msg });
+                let deletedList = '';
+                for (const targetFolderName of targetFolderNames) {
+                    const targetPath = path.join(process.cwd(), targetFolderName);
+                    fs.rmSync(targetPath, { recursive: true, force: true });
+                    deletedList += `📁 \`${targetFolderName}\`\n`;
                 }
-
-                const targetPath = path.join(process.cwd(), targetFolderName);
-                fs.rmSync(targetPath, { recursive: true, force: true });
 
                 return sock.sendMessage(chatId, {
                     text:
 `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-✅ *تم مسح المجلد بنجاح*
+✅ *تم مسح المجلدات بنجاح*
 
-📁 *المجلد المحذوف:*
-\`${targetFolderName}\`
-
+📂 *المجلدات المحذوفة:*
+${deletedList}
 *◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-┇ 𝐀𝛾𝚻𝛨𝛸 𝚩𝚯𝚻 🩸`
+┇ 𝐀𝛾𝚻𝛨𝚸 𝚩𝚯𝚻 🩸`
                 }, { quoted: msg });
             }
 
@@ -171,9 +187,9 @@ export default {
 \`.مسح رقم المجلد\` *(لعرض الملفات)*
 
 💡 *طريقة الاستخدام للمجلدات:*
-\`.مسح مجلد [الاسم أو الرقم]\`
+\`.مسح مجلد [الاسم أو الرقم أو نطاق مثل 2-5]\`
 *◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-┇ 𝐀𝛾𝚻𝛨𝛸 𝚩𝚯𝚻 🩸`;
+┇ 𝐀𝛾𝚻𝚨𝚸 𝚩𝚯𝚻 🩸`;
 
                 return sock.sendMessage(chatId, {
                     text: list
@@ -210,10 +226,10 @@ export default {
                 list +=
 `
 *◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-💡 *للحذف:*
-\`.مسح ${folderIndex+1} [رقم الملف]\`
+💡 *للحذف الفردي أو بالجملة:*
+\`.مسح ${folderIndex+1} [رقم الملف]\` أو \`.مسح ${folderIndex+1} 2-10\`
 *◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-┇ 𝐀𝛾𝚻𝛨𝛸 𝚩𝚯𝚻 🩸`;
+┇ 𝐀𝛾𝚻𝛨𝚸 𝚩𝚯𝚻 🩸`;
 
                 return sock.sendMessage(chatId, {
                     text: list
@@ -221,32 +237,58 @@ export default {
 
             }
 
-            const fileIndex = parseInt(args[1]) - 1;
+            const fileQuery = args.slice(1).join(" ").trim();
+            let targetFileIndices = [];
 
-            if(!files[fileIndex]){
+            // التحقق من دعم النطاق (مثل 2-10 أو 2+10)
+            const fileRangeMatch = fileQuery.match(/^(\d+)([-+]?)(\d*)$/);
+            if (fileRangeMatch && fileRangeMatch[2]) {
+                const start = parseInt(fileRangeMatch[1]);
+                const end = fileRangeMatch[3] ? parseInt(fileRangeMatch[3]) : start;
+                const min = Math.min(start, end);
+                const max = Math.max(start, end);
+
+                for (let i = min; i <= max; i++) {
+                    const idx = i - 1;
+                    if (files[idx]) {
+                        targetFileIndices.push(idx);
+                    }
+                }
+            } else if (!isNaN(fileQuery)) {
+                const idx = parseInt(fileQuery) - 1;
+                if (files[idx]) {
+                    targetFileIndices.push(idx);
+                }
+            }
+
+            if (targetFileIndices.length === 0) {
                 return sock.sendMessage(chatId, {
                     text: `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
                 }, {quoted: msg});
             }
 
-            const filePath = path.join(
-                process.cwd(),
-                folders[folderIndex],
-                files[fileIndex]
-            );
-
-            fs.unlinkSync(filePath);
+            let deletedFilesList = '';
+            for (const fileIndex of targetFileIndices) {
+                const filePath = path.join(
+                    process.cwd(),
+                    folders[folderIndex],
+                    files[fileIndex]
+                );
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    deletedFilesList += `📄 \`${files[fileIndex]}\`\n`;
+                }
+            }
 
             await sock.sendMessage(chatId, {
                 text:
 `*◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-✅ *تم حذف الملف بنجاح*
+✅ *تم حذف الملفات بنجاح*
 
 📂 *المجلد:* \`${folders[folderIndex]}\`
-📄 *الملف:* \`${files[fileIndex]}\`
-
+${deletedFilesList}
 *◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-┇ 𝐀𝛾𝚻𝛨𝛸 𝚩𝚯𝚻 🩸`,
+┇ 𝐀𝛾𝚻𝛨𝚸 𝚩𝚯𝚻 🩸`,
             }, {quoted: msg});
 
         }catch(e){
