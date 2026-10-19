@@ -11,6 +11,14 @@ export default {
         const isAnimatedCmd = bodyText.includes("متحرك");
 
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        
+        // استخراج وتفكيك محتوى الرسالة في حال كانت مؤقتة أو عرض لمرة واحدة (ViewOnce/Ephemeral)
+        let targetMessage = quoted ? quoted : msg.message;
+        if (targetMessage?.ephemeralMessage) targetMessage = targetMessage.ephemeralMessage.message;
+        if (targetMessage?.viewOnceMessage) targetMessage = targetMessage.viewOnceMessage.message;
+        if (targetMessage?.viewOnceMessageV2) targetMessage = targetMessage.viewOnceMessageV2.message;
+        if (targetMessage?.documentWithCaptionMessage) targetMessage = targetMessage.documentWithCaptionMessage.message;
+
         const targetMsg = quoted ? {
             key: {
                 remoteJid: data.jid,
@@ -18,8 +26,11 @@ export default {
                 id: msg.message.extendedTextMessage.contextInfo.stanzaId,
                 participant: msg.message.extendedTextMessage.contextInfo.participant
             },
-            message: quoted
-        } : msg;
+            message: targetMessage
+        } : {
+            key: msg.key,
+            message: targetMessage
+        };
 
         const mediaType = Object.keys(targetMsg.message)[0];
         const isMedia = ['imageMessage', 'videoMessage', 'documentMessage'].includes(mediaType);
@@ -33,8 +44,13 @@ export default {
         try {
             await sock.sendMessage(data.jid, { react: { text: '⚡', key: msg.key } });
 
-            const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { logger: undefined, reconnectRequest: sock });
-            if (!buffer) throw new Error('فشل التحميل.');
+            // التصحيح هنا: استخدام reuploadRequest بدلاً من reconnectRequest
+            const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { 
+                logger: undefined, 
+                reuploadRequest: sock.updateMediaMessage 
+            });
+            
+            if (!buffer) throw new Error('فشل تحميل الوسائط من واتساب.');
 
             const isVideo = mediaType === 'videoMessage' || (mediaType === 'documentMessage' && targetMsg.message.documentMessage.mimetype?.includes('video'));
 
@@ -54,9 +70,10 @@ export default {
             await sock.sendMessage(data.jid, { react: { text: '✨', key: msg.key } });
 
         } catch (e) {
+            console.error("Sticker Command Error:", e);
             await sock.sendMessage(data.jid, { react: { text: '❌', key: msg.key } });
             await sock.sendMessage(data.jid, {
-                text: `*┏━━━〔 ⚠️ خطأ 〕━━━┓*\n*┃ ❌ ${e.message}*\n*┗━━━━━━━━━━━━━━┛*`
+                text: `*┏━━━〔 ⚠️ خطأ 〕━━━┓*\n*┃ ❌ ${e.message || 'حدث خطأ غير معروف'}*\n*┗━━━━━━━━━━━━━━┛*`
             }, { quoted: msg });
         }
     }
