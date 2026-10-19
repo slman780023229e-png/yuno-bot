@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 6232,
+      "wallet": 6547,
       "bank": 5917,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1485,
-      "xp": 670,
+      "points": 1535,
+      "xp": 730,
       "level": 3,
-      "wins": 23,
+      "wins": 24,
       "losses": 2,
       "title": "",
       "inventory": [],
@@ -356,28 +356,7 @@
     }
   },
   "duels": {},
-  "xo": {
-    "120363413393470630@g.us_1792437012217_4bn45h": {
-      "playerX": "135974805860531@lid",
-      "playerO": "BOT",
-      "invited": "",
-      "started": true,
-      "isVsBot": true,
-      "turn": "135974805860531@lid",
-      "createdAt": 1792437012217,
-      "b": [
-        "X",
-        "O",
-        "X",
-        "",
-        "O",
-        "",
-        "O",
-        "",
-        "X"
-      ]
-    }
-  },
+  "xo": {},
   "transactions": [
     {
       "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
@@ -1790,6 +1769,15 @@
       "id": "tx_cee39db2-7c3e-462e-b472-df152b409a0f",
       "type": "progress",
       "at": 1792425399423,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_3d301b50-e493-4ce6-b8cf-213c24acec5c",
+      "type": "progress",
+      "at": 1792437035441,
       "player": "135974805860531@lid",
       "gold": 315,
       "points": 50,
