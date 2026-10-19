@@ -107,8 +107,8 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 5918,
-      "bank": 5916,
+      "wallet": 5917,
+      "bank": 5917,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -1748,6 +1748,13 @@
       "at": 1792414803810,
       "player": "135974805860531@lid",
       "amount": 16
+    },
+    {
+      "id": "tx_f1d007b0-09fc-40d7-882a-5e6960c15694",
+      "type": "deposit",
+      "at": 1792414818390,
+      "player": "135974805860531@lid",
+      "amount": 1
     }
   ],
   "processedResults": {
@@ -2216,7 +2223,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792408345278
+        "updatedAt": 1792422301580
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -2232,7 +2239,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792408345262
+        "updatedAt": 1792422301563
       }
     },
     "season": {
