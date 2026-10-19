@@ -107,8 +107,8 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 5918,
-      "bank": 5916,
+      "wallet": 5917,
+      "bank": 5917,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -1748,6 +1748,13 @@
       "at": 1792414803810,
       "player": "135974805860531@lid",
       "amount": 16
+    },
+    {
+      "id": "tx_f1d007b0-09fc-40d7-882a-5e6960c15694",
+      "type": "deposit",
+      "at": 1792414818390,
+      "player": "135974805860531@lid",
+      "amount": 1
     }
   ],
   "processedResults": {
