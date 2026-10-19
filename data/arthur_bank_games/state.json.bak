@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 10574,
+      "wallet": 11519,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1235,
-      "xp": 355,
+      "points": 1385,
+      "xp": 535,
       "level": 3,
-      "wins": 18,
+      "wins": 21,
       "losses": 2,
       "title": "",
       "inventory": [],
@@ -1698,6 +1698,33 @@
       "gold": 0,
       "points": 10,
       "xp": 20
+    },
+    {
+      "id": "tx_f9b3623c-9047-4c14-aece-f550bb829a30",
+      "type": "progress",
+      "at": 1792411922655,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_34f00b4c-6f76-4e8d-af7f-31c04e0bd8c6",
+      "type": "progress",
+      "at": 1792411971693,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_f88755e0-8871-4518-a526-f7c5d00d7a04",
+      "type": "progress",
+      "at": 1792412001852,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -2174,7 +2201,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792408273451
+        "updatedAt": 1792408345279
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
