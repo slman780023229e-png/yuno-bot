@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 9944,
+      "wallet": 10259,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1135,
-      "xp": 220,
+      "points": 1185,
+      "xp": 280,
       "level": 3,
-      "wins": 16,
+      "wins": 17,
       "losses": 2,
       "title": "",
       "inventory": [],
@@ -287,6 +287,28 @@
       "lastDaily": 0,
       "lastInterest": 1792397250520,
       "createdAt": 1792397250520
+    },
+    "190649840218266@lid": {
+      "wallet": 1500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 10,
+      "xp": 20,
+      "level": 1,
+      "wins": 0,
+      "losses": 1,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1792400479779,
+      "createdAt": 1792400479779
     }
   },
   "clans": {},
@@ -312,28 +334,7 @@
     }
   },
   "duels": {},
-  "xo": {
-    "120363413393470630@g.us_1792400379827_sibzd3": {
-      "playerX": "135974805860531@lid",
-      "playerO": "190649840218266@lid",
-      "invited": "190649840218266@lid",
-      "started": true,
-      "isVsBot": false,
-      "turn": "135974805860531@lid",
-      "createdAt": 1792400379827,
-      "b": [
-        "X",
-        "",
-        "X",
-        "O",
-        "O",
-        "",
-        "X",
-        "",
-        "O"
-      ]
-    }
-  },
+  "xo": {},
   "transactions": [
     {
       "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
@@ -1618,6 +1619,24 @@
       "type": "progress",
       "at": 1792397850967,
       "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 10,
+      "xp": 20
+    },
+    {
+      "id": "tx_f1e423bb-ccf9-446f-a610-58808dbbfd91",
+      "type": "progress",
+      "at": 1792400479778,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_cfa639bf-d74a-4fbc-835d-0322dd7c2532",
+      "type": "progress",
+      "at": 1792400479779,
+      "player": "190649840218266@lid",
       "gold": 0,
       "points": 10,
       "xp": 20
