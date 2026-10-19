@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1792349973387,
-      "lastInterest": 1792354246133,
+      "lastInterest": 1792400507624,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -334,7 +334,28 @@
     }
   },
   "duels": {},
-  "xo": {},
+  "xo": {
+    "120363413393470630@g.us_1792400532237_85bxj3": {
+      "playerX": "135974805860531@lid",
+      "playerO": "268779774820551@lid",
+      "invited": "268779774820551@lid",
+      "started": false,
+      "isVsBot": false,
+      "turn": "135974805860531@lid",
+      "createdAt": 1792400532237,
+      "b": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]
+    }
+  },
   "transactions": [
     {
       "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
