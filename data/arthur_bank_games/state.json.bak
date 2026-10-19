@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 11519,
-      "bank": 0,
+      "wallet": 5918,
+      "bank": 5916,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1385,
-      "xp": 535,
+      "points": 1435,
+      "xp": 595,
       "level": 3,
-      "wins": 21,
+      "wins": 22,
       "losses": 2,
       "title": "",
       "inventory": [],
@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1792349973387,
-      "lastInterest": 1792400507624,
+      "lastInterest": 1792414738447,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -1725,6 +1725,29 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_31a1e95b-8a0d-4060-9f4b-b5fad0f7ec2d",
+      "type": "progress",
+      "at": 1792414719242,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_90f83d8a-d880-427b-aab0-029257b0852f",
+      "type": "deposit",
+      "at": 1792414785647,
+      "player": "135974805860531@lid",
+      "amount": 5900
+    },
+    {
+      "id": "tx_43c87256-ccf6-486e-a8b0-f8f7e35f93dd",
+      "type": "deposit",
+      "at": 1792414803810,
+      "player": "135974805860531@lid",
+      "amount": 16
     }
   ],
   "processedResults": {
