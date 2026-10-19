@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 7004,
+      "wallet": 7319,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 775,
-      "xp": 640,
+      "points": 825,
+      "xp": 700,
       "level": 2,
-      "wins": 10,
+      "wins": 11,
       "losses": 1,
       "title": "",
       "inventory": [],
@@ -1461,6 +1461,15 @@
       "gold": 0,
       "points": 0,
       "xp": 15
+    },
+    {
+      "id": "tx_c3831966-62ac-4a0b-8fbd-02820f05d02d",
+      "type": "progress",
+      "at": 1792395066790,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -1929,7 +1938,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792386480927
+        "updatedAt": 1792394960324
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -1937,7 +1946,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792366623562
+        "updatedAt": 1792394960326
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -1945,7 +1954,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792386480926
+        "updatedAt": 1792394960315
       }
     },
     "season": {
