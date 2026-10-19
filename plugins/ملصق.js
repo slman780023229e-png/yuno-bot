@@ -1,5 +1,10 @@
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { Sticker } from 'wa-sticker-formatter';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from 'ffmpeg-static';
+
+// ربط المسار الخاص بـ ffmpeg الموجود في ملفاتك
+ffmpeg.setFfmpegPath(ffmpegInstaller);
 
 export default {
     command: "لملصق",
@@ -12,7 +17,6 @@ export default {
 
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         
-        // استخراج وتفكيك محتوى الرسالة في حال كانت مؤقتة أو عرض لمرة واحدة (ViewOnce/Ephemeral)
         let targetMessage = quoted ? quoted : msg.message;
         if (targetMessage?.ephemeralMessage) targetMessage = targetMessage.ephemeralMessage.message;
         if (targetMessage?.viewOnceMessage) targetMessage = targetMessage.viewOnceMessage.message;
@@ -44,7 +48,6 @@ export default {
         try {
             await sock.sendMessage(data.jid, { react: { text: '⚡', key: msg.key } });
 
-            // التصحيح هنا: استخدام reuploadRequest بدلاً من reconnectRequest
             const buffer = await downloadMediaMessage(targetMsg, 'buffer', {}, { 
                 logger: undefined, 
                 reuploadRequest: sock.updateMediaMessage 
