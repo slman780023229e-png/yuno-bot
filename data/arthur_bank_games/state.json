@@ -107,8 +107,8 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 1547,
-      "bank": 5917,
+      "wallet": 7464,
+      "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
@@ -1812,6 +1812,13 @@
       "from": "135974805860531@lid",
       "to": "35984058130514@lid",
       "amount": 5000
+    },
+    {
+      "id": "tx_30ff23d6-f410-4edb-a89a-6e628db5dd2a",
+      "type": "withdraw",
+      "at": 1792496902378,
+      "player": "135974805860531@lid",
+      "amount": 5917
     }
   ],
   "processedResults": {
