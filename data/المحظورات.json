@@ -19,12 +19,14 @@
       }
     },
     "120363413569620683@g.us": {
-      "enabled": false,
+      "enabled": true,
       "words": [
         "ابن كلب",
         "ارجل من ابوك"
       ],
-      "strikes": {}
+      "strikes": {
+        "233144431206490@lid": 1
+      }
     }
   },
   "words": [
