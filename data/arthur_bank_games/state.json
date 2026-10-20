@@ -107,7 +107,7 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 6547,
+      "wallet": 1547,
       "bank": 5917,
       "vault": 0,
       "debt": 0,
@@ -331,6 +331,28 @@
       "lastDaily": 0,
       "lastInterest": 1792400672067,
       "createdAt": 1792400672067
+    },
+    "35984058130514@lid": {
+      "wallet": 6500,
+      "bank": 0,
+      "vault": 0,
+      "debt": 0,
+      "creditScore": 100,
+      "points": 0,
+      "xp": 0,
+      "level": 1,
+      "wins": 0,
+      "losses": 0,
+      "title": "",
+      "inventory": [],
+      "skills": {
+        "luck": 1,
+        "strength": 1,
+        "defense": 1
+      },
+      "lastDaily": 0,
+      "lastInterest": 1792496838758,
+      "createdAt": 1792496838758
     }
   },
   "clans": {},
@@ -1782,6 +1804,14 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_07427d1c-8350-400b-94f0-285eed83c3e2",
+      "type": "transfer",
+      "at": 1792496838759,
+      "from": "135974805860531@lid",
+      "to": "35984058130514@lid",
+      "amount": 5000
     }
   ],
   "processedResults": {
