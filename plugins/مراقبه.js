@@ -1,10 +1,5 @@
-const fs = require("fs");
-const path = require("path");
-
-// ═══════════════════════════════════════════════════════
-//       🩸 ARTHUR BOT • MONITOR ELITE ULTIMATE
-//       مراقبة الإشراف • حماية النخبة • حفظ الحالة
-// ═══════════════════════════════════════════════════════
+import fs from "node:fs";
+import path from "node:path";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STATE_FILE = path.join(DATA_DIR, "monitorState.json");
@@ -16,152 +11,109 @@ const ELITE_FILES = [
     "النخبه"
 ];
 
-const BRAND = "🩸 *𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓* 🩸";
-const FRAME = "◇❐ ═━━━━━━━╾ 🩸 ╼━━━━━━━═ ❐◇";
-
-const initializedSockets = new WeakSet();
-const processingGroups = new Set();
-const recentEvents = new Map();
+const BRAND = "🩸 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🩸";
+const listeners = new WeakSet();
+const pendingGroups = new Set();
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// ───────────────────────────────────────────────────────
-// قراءة الحالة وحفظها بصورة ذرية
-// ───────────────────────────────────────────────────────
-
-function loadState() {
-    if (!fs.existsSync(STATE_FILE)) return {};
-
+function readState() {
     try {
-        const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-
-        if (!data || typeof data !== "object" || Array.isArray(data)) {
-            throw new Error("صيغة ملف الحالة غير صحيحة");
-        }
-
-        return data;
+        if (!fs.existsSync(STATE_FILE)) return {};
+        const parsed = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+        return parsed && !Array.isArray(parsed) && typeof parsed === "object"
+            ? parsed
+            : {};
     } catch (error) {
-        console.error("[MONITOR] تعذرت قراءة ملف الحالة:", error.message);
+        console.error("[ARTHUR MONITOR] قراءة الحالة فشلت:", error.message);
         return {};
     }
 }
 
-let state = loadState();
+let state = readState();
 
 function saveState() {
-    const tempFile = `${STATE_FILE}.tmp`;
+    const temp = `${STATE_FILE}.tmp`;
 
     try {
-        fs.writeFileSync(
-            tempFile,
-            JSON.stringify(state, null, 2),
-            "utf8"
-        );
-
-        fs.renameSync(tempFile, STATE_FILE);
+        fs.writeFileSync(temp, JSON.stringify(state, null, 2), "utf8");
+        fs.renameSync(temp, STATE_FILE);
         return true;
     } catch (error) {
-        console.error("[MONITOR] تعذر حفظ الحالة:", error.message);
-
+        console.error("[ARTHUR MONITOR] حفظ الحالة فشل:", error.message);
         try {
-            if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+            if (fs.existsSync(temp)) fs.unlinkSync(temp);
         } catch {}
-
         return false;
     }
 }
 
-// ───────────────────────────────────────────────────────
-// تطبيع الهويات والتحقق من النخبة
-// ───────────────────────────────────────────────────────
-
-function normalizeId(value) {
-    if (typeof value !== "string") return "";
-
-    return value
-        .trim()
-        .replace(/^@/, "")
-        .toLowerCase();
+function normalize(value) {
+    return typeof value === "string"
+        ? value.trim().toLowerCase()
+        : "";
 }
 
-function getEliteEntries(value, output = []) {
+function collectIds(value, result = []) {
     if (typeof value === "string" || typeof value === "number") {
-        const id = normalizeId(String(value));
-
-        if (id) output.push(id);
-        return output;
+        const id = normalize(String(value));
+        if (id) result.push(id);
+        return result;
     }
 
     if (Array.isArray(value)) {
-        for (const item of value) {
-            getEliteEntries(item, output);
-        }
-
-        return output;
+        for (const item of value) collectIds(item, result);
+        return result;
     }
 
     if (value && typeof value === "object") {
         for (const [key, item] of Object.entries(value)) {
-            const normalizedKey = normalizeId(key);
+            const k = normalize(key);
 
-            if (
-                normalizedKey &&
-                (
-                    /^\d{5,20}$/.test(normalizedKey) ||
-                    normalizedKey.includes("@")
-                )
-            ) {
-                output.push(normalizedKey);
+            if (/^\d{5,20}$/.test(k) || k.includes("@")) {
+                result.push(k);
             }
 
-            getEliteEntries(item, output);
+            collectIds(item, result);
         }
     }
 
-    return output;
+    return result;
 }
 
-function loadEliteIds() {
-    const found = [];
+function getEliteIds() {
+    const ids = [];
 
-    for (const fileName of ELITE_FILES) {
-        const filePath = path.join(DATA_DIR, fileName);
-
-        if (!fs.existsSync(filePath)) continue;
+    for (const name of ELITE_FILES) {
+        const file = path.join(DATA_DIR, name);
+        if (!fs.existsSync(file)) continue;
 
         try {
-            const parsed = JSON.parse(
-                fs.readFileSync(filePath, "utf8")
-            );
-
-            getEliteEntries(parsed, found);
+            collectIds(JSON.parse(fs.readFileSync(file, "utf8")), ids);
         } catch (error) {
-            console.error(
-                `[MONITOR] خطأ في ملف ${fileName}:`,
-                error.message
-            );
+            console.error(`[ARTHUR MONITOR] ملف النخبة ${name}:`, error.message);
         }
     }
 
-    return [...new Set(found)];
+    return [...new Set(ids)];
 }
 
-function identityMatches(userId, eliteEntries) {
-    const id = normalizeId(userId);
+function isElite(jid) {
+    const id = normalize(jid);
     if (!id) return false;
 
-    // المطابقة الدقيقة أولًا، بما فيها الهويات غير الهاتفية.
-    if (eliteEntries.includes(id)) return true;
+    const elites = getEliteIds();
 
-    // لا نقارن أرقام LID بأرقام الهاتف؛ ذلك قد يخلط بين الأشخاص.
+    if (elites.includes(id)) return true;
+
+    // مطابقة رقم الهاتف فقط مع هوية هاتف، وليس مع LID.
     if (id.endsWith("@s.whatsapp.net")) {
         const phone = id.split("@")[0].split(":")[0];
 
-        return eliteEntries.some(entry => {
+        return elites.some(entry => {
             if (entry.endsWith("@s.whatsapp.net")) {
                 return entry.split("@")[0].split(":")[0] === phone;
             }
-
             return /^\d{5,20}$/.test(entry) && entry === phone;
         });
     }
@@ -169,31 +121,14 @@ function identityMatches(userId, eliteEntries) {
     return false;
 }
 
-function isElite(userId) {
-    return identityMatches(userId, loadEliteIds());
-}
-
-function getBotIds(sock) {
-    const ids = [];
-
-    for (const value of [sock?.user?.id, sock?.user?.lid]) {
-        const normalized = normalizeId(value);
-
-        if (normalized) ids.push(normalized);
-    }
-
-    return ids;
-}
-
-function isBot(userId, sock) {
-    const id = normalizeId(userId);
-    if (!id) return false;
-
-    const botIds = getBotIds(sock);
+function isBot(jid, sock) {
+    const id = normalize(jid);
+    const botIds = [sock?.user?.id, sock?.user?.lid]
+        .map(normalize)
+        .filter(Boolean);
 
     if (botIds.includes(id)) return true;
 
-    // مطابقة رقم الهاتف فقط عندما تكون الهويتان من نوع الهاتف.
     if (id.endsWith("@s.whatsapp.net")) {
         const phone = id.split("@")[0].split(":")[0];
 
@@ -206,109 +141,80 @@ function isBot(userId, sock) {
     return false;
 }
 
-// ───────────────────────────────────────────────────────
-// قراءة نص الرسالة بما فيها بعض الأغلفة
-// ───────────────────────────────────────────────────────
-
-function unwrapMessage(message) {
-    let current = message;
-
-    for (let i = 0; i < 8 && current; i++) {
-        const wrapper =
-            current.ephemeralMessage ||
-            current.viewOnceMessage ||
-            current.viewOnceMessageV2 ||
-            current.viewOnceMessageV2Extension ||
-            current.documentWithCaptionMessage;
-
-        if (wrapper?.message) {
-            current = wrapper.message;
-        } else {
-            break;
-        }
-    }
-
-    return current || {};
-}
-
-function getMessageText(message) {
-    const msg = unwrapMessage(message);
-
-    return (
-        msg.conversation ||
-        msg.extendedTextMessage?.text ||
-        msg.imageMessage?.caption ||
-        msg.videoMessage?.caption ||
-        msg.documentMessage?.caption ||
-        msg.buttonsResponseMessage?.selectedButtonId ||
-        msg.listResponseMessage?.singleSelectReply?.selectedRowId ||
-        msg.templateButtonReplyMessage?.selectedId ||
-        ""
-    ).trim();
-}
-
-// ───────────────────────────────────────────────────────
-// إرسال الرسائل
-// ───────────────────────────────────────────────────────
-
-async function sendText(sock, jid, text, mentions = []) {
-    return sock.sendMessage(jid, {
-        text: `${BRAND}\n${FRAME}\n\n${text}`,
-        mentions
-    });
-}
-
 function getGroupState(jid) {
     if (!state[jid] || typeof state[jid] !== "object") {
         state[jid] = {
             active: false,
             waitingChoice: false,
-            pendingSince: 0,
-            lastEvent: null
+            pendingSince: 0
         };
     }
 
     return state[jid];
 }
 
-// ───────────────────────────────────────────────────────
-// مراجعة الإشراف دون طرد الأعضاء أو تغيير صلاحياتهم
-// ───────────────────────────────────────────────────────
+function getText(message) {
+    let content = message?.message;
 
-async function executeReview(sock, jid) {
+    for (let i = 0; i < 8 && content; i++) {
+        const wrapper =
+            content.ephemeralMessage ||
+            content.viewOnceMessage ||
+            content.viewOnceMessageV2 ||
+            content.documentWithCaptionMessage;
+
+        if (!wrapper?.message) break;
+        content = wrapper.message;
+    }
+
+    return (
+        content?.conversation ||
+        content?.extendedTextMessage?.text ||
+        content?.imageMessage?.caption ||
+        content?.videoMessage?.caption ||
+        content?.documentMessage?.caption ||
+        content?.buttonsResponseMessage?.selectedButtonId ||
+        content?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+        ""
+    ).trim();
+}
+
+async function reply(sock, jid, text, mentions = []) {
+    return sock.sendMessage(jid, {
+        text: `${BRAND}\n◇❐ ═━━━━━━━╾ 🩸 ╼━━━━━━━═ ❐◇\n\n${text}`,
+        mentions
+    });
+}
+
+async function reviewGroup(sock, jid) {
     const metadata = await sock.groupMetadata(jid);
     const participants = metadata.participants || [];
-
     const admins = participants.filter(p => p.admin);
-    const elites = admins.filter(p => isElite(p.id));
-    const otherAdmins = admins.filter(p =>
-        !isElite(p.id) && !isBot(p.id, sock)
+    const eliteAdmins = admins.filter(p => isElite(p.id));
+    const otherAdmins = admins.filter(
+        p => !isElite(p.id) && !isBot(p.id, sock)
     );
 
     const lines = [
         "👑 *تقرير مراجعة الإشراف*",
         "",
-        `👥 عدد أعضاء المجموعة: ${participants.length}`,
-        `🛡️ عدد المشرفين: ${admins.length}`,
-        `👑 مشرفون من النخبة: ${elites.length}`,
-        `📋 مشرفون خارج قائمة النخبة: ${otherAdmins.length}`,
+        `👥 أعضاء المجموعة: ${participants.length}`,
+        `🛡️ المشرفون: ${admins.length}`,
+        `👑 مشرفو النخبة: ${eliteAdmins.length}`,
+        `📋 مشرفون خارج النخبة: ${otherAdmins.length}`,
         "",
-        "لم يتم طرد أي عضو أو تغيير أي صلاحية."
+        "لم يتم طرد أي عضو أو تغيير صلاحياته."
     ];
 
     if (otherAdmins.length) {
-        lines.push("", "*المشرفون خارج قائمة النخبة:*");
+        lines.push("", "*المشرفون خارج النخبة:*");
 
         for (const admin of otherAdmins.slice(0, 30)) {
-            lines.push(`• @${String(admin.id).split("@")[0]}`);
-        }
-
-        if (otherAdmins.length > 30) {
-            lines.push(`• وهناك ${otherAdmins.length - 30} مشرفين آخرين.`);
+            lines.push(`• @${admin.id.split("@")[0]}`);
         }
     }
 
-    await sendText(
+    await reply(
         sock,
         jid,
         lines.join("\n"),
@@ -316,233 +222,143 @@ async function executeReview(sock, jid) {
     );
 }
 
-// ───────────────────────────────────────────────────────
-// رصد تغييرات الإشراف
-// ───────────────────────────────────────────────────────
-
-async function handleParticipantUpdate(sock, update) {
+async function onParticipantUpdate(sock, update) {
     const jid = update?.id;
 
-    if (!jid || !jid.endsWith("@g.us")) return;
-
+    if (!jid?.endsWith("@g.us")) return;
     if (!["promote", "demote"].includes(update.action)) return;
 
-    const groupState = getGroupState(jid);
-    if (!groupState.active) return;
+    const config = getGroupState(jid);
+    if (!config.active) return;
 
-    const now = Date.now();
-    const participants = Array.isArray(update.participants)
-        ? update.participants
-        : [];
-
-    const eventKey = [
-        jid,
-        update.action,
-        participants.map(p => typeof p === "string" ? p : p?.id).join(","),
-        update.author || "",
-        Math.floor(now / 5000)
-    ].join("|");
-
-    if (recentEvents.has(eventKey)) return;
-
-    recentEvents.set(eventKey, now);
-
-    for (const [key, timestamp] of recentEvents) {
-        if (now - timestamp > 30000) recentEvents.delete(key);
-    }
-
-    // لا ننفذ تغييرات صلاحيات تلقائية؛ نطلب مراجعة بشرية من النخبة.
-    groupState.waitingChoice = true;
-    groupState.pendingSince = now;
-    groupState.lastEvent = {
-        action: update.action,
-        actor: update.author || null,
-        participants
-    };
-
-    saveState();
-
-    const actionText = update.action === "promote"
+    const action = update.action === "promote"
         ? "رفع عضو إلى مشرف"
         : "إزالة إشراف عضو";
 
-    const targetIds = participants
+    const targets = (update.participants || [])
         .map(p => typeof p === "string" ? p : p?.id)
         .filter(Boolean);
 
-    const actor = update.author || null;
-    const mentions = [...new Set([...targetIds, ...(actor ? [actor] : [])])];
+    config.waitingChoice = true;
+    config.pendingSince = Date.now();
+    saveState();
 
-    const body = [
-        "⚠️ *تم رصد تغيير في إشراف المجموعة*",
+    const actor = update.author;
+    const mentions = [...new Set([...targets, ...(actor ? [actor] : [])])];
+
+    await reply(sock, jid, [
+        "⚠️ *تم رصد تغيير في الإشراف*",
         "",
-        `📌 نوع التغيير: ${actionText}`,
+        `📌 التغيير: ${action}`,
         actor ? `👤 المنفّذ: @${actor.split("@")[0]}` : "👤 المنفّذ: غير معروف",
-        targetIds.length
-            ? `🎯 العضو المستهدف: ${targetIds.map(id => `@${id.split("@")[0]}`).join("، ")}`
-            : "🎯 العضو المستهدف: غير معروف",
+        targets.length
+            ? `🎯 المستهدف: ${targets.map(id => `@${id.split("@")[0]}`).join("، ")}`
+            : "🎯 المستهدف: غير معروف",
         "",
-        "👑 يا أعضاء النخبة، اختاروا:",
-        "",
+        "👑 *اختر الإجراء:*",
         "1️⃣ مراجعة المشرفين وإرسال تقرير",
-        "2️⃣ إلغاء المراجعة الحالية",
+        "2️⃣ إلغاء المراجعة",
         "",
-        "⏳ يجب أن يرسل أحد أعضاء النخبة الرقم في المجموعة."
-    ].join("\n");
-
-    await sendText(sock, jid, body, mentions);
+        "⏳ الرد متاح للنخبة فقط لمدة 10 دقائق."
+    ].join("\n"), mentions);
 }
 
-// ───────────────────────────────────────────────────────
-// الأوامر وخيارات المراجعة
-// ───────────────────────────────────────────────────────
-
-async function handleIncomingMessage(sock, message) {
+async function onMessage(sock, message) {
     const jid = message?.key?.remoteJid;
-    if (!jid || !jid.endsWith("@g.us")) return;
-
+    if (!jid?.endsWith("@g.us")) return;
     if (message.key.fromMe) return;
 
-    const sender = message.key.participant || message.participant;
+    const sender = message.key.participant;
     if (!sender) return;
 
-    const text = getMessageText(message);
+    const text = getText(message).trim();
     if (!text) return;
 
-    const command = text.trim().replace(/^\./, "").trim();
-    const groupState = getGroupState(jid);
+    const command = text.replace(/^\./, "").trim();
+    const config = getGroupState(jid);
 
-    // الأوامر الإدارية متاحة للنخبة فقط.
     if (command === "مراقبه شغل" || command === "مراقبه طفي") {
         if (!isElite(sender) && !isBot(sender, sock)) {
-            await sendText(sock, jid, "⛔ هذا الأمر مخصص لأعضاء النخبة.");
+            await reply(sock, jid, "⛔ هذا الأمر مخصص للنخبة.");
             return;
         }
 
-        if (command === "مراقبه شغل") {
-            groupState.active = true;
-            groupState.waitingChoice = false;
-            groupState.pendingSince = 0;
-            groupState.lastEvent = null;
+        config.active = command === "مراقبه شغل";
+        config.waitingChoice = false;
+        config.pendingSince = 0;
+        saveState();
 
-            saveState();
-
-            await sendText(
-                sock,
-                jid,
-                "✅ *تم تشغيل مراقبة الإشراف بنجاح.*\n\nسيتم تنبيه النخبة عند رصد تغيير في صلاحيات المشرفين."
-            );
-        } else {
-            groupState.active = false;
-            groupState.waitingChoice = false;
-            groupState.pendingSince = 0;
-            groupState.lastEvent = null;
-
-            saveState();
-
-            await sendText(sock, jid, "🛑 *تم إيقاف مراقبة الإشراف.*");
-        }
-
+        await reply(
+            sock,
+            jid,
+            config.active
+                ? "✅ تم تشغيل مراقبة الإشراف."
+                : "🛑 تم إيقاف مراقبة الإشراف."
+        );
         return;
     }
 
-    if (!groupState.waitingChoice) return;
+    if (!config.waitingChoice) return;
     if (!isElite(sender) && !isBot(sender, sock)) return;
 
-    // تنتهي صلاحية الاختيار بعد 10 دقائق.
-    if (
-        groupState.pendingSince &&
-        Date.now() - groupState.pendingSince > 10 * 60 * 1000
-    ) {
-        groupState.waitingChoice = false;
-        groupState.pendingSince = 0;
-        groupState.lastEvent = null;
+    if (Date.now() - config.pendingSince > 10 * 60 * 1000) {
+        config.waitingChoice = false;
+        config.pendingSince = 0;
         saveState();
-
-        await sendText(sock, jid, "⌛ انتهت مهلة المراجعة. أرسل أمرًا جديدًا عند الحاجة.");
-        return;
-    }
-
-    if (command === "1") {
-        if (processingGroups.has(jid)) return;
-
-        processingGroups.add(jid);
-
-        // أغلق الطلب الحالي قبل التنفيذ لمنع التكرار.
-        groupState.waitingChoice = false;
-        groupState.pendingSince = 0;
-        groupState.lastEvent = null;
-        saveState();
-
-        try {
-            await executeReview(sock, jid);
-        } catch (error) {
-            console.error("[MONITOR] فشلت المراجعة:", error);
-
-            await sendText(
-                sock,
-                jid,
-                "❌ تعذرت مراجعة المجموعة. تحقق من صلاحيات البوت ثم أعد المحاولة."
-            );
-        } finally {
-            processingGroups.delete(jid);
-        }
-
+        await reply(sock, jid, "⌛ انتهت مهلة الاختيار.");
         return;
     }
 
     if (command === "2") {
-        groupState.waitingChoice = false;
-        groupState.pendingSince = 0;
-        groupState.lastEvent = null;
+        config.waitingChoice = false;
+        config.pendingSince = 0;
+        saveState();
+        await reply(sock, jid, "✅ أُلغيت المراجعة، وما زالت حالة المراقبة كما هي.");
+        return;
+    }
 
+    if (command === "1") {
+        if (pendingGroups.has(jid)) return;
+        pendingGroups.add(jid);
+
+        config.waitingChoice = false;
+        config.pendingSince = 0;
         saveState();
 
-        await sendText(
-            sock,
-            jid,
-            "✅ تم إلغاء المراجعة الحالية. إعداد المراقبة لم يتغير."
-        );
+        try {
+            await reviewGroup(sock, jid);
+        } catch (error) {
+            console.error("[ARTHUR MONITOR] تعذرت المراجعة:", error);
+            await reply(sock, jid, "❌ تعذرت المراجعة. افحص صلاحيات البوت وسجل الأخطاء.");
+        } finally {
+            pendingGroups.delete(jid);
+        }
     }
 }
 
-// ───────────────────────────────────────────────────────
-// تهيئة المستمعين مرة لكل اتصال
-// ───────────────────────────────────────────────────────
-
-function initMonitorListener(sock) {
-    if (!sock || !sock.ev || typeof sock.ev.on !== "function") {
-        throw new Error("[MONITOR] socket أو event emitter غير صالح.");
+export function initMonitorListener(sock) {
+    if (!sock?.ev || typeof sock.ev.on !== "function") {
+        throw new Error("[ARTHUR MONITOR] اتصال Baileys غير صالح.");
     }
 
-    // WeakSet يمنع تكرار المستمعين على نفس socket،
-    // ويسمح بتسجيلهم مجددًا على socket جديد بعد إعادة الاتصال.
-    if (initializedSockets.has(sock)) return;
-
-    initializedSockets.add(sock);
+    if (listeners.has(sock)) return;
+    listeners.add(sock);
 
     sock.ev.on("group-participants.update", update => {
-        handleParticipantUpdate(sock, update).catch(error => {
-            console.error("[MONITOR] خطأ في مراقبة الإشراف:", error);
+        onParticipantUpdate(sock, update).catch(error => {
+            console.error("[ARTHUR MONITOR] خطأ في حدث الإشراف:", error);
         });
     });
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-        for (const message of messages || []) {
+    sock.ev.on("messages.upsert", async ({ messages = [] }) => {
+        for (const message of messages) {
             try {
-                await handleIncomingMessage(sock, message);
+                await onMessage(sock, message);
             } catch (error) {
-                console.error("[MONITOR] خطأ في معالجة الرسالة:", error);
+                console.error("[ARTHUR MONITOR] خطأ في الرسالة:", error);
             }
         }
     });
 
-    console.log("[MONITOR] ARTHUR MONITOR ELITE initialized.");
+    console.log("🩸 ARTHUR MONITOR: تم تشغيل المستمع بنجاح.");
 }
-
-module.exports = {
-    initMonitorListener,
-    isElite,
-    loadState,
-    saveState
-};
