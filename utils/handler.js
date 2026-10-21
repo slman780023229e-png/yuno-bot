@@ -46,6 +46,49 @@ const COLORS = {
 // 📝 LOGGER
 // ═══════════════════════════════════════════════════════
 
+// RUNTIME DIAGNOSTICS — set ARTHUR_DIAGNOSTICS=0 to disable.
+const DIAG_ENABLED = process.env.ARTHUR_DIAGNOSTICS !== "0";
+const diagnostics = {
+    upserts: 0, receivedMessages: 0, groupMessages: 0, privateMessages: 0,
+    queuedMessages: 0, duplicateMessages: 0, rejectedUpdates: 0,
+    rejectedAppendMessages: 0, rejectedOwnMessages: 0, eliteGateBlocks: 0,
+    listenersRun: 0, listenerErrors: 0, commandsRun: 0, commandErrors: 0,
+    workerErrors: 0, metadataErrors: 0, emptyOrUnprefixedMessages: 0,
+    lastUpsertAt: null, lastGroupMessageAt: null, lastPrivateMessageAt: null,
+    lastCommandAt: null, lastError: null
+};
+
+function diagLog(event, details = {}) {
+    if (!DIAG_ENABLED) return;
+    try {
+        console.log(`[ARTHUR-DIAG] ${new Date().toISOString()} ${event}`, JSON.stringify(details));
+    } catch (error) {
+        console.error("[ARTHUR-DIAG] Logger failure:", error?.message || error);
+    }
+}
+
+function diagError(event, error, details = {}) {
+    const message = error?.message || String(error);
+    diagnostics.lastError = { event, message, at: new Date().toISOString() };
+    console.error(`[ARTHUR-DIAG-ERROR] ${event}:`, error?.stack || message, details);
+}
+
+if (DIAG_ENABLED) {
+    const diagnosticTimer = setInterval(() => {
+        try {
+            console.log("[ARTHUR-DIAG-SUMMARY]", JSON.stringify({
+                ...diagnostics,
+                uptimeSeconds: Math.round(process.uptime()),
+                memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024),
+                ...getHandlerStats()
+            }));
+        } catch (error) {
+            diagError("SUMMARY_FAILED", error);
+        }
+    }, 60_000);
+    diagnosticTimer.unref?.();
+}
+
 function log(type, text) {
     try {
         const colors = {
@@ -911,7 +954,9 @@ async function getGroupMetadata(
                     null
                 );
 
-            } catch {
+            } catch (error) {
+                diagnostics.metadataErrors++;
+                diagError("GROUP_METADATA_FAILED", error, { group: jid });
                 return (
                     cached?.data ||
                     null
@@ -1360,20 +1405,35 @@ function queueMessage(sock, msg) {
     // A slow command (such as a media download) must not block the next command
     // sent in the same conversation. The worker pool still caps total concurrency.
     const scope = `${jid}:${participant}`;
-    if (id && wasProcessed(id, sock, scope)) return false;
+    if (id && wasProcessed(id, sock, scope)) {
+        diagnostics.duplicateMessages++;
+        diagLog("MESSAGE_DUPLICATE", { messageId: id, chatType: jid.endsWith("@g.us") ? "group" : "private" });
+        return false;
+    }
 
     const queueKey = id
         ? `${jid}:${id}`
         : `${jid}:no-id:${++fallbackQueueSequence}`;
 
     pendingMessageCount++;
+    diagnostics.queuedMessages++;
+    diagLog("MESSAGE_QUEUED", {
+        chatType: jid.endsWith("@g.us") ? "group" : "private",
+        pending: pendingMessageCount,
+        activeWorkers: activeMessageWorkers,
+        messageId: id || null
+    });
 
     const task = (async () => {
         await acquireMessageWorker();
         try {
             await executeHandlerLogic(sock, msg);
         } catch (error) {
-            console.error("Message Worker Error:", error?.stack || error?.message || error);
+            diagnostics.workerErrors++;
+            diagError("MESSAGE_WORKER_FAILED", error, {
+                chatType: String(msg?.key?.remoteJid || "").endsWith("@g.us") ? "group" : "private",
+                messageId: msg?.key?.id || null
+            });
         } finally {
             pendingMessageCount = Math.max(0, pendingMessageCount - 1);
             releaseMessageWorker();
@@ -1393,46 +1453,89 @@ export function getHandlerStats() {
         activeWorkers: activeMessageWorkers,
         queuedConversations: chatMessageQueues.size,
         processedMessageIds: processedMessages.size,
-        maxConcurrentWorkers: MAX_CONCURRENT_MESSAGE_WORKERS
+        maxConcurrentWorkers: MAX_CONCURRENT_MESSAGE_WORKERS,
+        waitingWorkers: workerWaiters.length,
+        diagnosticCounters: { ...diagnostics }
     };
 }
 
 export function handleMessages(sock, update) {
     try {
-        // Accept normal incoming notifications and outgoing append updates.
-        // main.js may normalize an incoming append batch to notify before forwarding it.
-        // Do not accept arbitrary update types: history/replay events must not execute commands.
-        const updateType = update?.type;
-        if (updateType && updateType !== "notify" && updateType !== "append") return 0;
+        diagnostics.upserts++;
+        diagnostics.lastUpsertAt = new Date().toISOString();
 
+        const updateType = update?.type;
         const messages = Array.isArray(update?.messages)
             ? update.messages
-            : update?.message
-                ? [update.message]
-                : [];
+            : update?.message ? [update.message] : [];
+
+        diagLog("UPSERT_RECEIVED", {
+            updateType: updateType || "unspecified",
+            messageCount: messages.length,
+            connectedUserKnown: Boolean(sock?.user?.id || sock?.user?.jid || sock?.user?.lid)
+        });
+
+        if (updateType && updateType !== "notify" && updateType !== "append") {
+            diagnostics.rejectedUpdates++;
+            diagLog("UPSERT_REJECTED_TYPE", { updateType });
+            return 0;
+        }
 
         let queued = 0;
         for (const msg of messages) {
-            if (!msg?.message || !msg?.key?.remoteJid) continue;
+            if (!msg?.message || !msg?.key?.remoteJid) {
+                diagLog("MESSAGE_SKIPPED_MISSING_CONTENT", {
+                    hasMessage: Boolean(msg?.message),
+                    hasRemoteJid: Boolean(msg?.key?.remoteJid)
+                });
+                continue;
+            }
 
-            // main.js only forwards append updates containing outgoing messages.
-            // Keep this guard here too, so an append event cannot run incoming messages.
-            if (updateType === "append" && msg.key.fromMe !== true) continue;
+            const jid = String(msg.key.remoteJid);
+            const isGroup = jid.endsWith("@g.us");
+            diagnostics.receivedMessages++;
+            if (isGroup) {
+                diagnostics.groupMessages++;
+                diagnostics.lastGroupMessageAt = new Date().toISOString();
+            } else {
+                diagnostics.privateMessages++;
+                diagnostics.lastPrivateMessageAt = new Date().toISOString();
+            }
 
-            // Permit only clearly prefixed commands sent by this bot account;
-            // ignore its ordinary replies to prevent loops.
-            if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
-            if (msg.key.remoteJid === "status@broadcast") continue;
+            diagLog("MESSAGE_RECEIVED", {
+                chatType: isGroup ? "group" : "private",
+                updateType: updateType || "unspecified",
+                messageId: msg?.key?.id || null,
+                fromMe: msg?.key?.fromMe === true,
+                hasParticipant: Boolean(msg?.key?.participant)
+            });
+
+            if (updateType === "append" && msg.key.fromMe !== true) {
+                diagnostics.rejectedAppendMessages++;
+                diagLog("MESSAGE_REJECTED_INCOMING_APPEND", { chatType: isGroup ? "group" : "private", messageId: msg?.key?.id || null });
+                continue;
+            }
+
+            if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) {
+                diagnostics.rejectedOwnMessages++;
+                diagLog("MESSAGE_REJECTED_FROM_ME", { chatType: isGroup ? "group" : "private", messageId: msg?.key?.id || null });
+                continue;
+            }
+            if (jid === "status@broadcast") continue;
 
             try {
                 if (queueMessage(sock, msg)) queued++;
             } catch (error) {
-                console.error("Message Queue Error:", error?.stack || error?.message || error);
+                diagError("MESSAGE_QUEUE_FAILED", error, {
+                    chatType: isGroup ? "group" : "private",
+                    messageId: msg?.key?.id || null
+                });
             }
         }
+        diagLog("UPSERT_FINISHED", { queued, messageCount: messages.length });
         return queued;
     } catch (error) {
-        console.error("handleMessages Error:", error?.stack || error?.message || error);
+        diagError("HANDLE_MESSAGES_FAILED", error);
         return 0;
     }
 }
@@ -1678,6 +1781,13 @@ async function executeHandlerLogic(
         // Strict elite gate stays enabled. For group messages, resolve metadata
         // first so the bot's phone identity can be matched to its participant.
         if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) {
+            diagnostics.eliteGateBlocks++;
+            diagLog("MESSAGE_BLOCKED_BY_STRICT_ELITE_MODE", {
+                chatType: isGroup ? "group" : "private",
+                messageId: msg?.key?.id || null,
+                metadataAvailable: Boolean(metadata),
+                senderIdentityAvailable: Boolean(msg?.key?.participant || msg?.key?.remoteJid)
+            });
             return;
         }
 
@@ -1685,12 +1795,15 @@ async function executeHandlerLogic(
         try {
             rawPlugins = await loadPlugins(sock);
         } catch (err) {
-            console.error("Plugin Load Error:", err);
+            diagError("PLUGIN_LOAD_FAILED", err);
         }
 
         const plugins = Array.isArray(rawPlugins) ? rawPlugins : [];
         const pluginSock = createArthurSocket(sock);
-        if (!plugins.length) return;
+        if (!plugins.length) {
+            diagLog("NO_PLUGINS_LOADED", { chatType: isGroup ? "group" : "private" });
+            return;
+        }
 
         getModeFast();
         getEliteFast();
@@ -1856,19 +1969,39 @@ async function executeHandlerLogic(
                 const alwaysOn = plugin?.alwaysOn === true;
                 if (restrictedMode && !alwaysOn && !isEliteUser && !isOwnerUser && !isMainBot) continue;
                 try {
+                    diagnostics.listenersRun++;
+                    diagLog("LISTENER_START", {
+                        listener: plugin?.name || plugin?.command || "anonymous",
+                        chatType: isGroup ? "group" : "private",
+                        messageId: msg?.key?.id || null
+                    });
                     const listenerResult = await plugin.onMessage(pluginSock, msg, context);
-                    if (listenerResult?.handled === true) return;
+                    if (listenerResult?.handled === true) {
+                        diagLog("LISTENER_HANDLED_MESSAGE", {
+                            listener: plugin?.name || plugin?.command || "anonymous",
+                            chatType: isGroup ? "group" : "private"
+                        });
+                        return;
+                    }
                 } catch (listenerError) {
-                    console.error(`❌ Listener Error: ${listenerError?.message || listenerError}`);
+                    diagnostics.listenerErrors++;
+                    diagError("PLUGIN_LISTENER_FAILED", listenerError, {
+                        listener: plugin?.name || plugin?.command || "anonymous",
+                        chatType: isGroup ? "group" : "private",
+                        messageId: msg?.key?.id || null
+                    });
                 }
             }
         }
 
         if (restrictedMode && !isMainBot && !isEliteUser && !isOwnerUser) {
+            diagLog("MESSAGE_BLOCKED_BY_RESTRICTED_MODE", { chatType: isGroup ? "group" : "private" });
             return;
         }
 
         if (!text) {
+            diagnostics.emptyOrUnprefixedMessages++;
+            diagLog("MESSAGE_HAS_NO_TEXT", { chatType: isGroup ? "group" : "private" });
             return;
         }
 
@@ -1882,6 +2015,8 @@ async function executeHandlerLogic(
         const hasPrefix = Boolean(matchedPrefix);
 
         if (!hasPrefix && !fromInteractive) {
+            diagnostics.emptyOrUnprefixedMessages++;
+            diagLog("MESSAGE_IGNORED_NO_PREFIX", { chatType: isGroup ? "group" : "private" });
             return;
         }
 
@@ -1925,6 +2060,7 @@ async function executeHandlerLogic(
             );
 
         if (!cmd) {
+            diagLog("COMMAND_NOT_FOUND", { commandName, chatType: isGroup ? "group" : "private" });
             return;
         }
 
@@ -1933,6 +2069,10 @@ async function executeHandlerLogic(
                 text: arthurBox("❌ ليس لديك صلاحية استخدام هذا الأمر")
             }, { quoted: msg });
         }
+
+        diagnostics.commandsRun++;
+        diagnostics.lastCommandAt = new Date().toISOString();
+        diagLog("COMMAND_START", { commandName, chatType: isGroup ? "group" : "private", messageId: msg?.key?.id || null });
 
         log(
             "cmd",
@@ -2011,19 +2151,15 @@ async function executeHandlerLogic(
             );
 
         } catch (error) {
-            console.error(
-                `❌ Command Execution Failed [${commandName}]:`,
-                error?.message ||
-                    error
-            );
+            diagnostics.commandErrors++;
+            diagError("COMMAND_EXECUTION_FAILED", error, { commandName, chatType: isGroup ? "group" : "private" });
         }
 
     } catch (error) {
-        console.error(
-            "Critical Execute Handler Error:",
-            error?.message ||
-                error
-        );
+        diagError("CRITICAL_EXECUTE_HANDLER_FAILED", error, {
+            chatType: String(msg?.key?.remoteJid || "").endsWith("@g.us") ? "group" : "private",
+            messageId: msg?.key?.id || null
+        });
     }
 }
 
