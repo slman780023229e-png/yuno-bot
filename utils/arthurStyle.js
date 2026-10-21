@@ -3,16 +3,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // ═══════════════════════════════════════════════════════════
-//             ARTHUR BOT • ULTIMATE STYLE ENGINE
-//   Royal • Gothic • Geometric • Elite • Custom Branding
+//          ARTHUR BOT • ULTIMATE STYLE ENGINE
+//       Royal • Gothic • Elite • Safe • Optimized
 // ═══════════════════════════════════════════════════════════
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dataDir = path.join(__dirname, "../data");
 const styleFile = path.join(dataDir, "زخرفة.json");
+const tempFile = `${styleFile}.tmp`;
+const backupFile = `${styleFile}.corrupt-backup`;
 
 const DEFAULT_PRESET = "دم_آرثر";
+const MAX_LINE_LENGTH = 180;
 
 export const PRESETS = {
   دم_آرثر: {
@@ -20,139 +23,116 @@ export const PRESETS = {
     top: "*◇❖ ═━━━╾ 🩸 ╼━━━═ ❖◇*",
     bottom: "*◇❖ ═━━━╾ 🩸 ╼━━━═ ❖◇*"
   },
-
   التاج_الملكي: {
     brand: "*👑 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 👑*",
     top: "*♛━━━༺ 👑 ༻━━━♛*",
     bottom: "*♛━━━━━━━━━━━━♛*"
   },
-
   الظلال: {
     brand: "*🌑 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🌑*",
     top: "*╔══════ ◈ ══════╗*",
     bottom: "*╚══════ ◈ ══════╝*"
   },
-
   الفخامة: {
     brand: "*✦ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ✦*",
     top: "*╭━━━ ⋆⋅✧⋅⋆ ━━━╮*",
     bottom: "*╰━━━ ⋆⋅✧⋅⋆ ━━━╯*"
   },
-
   النيون: {
     brand: "*⚡ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ⚡*",
     top: "*╔═⚡══════⚡═╗*",
     bottom: "*╚═⚡══════⚡═╝*"
   },
-
   الساموراي: {
     brand: "*⚔️ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ⚔️*",
     top: "*⚔━━━〔 武 〕━━━⚔*",
     bottom: "*⚔━━━━━━━━━━━━⚔*"
   },
-
   الجليد: {
     brand: "*❄️ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ❄️*",
     top: "*❄═══༺ ❄ ༻═══❄*",
     bottom: "*❄════════════❄*"
   },
-
   النار: {
     brand: "*🔥 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🔥*",
     top: "*🔥━━━༺ ♨ ༻━━━🔥*",
     bottom: "*🔥━━━━━━━━━━━━🔥*"
   },
-
   الزمرد: {
     brand: "*💚 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 💚*",
     top: "*❖━━━〔 ✧ 〕━━━❖*",
     bottom: "*❖━━━━━━━━━━━━❖*"
   },
-
   المجرة: {
     brand: "*🌌 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🌌*",
     top: "*✧━━━━━ 🌌 ━━━━━✧*",
     bottom: "*✧━━━━━━━━━━━━✧*"
   },
-
   البرق: {
     brand: "*🌩️ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🌩️*",
     top: "*━━━⚡⟪ ⚡ ⟫⚡━━━*",
     bottom: "*━━━⚡━━━━━━━━⚡━━━*"
   },
-
   الوردة: {
     brand: "*🌹 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🌹*",
     top: "*❀━━━━༺ 🌹 ༻━━━━❀*",
     bottom: "*❀━━━━━━━━━━━━❀*"
   },
-
   الماسي: {
     brand: "*💎 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 💎*",
     top: "*◇◆◇━━━━ 💎 ━━━━◇◆◇*",
     bottom: "*◇◆◇━━━━━━━━━━━━◇◆◇*"
   },
-
   الكلاسيكي: {
     brand: "*『 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 』*",
     top: "*╔══════════════╗*",
     bottom: "*╚══════════════╝*"
   },
-
   الهندسي: {
     brand: "*◈ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ◈*",
     top: "*⫷◆━━━━╾ ◈ ╼━━━━◆⫸*",
     bottom: "*⫷◆━━━━━━━━━━━━◆⫸*"
   },
-
   الهندسي_النادر: {
     brand: "*⟡ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ⟡*",
     top: "*⟡❐ ═━━━╾ ◆ ╼━━━═ ❐⟡*",
     bottom: "*⟡❐ ═━━━━━━━━━━━━═ ❐⟡*"
   },
-
   الهندسي_الحاد: {
     brand: "*◢ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ◣*",
     top: "*◢◆◣━━━╾ 🩸 ╼━━━◢◆◣*",
     bottom: "*◢◆◣━━━━━━━━━━━━◢◆◣*"
   },
-
   الإمبراطوري: {
     brand: "*♛ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ♛*",
     top: "*♛❖══════ ◈ ══════❖♛*",
     bottom: "*♛❖══════════════❖♛*"
   },
-
   الذهبي: {
     brand: "*✨ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ✨*",
     top: "*✦━━━━━━ ✨ ━━━━━━✦*",
     bottom: "*✦━━━━━━━━━━━━━━✦*"
   },
-
   القرمزي: {
     brand: "*🔴 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 🔴*",
     top: "*◆❖ ═━━━╾ 🔴 ╼━━━═ ❖◆*",
     bottom: "*◆❖ ═━━━━━━━━━━━━═ ❖◆*"
   },
-
   الشبح: {
     brand: "*𓆩 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 𓆪*",
     top: "*༺⫷━━━━ ◈ ━━━━⫸༻*",
     bottom: "*༺⫷━━━━━━━━━━━━⫸༻*"
   },
-
   المثلثات: {
     brand: "*▲ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ▲*",
     top: "*◢━━━━━━━━━━━━◣*",
     bottom: "*◥━━━━━━━━━━━━◤*"
   },
-
   البلاتيني: {
     brand: "*◇ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓 ◇*",
     top: "*╔═◇◆━━━━◆◇═╗*",
     bottom: "*╚═◇◆━━━━◆◇═╝*"
   },
-
   البسيط: {
     brand: "*𝐀𝐑𝐓𝐇𝐔𝐑 𝐁𝐎𝐓*",
     top: "*━━━━━━━━━━━━━━*",
@@ -166,25 +146,42 @@ export const ELITE_PRESET = {
   bottom: "*⫷♛━━━━━━━━━━━━♛⫸*"
 };
 
-export const DEFAULT_DECORATION = {
+export const DEFAULT_DECORATION = Object.freeze({
   ...PRESETS[DEFAULT_PRESET],
   preset: DEFAULT_PRESET
-};
+});
 
-function safeLine(value, fallback, max = 180) {
-  if (typeof value !== "string") return fallback;
+// ═══════════════════════════════════════════════════════════
+// CACHE
+// ═══════════════════════════════════════════════════════════
 
-  const line = value
-    .replace(/[\r\n]/g, " ")
+let settingsCache = null;
+let settingsCacheMtimeMs = -1;
+let settingsCacheSize = -1;
+
+// ═══════════════════════════════════════════════════════════
+// NORMALIZATION
+// ═══════════════════════════════════════════════════════════
+
+function safeLine(value, fallback, max = MAX_LINE_LENGTH) {
+  const source = typeof value === "string" ? value : fallback;
+
+  const line = String(source ?? "")
+    .replace(/[\r\n\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
     .trim()
     .slice(0, max);
 
-  return line || fallback;
+  return line || String(fallback ?? "").slice(0, max);
 }
 
 function normalizeSettings(saved = {}) {
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) {
+    saved = {};
+  }
+
   const presetName =
-    typeof saved.preset === "string" && PRESETS[saved.preset]
+    typeof saved.preset === "string" &&
+    Object.prototype.hasOwnProperty.call(PRESETS, saved.preset)
       ? saved.preset
       : DEFAULT_PRESET;
 
@@ -201,94 +198,256 @@ function normalizeSettings(saved = {}) {
   };
 }
 
+function defaultSettings() {
+  return normalizeSettings({
+    ...DEFAULT_DECORATION,
+    eliteBrand: ELITE_PRESET.brand,
+    eliteTop: ELITE_PRESET.top,
+    eliteBottom: ELITE_PRESET.bottom
+  });
+}
+
 function ensureDataDir() {
   fs.mkdirSync(dataDir, { recursive: true });
 }
+
+function refreshCache(settings) {
+  settingsCache = normalizeSettings(settings);
+
+  try {
+    if (fs.existsSync(styleFile)) {
+      const stat = fs.statSync(styleFile);
+      settingsCacheMtimeMs = stat.mtimeMs;
+      settingsCacheSize = stat.size;
+    } else {
+      settingsCacheMtimeMs = -1;
+      settingsCacheSize = -1;
+    }
+  } catch {
+    settingsCacheMtimeMs = -1;
+    settingsCacheSize = -1;
+  }
+
+  return { ...settingsCache };
+}
+
+// ═══════════════════════════════════════════════════════════
+// SAFE PERSISTENCE
+// ═══════════════════════════════════════════════════════════
 
 function saveSettings(settings) {
   ensureDataDir();
 
   const normalized = normalizeSettings(settings);
-  const tempFile = `${styleFile}.tmp`;
+  const payload = `${JSON.stringify(normalized, null, 2)}\n`;
 
-  fs.writeFileSync(
-    tempFile,
-    JSON.stringify(normalized, null, 2) + "\n",
-    "utf8"
-  );
+  try {
+    fs.writeFileSync(tempFile, payload, {
+      encoding: "utf8",
+      mode: 0o600
+    });
 
-  fs.renameSync(tempFile, styleFile);
-  return normalized;
+    fs.renameSync(tempFile, styleFile);
+
+    refreshCache(normalized);
+    return { ...normalized };
+  } catch (error) {
+    try {
+      if (fs.existsSync(tempFile)) {
+        fs.unlinkSync(tempFile);
+      }
+    } catch {
+      // Preserve the original error.
+    }
+
+    throw error;
+  }
 }
 
 function readDecoration() {
   try {
     if (!fs.existsSync(styleFile)) {
-      return { ...DEFAULT_DECORATION, ...ELITE_PRESET };
+      return refreshCache(defaultSettings());
     }
 
-    const saved = JSON.parse(fs.readFileSync(styleFile, "utf8"));
-    return normalizeSettings(saved);
+    const stat = fs.statSync(styleFile);
+
+    if (
+      settingsCache &&
+      settingsCacheMtimeMs === stat.mtimeMs &&
+      settingsCacheSize === stat.size
+    ) {
+      return { ...settingsCache };
+    }
+
+    const raw = fs.readFileSync(styleFile, "utf8");
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeSettings(parsed);
+    const normalizedJson = `${JSON.stringify(normalized, null, 2)}\n`;
+
+    if (raw !== normalizedJson) {
+      try {
+        fs.writeFileSync(tempFile, normalizedJson, "utf8");
+        fs.renameSync(tempFile, styleFile);
+      } catch (error) {
+        try {
+          if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+        } catch {
+          // Ignore temporary-file cleanup errors.
+        }
+
+        console.error(
+          "[ARTHUR STYLE] Could not normalize settings:",
+          error.message
+        );
+      }
+    }
+
+    return refreshCache(normalized);
   } catch (error) {
-    console.error("[ARTHUR STYLE] Failed to read settings:", error.message);
-    return normalizeSettings({});
+    console.error(
+      "[ARTHUR STYLE] Failed to read settings:",
+      error.message
+    );
+
+    // Preserve corrupt settings for manual recovery.
+    try {
+      if (fs.existsSync(styleFile) && !fs.existsSync(backupFile)) {
+        fs.copyFileSync(
+          styleFile,
+          backupFile,
+          fs.constants.COPYFILE_EXCL
+        );
+      }
+    } catch (backupError) {
+      console.error(
+        "[ARTHUR STYLE] Backup failed:",
+        backupError.message
+      );
+    }
+
+    settingsCache = defaultSettings();
+    settingsCacheMtimeMs = -1;
+    settingsCacheSize = -1;
+
+    return { ...settingsCache };
   }
 }
 
-function removeOldFrames(value, decoration) {
-  const allPresets = Object.values(PRESETS).flatMap(p => [
-    p.brand, p.top, p.bottom
+// ═══════════════════════════════════════════════════════════
+// FRAME CLEANUP
+// ═══════════════════════════════════════════════════════════
+
+function allKnownFrames(decoration = readDecoration()) {
+  const presetFrames = Object.values(PRESETS).flatMap(preset => [
+    preset.brand,
+    preset.top,
+    preset.bottom
   ]);
 
-  const eliteFrames = [
-    ELITE_PRESET.brand,
-    ELITE_PRESET.top,
-    ELITE_PRESET.bottom
-  ];
-
-  const known = new Set([
+  return new Set([
     decoration.brand,
     decoration.top,
     decoration.bottom,
     decoration.eliteBrand,
     decoration.eliteTop,
     decoration.eliteBottom,
-    ...allPresets,
-    ...eliteFrames
-  ]);
+    ...presetFrames,
+    ELITE_PRESET.brand,
+    ELITE_PRESET.top,
+    ELITE_PRESET.bottom
+  ].filter(Boolean));
+}
+
+function isLegacyFrame(line) {
+  const trimmed = String(line ?? "").trim();
+
+  if (!trimmed) return false;
+
+  return (
+    /^\*?◇❐.*❐◇\*?$/.test(trimmed) ||
+    /^\*?🩸\s*𝐀𝐑𝐓𝐇𝐔𝐑(?:\s+𝐁𝐎𝐓)?\s*🩸\*?$/.test(trimmed) ||
+    /^\*?👑\s*ARTHUR\s+LEYWIN\*?$/.test(trimmed)
+  );
+}
+
+function removeOldFrames(value, decoration = readDecoration()) {
+  const known = allKnownFrames(decoration);
 
   return String(value ?? "")
-    .split("\n")
+    .split(/\r?\n/)
     .filter(line => {
       const trimmed = line.trim();
 
       if (!trimmed) return true;
-      if (known.has(trimmed)) return false;
 
-      // Known legacy ARTHUR frames.
-      if (/^\*?◇❐.*❐◇\*?$/.test(trimmed)) return false;
-      if (/^\*?🩸\s*𝐀𝐑𝐓𝐇𝐔𝐑(?:\s+𝐁𝐎𝐓)?\s*🩸\*?$/.test(trimmed)) return false;
-      if (/^\*?👑\s*ARTHUR\s+LEYWIN\*?$/.test(trimmed)) return false;
-
-      return true;
+      return !known.has(trimmed) && !isLegacyFrame(trimmed);
     })
     .join("\n")
     .trim();
 }
 
-// Read current decoration.
+function normalizeBody(content) {
+  return Array.isArray(content)
+    ? content.map(value => String(value ?? "")).join("\n")
+    : String(content ?? "");
+}
+
+function buildBox(content, brand, top, bottom, decoration) {
+  const clean = removeOldFrames(
+    normalizeBody(content),
+    decoration
+  );
+
+  return clean
+    ? `${brand}\n${top}\n\n${clean}\n\n${bottom}`
+    : `${brand}\n${top}\n\n${bottom}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ERROR HANDLING
+// ═══════════════════════════════════════════════════════════
+
+function safeOperation(operation, successMessage) {
+  try {
+    const decoration = operation();
+
+    return {
+      success: true,
+      message: successMessage,
+      decoration
+    };
+  } catch (error) {
+    console.error(
+      "[ARTHUR STYLE] Save operation failed:",
+      error.message
+    );
+
+    return {
+      success: false,
+      message: "تعذر حفظ إعدادات الزخرفة. تحقق من صلاحيات مجلد data ومساحة التخزين.",
+      error: error.message
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PUBLIC API
+// ═══════════════════════════════════════════════════════════
+
 export function getDecoration() {
   return readDecoration();
 }
 
-// List all preset names.
 export function getPresetNames() {
   return Object.keys(PRESETS);
 }
 
-// Change the complete preset and persist it.
 export function setDecorationPreset(name) {
-  if (typeof name !== "string" || !PRESETS[name]) {
+  if (
+    typeof name !== "string" ||
+    !Object.prototype.hasOwnProperty.call(PRESETS, name)
+  ) {
     return {
       success: false,
       message: "الزخرفة غير موجودة",
@@ -296,121 +455,113 @@ export function setDecorationPreset(name) {
     };
   }
 
-  const selected = PRESETS[name];
-  const current = readDecoration();
+  return safeOperation(() => {
+    const current = readDecoration();
 
-  const saved = saveSettings({
-    ...current,
-    ...selected,
-    preset: name
-  });
-
-  return { success: true, decoration: saved };
+    return saveSettings({
+      ...current,
+      ...PRESETS[name],
+      preset: name
+    });
+  }, "تم تغيير الزخرفة بنجاح");
 }
 
-// Change only the bot logo/brand.
 export function setArthurLogo(logo) {
   if (typeof logo !== "string" || !logo.trim()) {
-    return { success: false, message: "الشعار غير صالح" };
+    return {
+      success: false,
+      message: "الشعار غير صالح"
+    };
   }
 
-  const current = readDecoration();
+  return safeOperation(() => {
+    const current = readDecoration();
 
-  const saved = saveSettings({
-    ...current,
-    brand: safeLine(logo, current.brand)
-  });
-
-  return { success: true, decoration: saved };
+    return saveSettings({
+      ...current,
+      brand: safeLine(logo, current.brand)
+    });
+  }, "تم تغيير الشعار بنجاح");
 }
 
-// Change only the normal message header and footer.
 export function setArthurFrames(top, bottom) {
-  const current = readDecoration();
+  return safeOperation(() => {
+    const current = readDecoration();
 
-  const saved = saveSettings({
-    ...current,
-    top: safeLine(top, current.top),
-    bottom: safeLine(bottom, current.bottom)
-  });
-
-  return { success: true, decoration: saved };
+    return saveSettings({
+      ...current,
+      top: safeLine(top, current.top),
+      bottom: safeLine(bottom, current.bottom)
+    });
+  }, "تم تغيير الإطارات بنجاح");
 }
 
-// Customize the elite header/footer separately.
 export function setArthurEliteStyle(brand, top, bottom) {
-  const current = readDecoration();
+  return safeOperation(() => {
+    const current = readDecoration();
 
-  const saved = saveSettings({
-    ...current,
-    eliteBrand: safeLine(brand, current.eliteBrand),
-    eliteTop: safeLine(top, current.eliteTop),
-    eliteBottom: safeLine(bottom, current.eliteBottom)
-  });
-
-  return { success: true, decoration: saved };
+    return saveSettings({
+      ...current,
+      eliteBrand: safeLine(brand, current.eliteBrand),
+      eliteTop: safeLine(top, current.eliteTop),
+      eliteBottom: safeLine(bottom, current.eliteBottom)
+    });
+  }, "تم تخصيص زخرفة النخبة بنجاح");
 }
 
-// Reset normal logo and frames to the selected preset.
 export function resetArthurStyle() {
-  const current = readDecoration();
-  const base = PRESETS[current.preset] || PRESETS[DEFAULT_PRESET];
+  return safeOperation(() => {
+    const current = readDecoration();
+    const base = PRESETS[current.preset] || PRESETS[DEFAULT_PRESET];
 
-  const saved = saveSettings({
-    ...current,
-    ...base,
-    preset: current.preset
-  });
-
-  return { success: true, decoration: saved };
+    return saveSettings({
+      ...current,
+      ...base,
+      preset: current.preset
+    });
+  }, "تمت إعادة الزخرفة العادية إلى القالب المحدد");
 }
 
-// Reset everything, including the selected preset.
 export function resetAllArthurStyles() {
-  const saved = saveSettings({
-    ...PRESETS[DEFAULT_PRESET],
-    preset: DEFAULT_PRESET,
-    ...{
+  return safeOperation(() => {
+    return saveSettings({
+      ...PRESETS[DEFAULT_PRESET],
+      preset: DEFAULT_PRESET,
       eliteBrand: ELITE_PRESET.brand,
       eliteTop: ELITE_PRESET.top,
       eliteBottom: ELITE_PRESET.bottom
-    }
-  });
-
-  return { success: true, decoration: saved };
+    });
+  }, "تمت إعادة جميع الزخارف إلى الإعدادات الافتراضية");
 }
 
 export function arthurHead() {
-  const s = readDecoration();
-  return `${s.brand}\n${s.top}`;
+  const settings = readDecoration();
+
+  return `${settings.brand}\n${settings.top}`;
 }
 
 export function arthurBox(content = "") {
-  const s = readDecoration();
+  const settings = readDecoration();
 
-  const body = Array.isArray(content)
-    ? content.map(v => String(v ?? "")).join("\n")
-    : String(content ?? "");
-
-  const clean = removeOldFrames(body, s);
-
-  return clean
-    ? `${s.brand}\n${s.top}\n\n${clean}\n\n${s.bottom}`
-    : `${s.brand}\n${s.top}\n\n${s.bottom}`;
+  return buildBox(
+    content,
+    settings.brand,
+    settings.top,
+    settings.bottom,
+    settings
+  );
 }
 
 export function arthurEliteBox(content = "") {
-  const s = readDecoration();
+  const settings = readDecoration();
 
-  const body = Array.isArray(content)
-    ? content.map(v => String(v ?? "")).join("\n")
-    : String(content ?? "");
-
-  const clean = removeOldFrames(body, s);
-
-  return clean
-    ? `${s.eliteBrand}\n${s.eliteTop}\n\n${clean}\n\n${s.eliteBottom}`
-    : `${s.eliteBrand}\n${s.eliteTop}\n\n${s.eliteBottom}`;
+  return buildBox(
+    content,
+    settings.eliteBrand,
+    settings.eliteTop,
+    settings.eliteBottom,
+    settings
+  );
 }
 
 export function arthurFooter() {
@@ -418,14 +569,28 @@ export function arthurFooter() {
 }
 
 export function isArthurDecorated(value) {
-  const t = String(value ?? "").trim();
-  const s = readDecoration();
+  const message = String(value ?? "").trim();
 
-  return (
-    t.startsWith(s.brand) &&
-    t.endsWith(s.bottom)
-  );
+  if (!message) return false;
+
+  const settings = readDecoration();
+
+  const normalMatch =
+    message.startsWith(`${settings.brand}\n${settings.top}`) &&
+    message.endsWith(settings.bottom);
+
+  const eliteMatch =
+    message.startsWith(
+      `${settings.eliteBrand}\n${settings.eliteTop}`
+    ) &&
+    message.endsWith(settings.eliteBottom);
+
+  return normalMatch || eliteMatch;
 }
+
+// ═══════════════════════════════════════════════════════════
+// DEFAULT EXPORT — KEEP API COMPATIBLE
+// ═══════════════════════════════════════════════════════════
 
 export default {
   PRESETS,
