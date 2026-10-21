@@ -653,9 +653,19 @@ async function startBot() {
                 ) {
                     console.log(
                         chalk.red(
-                            '🚫 Session logged out. Automatic reconnect disabled.'
+                            '🚫 Session logged out. Clearing session files and restarting to request new pairing code.'
                         )
                     )
+
+                    // حذف ملفات الاتصال والجلسة القديمة ليطلب كود جديد تلقائياً
+                    try {
+                        if (fs.existsSync(sessionDir)) {
+                            fs.removeSync(sessionDir)
+                            console.log(chalk.green('🗑️ Successfully cleared session directory.'))
+                        }
+                    } catch (err) {
+                        console.error(chalk.red('❌ Failed to clear session directory:'), err)
+                    }
 
                     if (currentSock === sock) {
                         currentSock = null
@@ -666,6 +676,16 @@ async function startBot() {
                     }
 
                     clearReconnectTimer()
+                    
+                    // إعادة التشغيل فوراً لطلب كود الربط الجديد
+                    setTimeout(async () => {
+                        try {
+                            await startBot()
+                        } catch (error) {
+                            console.error(chalk.red('❌ Restart after logout failed:'), error)
+                        }
+                    }, 2000)
+                    
                     return
                 }
 
