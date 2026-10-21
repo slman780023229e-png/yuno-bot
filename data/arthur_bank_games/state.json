@@ -413,7 +413,7 @@
       "invited": "",
       "started": true,
       "isVsBot": true,
-      "turn": "135974805860531@lid",
+      "turn": "BOT",
       "createdAt": 1792593601077,
       "b": [
         "X",
@@ -422,7 +422,7 @@
         "",
         "O",
         "",
-        "",
+        "X",
         "",
         "X"
       ]
