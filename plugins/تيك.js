@@ -7,7 +7,6 @@ import axios from "axios";
 ═══════════════════════════════════════ */
 
 const API_KEY = "ak_live_SRXV4CfsgQtwnkjI0OhicCphe6MVOoan9sySwz-PyrM";
-// تم تحديث المسار بناءً على لوحة التحكم الصحيحة
 const SEARCH_API = "https://apidirect.io/v1/tiktok/videos";
 
 const MAX_RESULTS = 5; 
@@ -64,7 +63,6 @@ async function searchTikTok(query) {
                 }
             });
             const data = response.data;
-            // فحص الاحتمالات المختلفة لهيكلة الرد (videos أو posts أو results)
             const videos = data?.videos || data?.posts || data?.results || data?.data || [];
             if (Array.isArray(videos) && videos.length > 0) {
                 allVideos.push(...videos);
@@ -81,7 +79,8 @@ async function searchTikTok(query) {
 }
 
 function getTikTokURL(post) {
-    return post.video_url || post.videoUrl || post.play || post.wmplay || post.url || post.link || post.permalink || null;
+    // الأولوية دائماً لروابط الفيديو الصريحة المباشرة
+    return post.video_url || post.videoUrl || post.play || post.wmplay || (post.download_url) || null;
 }
 
 function getTitle(post) {
@@ -98,14 +97,15 @@ async function downloadVideo(url, output) {
         timeout: 120000,
         maxRedirects: 10,
         headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "video/mp4,video/*,*/*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "video/mp4,video/*,*/*;q=0.8",
             "Referer": "https://www.tiktok.com/"
         }
     });
 
     const type = String(response.headers["content-type"] || "").toLowerCase();
     
+    // إذا كان الرابط يرجع صفحة HTML أو JSON فهذا يعني أنه ليس رابط فيديو مباشر
     if (type.includes("text/html") || type.includes("application/json")) {
         throw new Error("رابط التحميل لم يرجع ملف فيديو مباشر.");
     }
@@ -306,7 +306,7 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
-                    { text: "❌ لم أجد روابط فيديو صالحة للتحميل من النتائج." },
+                    { text: "❌ لم أجد روابط فيديو مباشرة صالحة للتحميل في نتائج البحث." },
                     { quoted: m }
                 );
             }
