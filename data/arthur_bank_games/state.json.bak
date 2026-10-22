@@ -2573,7 +2573,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792698342098
+        "updatedAt": 1792705733489
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -2581,7 +2581,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792688212780
+        "updatedAt": 1792698342103
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
@@ -2589,7 +2589,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792698342088
+        "updatedAt": 1792705733477
       }
     },
     "season": {
