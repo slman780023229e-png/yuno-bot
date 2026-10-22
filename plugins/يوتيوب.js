@@ -3,7 +3,7 @@ import path from "path";
 import axios from "axios";
 
 /* ═══════════════════════════════════════
-   📺 YOUTUBE ULTIMATE SYSTEM (WORKING DOWNLOAD)
+   📺 YOUTUBE ULTIMATE SYSTEM (STABLE LINK SENDER)
 ═══════════════════════════════════════ */
 
 const API_KEY = "ak_live_SRXV4CfsgQtwnkjI0OhicCphe6MVOoan9sySwz-PyrM";
@@ -87,72 +87,12 @@ function getAuthor(post) {
     return post.author?.name || post.author?.username || post.channel_title || post.author || "YouTube";
 }
 
-// دالة جلب رابط التشغيل الصافي والمباشر للملف (MP4)
-async function fetchDirectPlayUrl(targetUrl) {
-    try {
-        const res = await axios.get(`https://apis.davidcyriltech.my.id/youtube/mp4?url=${encodeURIComponent(targetUrl)}`, { timeout: 15000 });
-        if (res.data && res.data.result && res.data.result.download_url) {
-            return res.data.result.download_url;
-        }
-    } catch (e) {
-        console.error("Failed to extract direct YouTube video URL:", e.message);
-    }
-    return targetUrl;
-}
-
-// دالة تنزيل الفيديو المباشر
-async function downloadVideo(targetUrl, output) {
-    let directUrl = targetUrl;
-    
-    // التكتيك الاحتياطي لجلب رابط الفيديو الصافي بدلاً من رابط الويب
-    if (!directUrl.includes(".mp4") && !directUrl.includes("googlevideo.com")) {
-        directUrl = await fetchDirectPlayUrl(targetUrl);
-    }
-
-    const response = await axios.get(directUrl, {
-        responseType: "stream",
-        timeout: 120000,
-        maxRedirects: 10,
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "video/mp4,video/*,*/*"
-        }
-    });
-
-    const type = String(response.headers["content-type"] || "").toLowerCase();
-    
-    if (type.includes("text/html") || type.includes("application/json")) {
-        throw new Error("رابط التحميل لم يرجع ملف فيديو مباشر.");
-    }
-
-    await new Promise((resolve, reject) => {
-        const writer = fs.createWriteStream(output);
-        response.data.pipe(writer);
-        writer.on("finish", resolve);
-        writer.on("error", reject);
-        response.data.on("error", reject);
-    });
-
-    if (!fs.existsSync(output)) {
-        throw new Error("لم يتم إنشاء ملف الفيديو.");
-    }
-
-    const stats = fs.statSync(output);
-    if (stats.size <= 0) {
-        throw new Error("ملف الفيديو فارغ.");
-    }
-
-    return stats;
-}
-
 export default {
     command: ["يوتيوب", "يوت", "بحثقناة", "تحميليوتيوب", "تحميلالكلبيوتيوب"],
     category: "التحميل",
-    description: "البحث عن فيديوهات وقنوات YouTube وتحميلها مباشرة مع أزرار",
+    description: "البحث عن فيديوهات وقنوات YouTube وإرسال روابطها مباشرة مع أزرار",
 
     execute: async (sock, m, { noPrefixText, jid }) => {
-        let file = null;
-
         try {
             cleanupSelections();
 
@@ -171,7 +111,7 @@ export default {
                 );
             }
 
-            // 1. معالجة أمر "تحميل الكل"
+            // 1. معالجة أمر "تحميل الكل" (إرسال الروابط دفعة واحدة)
             if (command === "تحميلالكلبيوتيوب") {
                 const batchId = query;
                 const itemsList = globalThis.youtubeSelections.get(batchId);
@@ -180,49 +120,24 @@ export default {
                     try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                     return await sock.sendMessage(
                         jid,
-                        { text: "❌ انتهت صلاحية الأزرار أو قائمة التحميل. يرجى البحث من جديد." },
+                        { text: "❌ انتهت صلاحية الأزرار أو القائمة. يرجى البحث من جديد." },
                         { quoted: m }
                     );
                 }
 
                 try { await sock.sendMessage(jid, { react: { text: "⏳", key: m.key } }); } catch {}
 
-                setImmediate(async () => {
-                    let successCount = 0;
-                    for (let i = 0; i < itemsList.length; i++) {
-                        const item = itemsList[i];
-                        if (!item.url) continue;
-
-                        let tempFile = path.join(process.cwd(), `yt_all_${Date.now()}_${i}.mp4`);
-                        try {
-                            await downloadVideo(item.url, tempFile);
-                            await sock.sendMessage(
-                                jid,
-                                {
-                                    video: { url: tempFile },
-                                    mimetype: "video/mp4",
-                                    fileName: `${cleanName(item.title)}.mp4`,
-                                    caption: `📺 ${item.title}\n👤 ${item.author}\n\n📱 YouTube (${i + 1}/${itemsList.length})`
-                                },
-                                { quoted: m }
-                            );
-                            successCount++;
-                        } catch {}
-
-                        try {
-                            if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-                        } catch {}
-
-                        await new Promise(res => setTimeout(res, 1000));
-                    }
-
-                    try { await sock.sendMessage(jid, { react: { text: successCount > 0 ? "✅" : "❌", key: m.key } }); } catch {}
+                let batchText = `📺 *روابط فيديوهات YouTube (${itemsList.length})*\n\n`;
+                itemsList.forEach((item, idx) => {
+                    batchText += `*${idx + 1}.* ${item.title}\n👤 ${item.author}\n🔗 ${item.url}\n\n`;
                 });
 
+                await sock.sendMessage(jid, { text: batchText }, { quoted: m });
+                try { await sock.sendMessage(jid, { react: { text: "✅", key: m.key } }); } catch {}
                 return;
             }
 
-            // 2. معالجة أمر "تحميل فيديو فردي"
+            // 2. معالجة أمر "إرسال رابط فيديو فردي"
             if (command === "تحميليوتيوب") {
                 const targetId = query;
                 const selected = globalThis.youtubeSelections.get(targetId);
@@ -239,19 +154,13 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "📥", key: m.key } }); } catch {}
 
                 if (!selected.url) {
-                    throw new Error("لم يتم العثور على رابط فيديو قابل للتحميل.");
+                    throw new Error("لم يتم العثور على رابط الفيديو.");
                 }
-
-                file = path.join(process.cwd(), `youtube_${Date.now()}.mp4`);
-                await downloadVideo(selected.url, file);
 
                 await sock.sendMessage(
                     jid,
                     {
-                        video: { url: file },
-                        mimetype: "video/mp4",
-                        fileName: `${cleanName(selected.title)}.mp4`,
-                        caption: `📺 ${selected.title}\n👤 ${selected.author}\n\n📱 YouTube`
+                        text: `📺 *${selected.title}*\n👤 القناة: ${selected.author}\n\n🔗 الرابط المباشر:\n${selected.url}`
                     },
                     { quoted: m }
                 );
@@ -323,7 +232,7 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
-                    { text: "❌ لم أجد روابط صالحة للتحميل." },
+                    { text: "❌ لم أجد روابط صالحة." },
                     { quoted: m }
                 );
             }
@@ -347,7 +256,7 @@ export default {
                     };
                 }),
                 {
-                    displayText: `📥 تحميل الكل (${results.length})`,
+                    displayText: `📥 إرسال الكل (${results.length})`,
                     id: `.تحميلالكلبيوتيوب ${batchId}`
                 }
             ];
@@ -356,7 +265,7 @@ export default {
                 `📺 *نتائج YouTube*\n\n` +
                 `🔎 البحث: *${searchInput}*\n` +
                 `📊 النتائج: ${results.length}\n\n` +
-                `👇 اختر ما تريد تحميله:`;
+                `👇 اضغط على الزر للحصول على الرابط المباشر:`;
 
             try { await sock.sendMessage(jid, { react: { text: "✅", key: m.key } }); } catch {}
 
@@ -392,17 +301,6 @@ export default {
                 { text: `❌ حدث خطأ:\n${String(errorText).slice(0, 1000)}` },
                 { quoted: m }
             );
-
-        } finally {
-            if (file) {
-                setTimeout(() => {
-                    try {
-                        if (fs.existsSync(file)) {
-                            fs.unlinkSync(file);
-                        }
-                    } catch {}
-                }, 20000);
-            }
         }
     }
 };
