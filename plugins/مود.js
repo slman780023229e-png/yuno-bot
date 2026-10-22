@@ -1,6 +1,6 @@
 import fs from "fs";
 import { arthurHead } from "../utils/arthurStyle.js";
-import { isEliteMember, normalizeNumber } from "../utils/eliteAccess.js";
+import { readEliteNumbers, normalizeNumber } from "../utils/eliteAccess.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -36,22 +36,27 @@ export default {
     eliteOnly: true,
 
     execute: async (sock, msg, data) => {
-        const jid = data?.jid || msg.key?.remoteJid;
+        // 1. استخراج رقم المرسل وتنظيفه بدقة قاطعة
+        const rawSender = data?.sender || msg.key?.participant || msg.key?.remoteJid || "";
+        const senderNumber = normalizeNumber(rawSender);
 
-        // 1. التحقق القاطع الحصري من صلاحيات النخبة (إما عبر الدالة الموحدة أو البيانات)
-        const isElite = isEliteMember(msg, data) || !!data?.isElite;
+        // 2. جلب أرقام النخبة المعتمدة مباشرة من الملف
+        const eliteNumbers = readEliteNumbers().map(normalizeNumber);
 
-        // إذا لم يكن من أعضاء النخبة، يتجاهل الأمر صامتاً وبشكل كامل دون أي رد
+        // 3. استخراج رقم البوت
+        const botJid = sock.user?.id || "";
+        const botNumber = normalizeNumber(botJid);
+
+        // 4. التحقق القاطع: هل المرسل هو البوت نفسه أو موثق ضمن النخبة؟
+        const isElite = (botNumber && senderNumber === botNumber) || eliteNumbers.includes(senderNumber);
+
+        // 🚫 قفل صامت ومطلق: إذا لم يكن عضواً في النخبة، يتجاهل الأمر فوراً ودون أي رد
         if (!isElite) {
             return;
         }
 
-        // رأس الزخرفة الملكية
+        const jid = data?.jid || msg.key?.remoteJid;
         const head = arthurHead("⚔️ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐄𝐋𝐈𝐓𝐄 𝐌𝐎𝐃𝐄");
-
-        // استخراج وتنظيف رقم المرسل
-        const rawSender = data?.sender || msg.key?.participant || msg.key?.remoteJid || "";
-        const senderNumber = normalizeNumber(rawSender);
 
         const input = data?.text ? data.text.trim() : "";
         const args = input.replace(/^\.مود/, "").trim().split(/\s+/);
