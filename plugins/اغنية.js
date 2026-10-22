@@ -2,154 +2,277 @@ import fs from "fs";
 import path from "path";
 import axios from "axios";
 
+/* ═══════════════════════════════════════
+   🎵 TIKTOK MUSIC / AUDIO SYSTEM
+═══════════════════════════════════════ */
+
 const API_KEY = "ak_live_SRXV4CfsgQtwnkjI0OhicCphe6MVOoan9sySwz-PyrM";
-const SEARCH_API = "https://apidirect.io/v1/tiktok/posts";
+const SEARCH_API = "https://apidirect.io/v1/tiktok/videos";
 
 const MAX_RESULTS = 5; 
-const CACHE_TIME = 30 * 60 * 1000;
+const CACHE_TIME = 30 * 60 * 1000; // 30 دقيقة
 
-if (!globalThis.tiktokMusicSelections) {
-    globalThis.tiktokMusicSelections = new Map();
+if (!globalThis.tiktokAudioSelections) {
+    globalThis.tiktokAudioSelections = new Map();
 }
 
 function cleanName(name) {
-    return String(name || "TikTok").replace(/[<>:"/\\|?*\x00-\x1F]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+    return String(name || "TikTok_Audio")
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80);
 }
+
 function createID() {
-    return "tk_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
+    return (
+        "tka_" +
+        Date.now().toString(36) +
+        "_" +
+        Math.random()
+            .toString(36)
+            .slice(2, 10)
+    );
 }
+
 function cleanupSelections() {
     const now = Date.now();
-    for (const [id, item] of globalThis.tiktokMusicSelections) {
-        if (now - item.time > CACHE_TIME) globalThis.tiktokMusicSelections.delete(id);
+    for (const [id, item] of globalThis.tiktokAudioSelections) {
+        if (now - item.time > CACHE_TIME) {
+            globalThis.tiktokAudioSelections.delete(id);
+        }
     }
 }
 
-async function searchTiktok(query) {
-    let all = [];
-    for (let page = 1; page <= 2; page++) {
-        try {
-            const res = await axios.get(SEARCH_API, {
-                params: { query, page },
-                timeout: 30000,
-                headers: {
-                    "X-API-Key": API_KEY,
-                    Accept: "application/json",
-                }
-            });
-            const data = res.data;
-            const posts = data?.posts || data?.results || data?.data || [];
-            if (posts.length > 0) all.push(...posts);
-            else break;
-        } catch { break; }
+async function searchTikTok(query) {
+    let allVideos = [];
+    try {
+        const response = await axios.get(SEARCH_API, {
+            params: { query, sort_by: "most_recent", page: 1 },
+            timeout: 30000,
+            headers: {
+                "X-API-Key": API_KEY,
+                Accept: "application/json",
+                "User-Agent": "YUNO-BOT/1.0"
+            }
+        });
+        const data = response.data;
+        const videos = data?.videos || data?.posts || data?.results || data?.data || [];
+        if (Array.isArray(videos)) {
+            allVideos = videos;
+        }
+    } catch (error) {
+        console.error("TikTok Audio Search Error:", error?.message);
     }
-    return all;
+    return allVideos;
 }
 
-function getURL(post) {
-    return post.music_url || post.audio_url || post.video_url || post.url || post.download_url || null;
-}
-function getTitle(post) {
-    return post.title || post.music?.title || post.description || post.caption || "اغنية TikTok";
-}
-function getAuthor(post) {
-    return post.author?.name || post.music?.author || post.author || "TikTok";
+// دالة جلب رابط الصوت الصافي المباشر
+async function fetchDirectAudioUrl(tiktokUrl) {
+    try {
+        const res = await axios.post("https://www.tikwm.com/api/", null, {
+            params: { url: tiktokUrl },
+            timeout: 15000
+        });
+        if (res.data && res.data.data) {
+            // جلب رابط الصوت الخاص بالمنشور
+            return res.data.data.music || res.data.data.play; 
+        }
+    } catch (e) {
+        console.error("Failed to fetch audio link:", e.message);
+    }
+    return tiktokUrl;
 }
 
-async function downloadFile(url, output) {
-    const response = await axios.get(url, {
+function getTikTokURL(post) {
+    if (post.url) return post.url;
+    if (post.link) return post.link;
+    const id = post.id || post.video_id || post.videoId;
+    const username = post.author?.unique_id || post.author?.username || post.author || "user";
+    if (id) {
+        return `https://www.tiktok.com/@${username}/video/${id}`;
+    }
+    return null;
+}
+
+async function downloadAudio(targetUrl, output) {
+    let audioUrl = await fetchDirectAudioUrl(targetUrl);
+
+    const response = await axios.get(audioUrl, {
         responseType: "stream",
         timeout: 120000,
-        headers: { "User-Agent": "Mozilla/5.0" }
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept": "*/*"
+        }
     });
+
     await new Promise((resolve, reject) => {
         const writer = fs.createWriteStream(output);
         response.data.pipe(writer);
         writer.on("finish", resolve);
         writer.on("error", reject);
+        response.data.on("error", reject);
     });
+
+    if (!fs.existsSync(output) || fs.statSync(output).size <= 0) {
+        throw new Error("فشل تحميل الملف الصوتي.");
+    }
+
     return fs.statSync(output);
 }
 
 export default {
-    command: ["اغنية", "تحميلاغنية", "تحميلالكلاغنية"],
+    command: ["اغنيه", "أغنية", "صوتتيك", "تحميلصوتتيك"],
     category: "التحميل",
-    description: "البحث عن اغاني التيك توك",
+    description: "البحث عن الصوتيات والأغاني من TikTok وتحميلها كملف صوتي",
 
     execute: async (sock, m, { noPrefixText, jid }) => {
         let file = null;
+
         try {
             cleanupSelections();
+
             const rawText = String(noPrefixText || "").trim();
             const args = rawText ? rawText.split(/\s+/) : [];
             const command = String(args.shift() || "").replace(/^\./, "").toLowerCase();
             const query = args.join(" ").trim();
 
-            if (command === "تحميلالكلاغنية") {
-                const list = globalThis.tiktokMusicSelections.get(query);
-                if (!list) return await sock.sendMessage(jid, { text: "❌ انتهت صلاحية الأزرار." }, { quoted: m });
-                setImmediate(async () => {
-                    for (let i = 0; i < list.length; i++) {
-                        let tempFile = path.join(process.cwd(), `tk_all_${Date.now()}_${i}.mp3`);
-                        try {
-                            await downloadFile(list[i].url, tempFile);
-                            await sock.sendMessage(jid, { audio: { url: tempFile }, mimetype: "audio/mpeg", fileName: `${cleanName(list[i].title)}.mp3` }, { quoted: m });
-                        } catch {}
-                        try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch {}
-                    }
-                });
+            if (!command && !query) {
+                return await sock.sendMessage(
+                    jid,
+                    { text: "⚠️ اكتب اسم الأغنية أو الصوت المطلوب.\n\n📌 مثال:\n.اغنيه شيلات" },
+                    { quoted: m }
+                );
+            }
+
+            // 1. معالجة تحميل الصوت الفردي
+            if (command === "تحميلصوتتيك") {
+                const targetId = query;
+                const selected = globalThis.tiktokAudioSelections.get(targetId);
+
+                if (!selected) {
+                    try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
+                    return await sock.sendMessage(
+                        jid,
+                        { text: "❌ انتهت صلاحية هذا الزر. يرجى البحث مرة أخرى." },
+                        { quoted: m }
+                    );
+                }
+
+                try { await sock.sendMessage(jid, { react: { text: "🎵", key: m.key } }); } catch {}
+
+                file = path.join(process.cwd(), `audio_${Date.now()}.mp3`);
+                await downloadAudio(selected.url, file);
+
+                await sock.sendMessage(
+                    jid,
+                    {
+                        audio: { url: file },
+                        mimetype: "audio/mp4",
+                        ptt: false, // اجعلها true إذا أردت إرسالها كبصمة صوتية
+                        fileName: `${cleanName(selected.title)}.mp3`,
+                        caption: `🎵 ${selected.title}\n👤 ${selected.author}\n📱 TikTok Audio`
+                    },
+                    { quoted: m }
+                );
+
+                try { await sock.sendMessage(jid, { react: { text: "✅", key: m.key } }); } catch {}
+                globalThis.tiktokAudioSelections.delete(targetId);
                 return;
             }
 
-            if (command === "تحميلاغنية") {
-                const selected = globalThis.tiktokMusicSelections.get(query);
-                if (!selected) return await sock.sendMessage(jid, { text: "❌ انتهت صلاحية الزر." }, { quoted: m });
-                file = path.join(process.cwd(), `tiktok_${Date.now()}.mp3`);
-                await downloadFile(selected.url, file);
-                await sock.sendMessage(jid, { audio: { url: file }, mimetype: "audio/mpeg", fileName: `${cleanName(selected.title)}.mp3`, ptt: false }, { quoted: m });
-                return;
-            }
+            // 2. معالجة البحث الجديد
+            const isAudioCmd = command === "اغنيه" || command === "أغنية" || command === "صوتتيك";
+            const searchInput = isAudioCmd ? (query ? query : args.join(" ")) : (command + " " + query).trim();
 
-            const finalQuery = query || rawText;
-            if (!finalQuery) return await sock.sendMessage(jid, { text: "⚠️ اكتب اسم الأغنية.\n\n📌 مثال:\n.اغنية راشد الماجد" }, { quoted: m });
+            if (!searchInput) {
+                return await sock.sendMessage(
+                    jid,
+                    { text: "⚠️ اكتب اسم الأغنية المطلوب البحث عنها." },
+                    { quoted: m }
+                );
+            }
 
             try { await sock.sendMessage(jid, { react: { text: "🔎", key: m.key } }); } catch {}
-            const posts = await searchTiktok(finalQuery);
-            if (!posts.length) return await sock.sendMessage(jid, { text: `❌ لم أجد اغاني لـ: ${finalQuery}` }, { quoted: m });
 
-            const results = posts.slice(0, MAX_RESULTS).map(p => ({
-                id: createID(),
-                time: Date.now(),
-                title: cleanName(getTitle(p)),
-                author: cleanName(getAuthor(p)),
-                url: getURL(p)
-            })).filter(x => x.url);
+            const videos = await searchTikTok(searchInput);
 
-            if (!results.length) return await sock.sendMessage(jid, { text: "❌ بدون روابط صالحة." }, { quoted: m });
+            if (!videos.length) {
+                try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
+                return await sock.sendMessage(
+                    jid,
+                    { text: `❌ لم أجد أغانٍ أو صوتيات لـ: ${searchInput}` },
+                    { quoted: m }
+                );
+            }
 
-            const batchId = "all_" + Date.now().toString(36);
-            globalThis.tiktokMusicSelections.set(batchId, results);
-            results.forEach(item => globalThis.tiktokMusicSelections.set(item.id, item));
+            const results = videos
+                .slice(0, MAX_RESULTS)
+                .map(post => {
+                    const id = createID();
+                    const title = cleanName(post.title || post.caption || "صوت TikTok");
+                    const author = cleanName(post.author?.name || post.author?.nickname || "TikTok");
+                    const url = getTikTokURL(post);
 
-            const buttons = [
-                ...results.map((item, i) => ({ displayText: `🎵 ${i+1} | ${item.title.slice(0,22)}`, id: `.تحميلاغنية ${item.id}` })),
-                { displayText: `📥 تحميل الكل (${results.length})`, id: `.تحميلالكلاغنية ${batchId}` }
-            ];
+                    return { id, time: Date.now(), title, author, url };
+                })
+                .filter(x => x.url);
 
-            const menu = `🎵 *نتائج الأغاني - TikTok*\n\n🔎 البحث: *${finalQuery}*\n📊 النتائج: ${results.length}\n\n👇 اختر الأغنية:`;
+            results.forEach(item => {
+                globalThis.tiktokAudioSelections.set(item.id, item);
+            });
+
+            const buttons = results.map((item, index) => {
+                let title = item.title;
+                if (title.length > 25) {
+                    title = title.slice(0, 22) + "...";
+                }
+                return {
+                    displayText: `🎵 ${index + 1} | ${title}`,
+                    id: `.تحميلصوتتيك ${item.id}`
+                };
+            });
+
+            const menu =
+                `🎵 *نتائج أغاني وصوتيات TikTok*\n\n` +
+                `🔎 البحث: *${searchInput}*\n` +
+                `📊 النتائج: ${results.length}\n\n` +
+                `👇 اختر الصوت الذي تريد تحميله:`;
+
+            try { await sock.sendMessage(jid, { react: { text: "✅", key: m.key } }); } catch {}
 
             if (typeof sock.sendRealButtons === "function") {
-                try { return await sock.sendRealButtons(jid, menu, "YUNO MUSIC", buttons); } catch {}
+                try {
+                    return await sock.sendRealButtons(
+                        jid,
+                        menu,
+                        "YUNO MUSIC",
+                        buttons
+                    );
+                } catch {}
             }
 
             let fallback = menu + "\n\n";
-            results.forEach((item, i) => { fallback += `*${i+1}.* ${item.title} - ${item.author}\n🔗 .تحميلاغنية ${item.id}\n\n`; });
+            results.forEach((item, index) => {
+                fallback += `*${index + 1}.* ${item.title}\n🔗 .تحميلصوتتيك ${item.id}\n\n`;
+            });
+
             return await sock.sendMessage(jid, { text: fallback }, { quoted: m });
 
-        } catch (e) {
-            return await sock.sendMessage(jid, { text: `❌ خطأ: ${e.message}` }, { quoted: m });
+        } catch (error) {
+            try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
+            return await sock.sendMessage(
+                jid,
+                { text: `❌ حدث خطأ أثناء جلب الصوت:\n${error.message}` },
+                { quoted: m }
+            );
         } finally {
-            if (file) setTimeout(() => { try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {} }, 20000);
+            if (file) {
+                setTimeout(() => {
+                    try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {}
+                }, 20000);
+            }
         }
     }
 };
