@@ -3,11 +3,12 @@ import path from "path";
 import axios from "axios";
 
 /* ═══════════════════════════════════════
-   🎵 TIKTOK ULTIMATE SYSTEM (WORKING BUTTONS)
+   🎵 TIKTOK ULTIMATE SYSTEM (APIDIRECT)
 ═══════════════════════════════════════ */
 
 const API_KEY = "ak_live_SRXV4CfsgQtwnkjI0OhicCphe6MVOoan9sySwz-PyrM";
-const SEARCH_API = "https://apidirect.io/v1/tiktok/posts"; // تم تغيير نقطة النهاية لتناسب تيك توك
+// تم تعديل الرابط ليتطابق مع نمط الـ API الصحيح في الموقع
+const SEARCH_API = "https://apidirect.io/v1/tiktok/posts";
 
 const MAX_RESULTS = 5; 
 const CACHE_TIME = 30 * 60 * 1000; // 30 دقيقة
@@ -47,10 +48,15 @@ function cleanupSelections() {
 async function searchTikTok(query) {
     let allPosts = [];
     
-    for (let page = 1; page <= 2; page++) {
+    // بناءً على التوثيق، بعض الـ APIs تدعم الباراميترات مثل sort_by
+    for (let page = 1; page <= 1; page++) {
         try {
             const response = await axios.get(SEARCH_API, {
-                params: { query, page },
+                params: { 
+                    query: query, 
+                    sort_by: "most_recent",
+                    page: page 
+                },
                 timeout: 30000,
                 headers: {
                     "X-API-Key": API_KEY,
@@ -59,13 +65,15 @@ async function searchTikTok(query) {
                 }
             });
             const data = response.data;
+            // الهيكل الموحد حسب الوصف: { "posts": [ ... ] }
             const posts = data?.posts || data?.results || data?.data || [];
             if (Array.isArray(posts) && posts.length > 0) {
                 allPosts.push(...posts);
             } else {
                 break;
             }
-        } catch {
+        } catch (error) {
+            console.error("TikTok Search Error:", error?.response?.data || error.message);
             break;
         }
     }
@@ -74,11 +82,12 @@ async function searchTikTok(query) {
 }
 
 function getTikTokURL(post) {
-    return post.video_url || post.videoUrl || (post.url && post.url.includes(".mp4") ? post.url : null) || post.url || post.link || post.permalink || null;
+    // حسب التوثيق الحقل الأساسي هو url أو video_url
+    return post.video_url || post.videoUrl || post.url || post.link || post.permalink || null;
 }
 
 function getTitle(post) {
-    return post.title || post.caption || post.description || "منشور TikTok";
+    return post.title || post.caption || post.snippet || "منشور TikTok";
 }
 
 function getAuthor(post) {
@@ -92,7 +101,8 @@ async function downloadVideo(url, output) {
         maxRedirects: 10,
         headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "video/mp4,video/*,*/*"
+            "Accept": "video/mp4,video/*,*/*",
+            "Referer": "https://www.tiktok.com/"
         }
     });
 
@@ -123,9 +133,9 @@ async function downloadVideo(url, output) {
 }
 
 export default {
-    command: ["تيكتوك", "تحميلتيك", "تحميلالكلتيك"],
+    command: ["تيكتوك", "تيك", "تحميلتيك", "تحميلالكلتيك"],
     category: "التحميل",
-    description: "البحث عن فيديوهات TikTok وتحميلها مباشرة مع 5 أزرار وزر تحميل الكل في الأسفل",
+    description: "البحث عن فيديوهات TikTok وتحميلها مباشرة مع أزرار",
 
     execute: async (sock, m, { noPrefixText, jid }) => {
         let file = null;
@@ -142,10 +152,7 @@ export default {
                 return await sock.sendMessage(
                     jid,
                     {
-                        text:
-                            "⚠️ اكتب اسم الفيديو.\n\n" +
-                            "📌 مثال:\n" +
-                            ".تيكتوك ناروتو"
+                        text: "⚠️ اكتب اسم الفيديو أو الكلمة المطلوبة.\n\n📌 مثال:\n.تيكتوك ناروتو"
                     },
                     { quoted: m }
                 );
@@ -231,10 +238,7 @@ export default {
                         video: { url: file },
                         mimetype: "video/mp4",
                         fileName: `${cleanName(selected.title)}.mp4`,
-                        caption:
-                            `🎵 ${selected.title}\n` +
-                            `👤 ${selected.author}\n\n` +
-                            `📱 TikTok`
+                        caption: `🎵 ${selected.title}\n👤 ${selected.author}\n\n📱 TikTok`
                     },
                     { quoted: m }
                 );
@@ -245,16 +249,14 @@ export default {
             }
 
             // 3. عملية البحث الجديدة
-            const searchInput = command === "تيكتوك" ? (query ? query : args.join(" ")) : (command + " " + query).trim();
+            const isSearchCmd = command === "تيكتوك" || command === "تيك";
+            const searchInput = isSearchCmd ? (query ? query : args.join(" ")) : (command + " " + query).trim();
             
-            if (command === "تيكتوك" && !searchInput) {
+            if (isSearchCmd && !searchInput) {
                 return await sock.sendMessage(
                     jid,
                     {
-                        text:
-                            "⚠️ اكتب اسم الفيديو.\n\n" +
-                            "📌 مثال:\n" +
-                            ".تيكتوك ناروتو"
+                        text: "⚠️ اكتب اسم الفيديو.\n\n📌 مثال:\n.تيكتوك ناروتو"
                     },
                     { quoted: m }
                 );
@@ -265,10 +267,7 @@ export default {
                 return await sock.sendMessage(
                     jid,
                     {
-                        text:
-                            "⚠️ اكتب اسم الفيديو.\n\n" +
-                            "📌 مثال:\n" +
-                            ".تيكتوك ناروتو"
+                        text: "⚠️ اكتب اسم الفيديو.\n\n📌 مثال:\n.تيكتوك ناروتو"
                     },
                     { quoted: m }
                 );
@@ -282,7 +281,7 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
-                    { text: `❌ لم أجد منشورات لـ: ${finalQuery}` },
+                    { text: `❌ لم أجد منشورات تيك توك لـ: ${finalQuery}` },
                     { quoted: m }
                 );
             }
@@ -309,12 +308,12 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
-                    { text: "❌ لم أجد روابط فيديو صالحة للتحميل." },
+                    { text: "❌ لم أجد روابط فيديو صالحة للتحميل من النتائج." },
                     { quoted: m }
                 );
             }
 
-            const batchId = "alltk_" + Date.now().toString(36);
+            const batchId = "all_" + Date.now().toString(36);
             globalThis.tiktokSelections.set(batchId, results);
 
             results.forEach(item => {
