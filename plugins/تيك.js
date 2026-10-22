@@ -7,8 +7,8 @@ import axios from "axios";
 ═══════════════════════════════════════ */
 
 const API_KEY = "ak_live_SRXV4CfsgQtwnkjI0OhicCphe6MVOoan9sySwz-PyrM";
-// تم تعديل الرابط ليتطابق مع نمط الـ API الصحيح في الموقع
-const SEARCH_API = "https://apidirect.io/v1/tiktok/posts";
+// تم تحديث المسار بناءً على لوحة التحكم الصحيحة
+const SEARCH_API = "https://apidirect.io/v1/tiktok/videos";
 
 const MAX_RESULTS = 5; 
 const CACHE_TIME = 30 * 60 * 1000; // 30 دقيقة
@@ -46,9 +46,8 @@ function cleanupSelections() {
 }
 
 async function searchTikTok(query) {
-    let allPosts = [];
+    let allVideos = [];
     
-    // بناءً على التوثيق، بعض الـ APIs تدعم الباراميترات مثل sort_by
     for (let page = 1; page <= 1; page++) {
         try {
             const response = await axios.get(SEARCH_API, {
@@ -65,10 +64,10 @@ async function searchTikTok(query) {
                 }
             });
             const data = response.data;
-            // الهيكل الموحد حسب الوصف: { "posts": [ ... ] }
-            const posts = data?.posts || data?.results || data?.data || [];
-            if (Array.isArray(posts) && posts.length > 0) {
-                allPosts.push(...posts);
+            // فحص الاحتمالات المختلفة لهيكلة الرد (videos أو posts أو results)
+            const videos = data?.videos || data?.posts || data?.results || data?.data || [];
+            if (Array.isArray(videos) && videos.length > 0) {
+                allVideos.push(...videos);
             } else {
                 break;
             }
@@ -78,16 +77,15 @@ async function searchTikTok(query) {
         }
     }
 
-    return Array.isArray(allPosts) ? allPosts : [];
+    return Array.isArray(allVideos) ? allVideos : [];
 }
 
 function getTikTokURL(post) {
-    // حسب التوثيق الحقل الأساسي هو url أو video_url
-    return post.video_url || post.videoUrl || post.url || post.link || post.permalink || null;
+    return post.video_url || post.videoUrl || post.play || post.wmplay || post.url || post.link || post.permalink || null;
 }
 
 function getTitle(post) {
-    return post.title || post.caption || post.snippet || "منشور TikTok";
+    return post.title || post.caption || post.description || post.snippet || "فيديو TikTok";
 }
 
 function getAuthor(post) {
@@ -281,7 +279,7 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
-                    { text: `❌ لم أجد منشورات تيك توك لـ: ${finalQuery}` },
+                    { text: `❌ لم أجد فيديوهات تيك توك لـ: ${finalQuery}` },
                     { quoted: m }
                 );
             }
