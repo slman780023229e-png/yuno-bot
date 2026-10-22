@@ -113,7 +113,7 @@
       "debt": 0,
       "creditScore": 100,
       "points": 2090,
-      "xp": 200,
+      "xp": 215,
       "level": 4,
       "wins": 36,
       "losses": 4,
@@ -2071,6 +2071,15 @@
       "gold": 0,
       "points": 10,
       "xp": 20
+    },
+    {
+      "id": "tx_04265084-9f4c-4470-a7e3-715da8de67a1",
+      "type": "progress",
+      "at": 1792697798614,
+      "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
     }
   ],
   "processedResults": {
@@ -2572,7 +2581,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792680794802
+        "updatedAt": 1792688212780
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
