@@ -1,42 +1,15 @@
 import fs from "fs";
-import { arthurHead, arthurEliteBox } from "../utils/arthurStyle.js";
+import { arthurHead } from "../utils/arthurStyle.js";
+import { isEliteMember, normalizeNumber } from "../utils/eliteAccess.js";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // مسارات الملفات الأساسية
-const dataFolder = path.join(process.cwd(), "data");
+const dataFolder = path.join(__dirname, "../data");
 const modeFile = path.join(dataFolder, "مود.json");
-const eliteFile = path.join(dataFolder, "النخبة.json");
-
-// دالة قراءة النخبة بدقة تامة
-function getEliteList() {
-    try {
-        if (!fs.existsSync(eliteFile)) {
-            fs.writeFileSync(eliteFile, JSON.stringify([], null, 2));
-            return [];
-        }
-        const data = JSON.parse(fs.readFileSync(eliteFile, "utf-8"));
-        if (Array.isArray(data)) {
-            return data.map(n => String(n).replace(/\D/g, ""));
-        }
-        return [];
-    } catch {
-        return [];
-    }
-}
-
-// دالة فحص النخبة الفائقة
-function isUserElite(senderNumber, sockBotNumber) {
-    const cleanSender = String(senderNumber || "").replace(/\D/g, "");
-    const cleanBot = String(sockBotNumber || "").replace(/\D/g, "");
-
-    if (cleanBot && cleanSender === cleanBot) return true;
-
-    const eliteList = getEliteList();
-    return eliteList.some(el => {
-        const cleanEl = String(el).replace(/\D/g, "");
-        return cleanSender === cleanEl || cleanSender.endsWith(cleanEl) || cleanEl.endsWith(cleanSender);
-    });
-}
 
 // دالة قراءة الحالة الحالية بأمان
 function getCurrentMode() {
@@ -58,53 +31,41 @@ function getCurrentMode() {
 export default {
     command: "مود",
     category: "النخبة",
-    description: "التحكم المطلق في نظام النخبة العام أو عرض حالته الحالية مع قفل صامت 👑",
+    description: "التحكم المطلق في نظام النخبة العام أو عرض حالته الحالية 👑",
     aliases: ["elite-mode"],
     eliteOnly: true,
 
     execute: async (sock, msg, data) => {
-        const jid = data.jid;
+        const jid = data?.jid || msg.key?.remoteJid;
 
-        // رأس الزخرفة الأسطوري الملكي الفخم
-        const head = arthurHead("⚔️ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐄𝐋𝐈𝐓𝐄 𝐌𝐎𝐃𝐄");
+        // 1. التحقق القاطع الحصري من صلاحيات النخبة (إما عبر الدالة الموحدة أو البيانات)
+        const isElite = isEliteMember(msg, data) || !!data?.isElite;
 
-        // استخراج وتنظيف رقم البوت والمرسل بدقة تامة
-        const botJid = sock.user?.id || "";
-        const currentBotNumber = botJid.split(":")[0].replace(/\D/g, "");
-        const senderNumber = (data.sender || msg.key.participant || msg.key.remoteJid || "").split("@")[0].replace(/\D/g, "");
-
-        // التحقق القاطع والنهائي من النخبة أو البوت
-        const authorized = isUserElite(senderNumber, currentBotNumber) || data.isElite;
-
-        if (!authorized) {
-            return sock.sendMessage(
-                jid,
-                {
-                    text:
-`${head}
-*┃ 🛡️ تنبيه الصلاحية*
-*◇❐ ═━╾ 🩸 ╼━═ ❐◇*
-*┃ ⚡ عذراً يا سيدي، هذا الأمر*
-*┃ مخصص حصراً لأعضاء النخبة*
-*┃ والبوت فقط لا غير.*
-*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
-                },
-                { quoted: msg }
-            );
+        // إذا لم يكن من أعضاء النخبة، يتجاهل الأمر صامتاً وبشكل كامل دون أي رد
+        if (!isElite) {
+            return;
         }
 
-        const args = (data.text || "").trim().split(/\s+/).slice(1);
+        // رأس الزخرفة الملكية
+        const head = arthurHead("⚔️ 𝐀𝐑𝐓𝐇𝐔𝐑 𝐄𝐋𝐈𝐓𝐄 𝐌𝐎𝐃𝐄");
+
+        // استخراج وتنظيف رقم المرسل
+        const rawSender = data?.sender || msg.key?.participant || msg.key?.remoteJid || "";
+        const senderNumber = normalizeNumber(rawSender);
+
+        const input = data?.text ? data.text.trim() : "";
+        const args = input.replace(/^\.مود/, "").trim().split(/\s+/);
         const mode = args[0]?.toLowerCase();
 
-        // قراءة الحالة الحالية مباشرة
+        // قراءة الحالة الحالية
         const currentStatus = getCurrentMode();
 
-        // إذا كتب المستخدم ".مود" فقط بدون تحديد on أو off، يتم عرض الحالة الحالية
-        if (!mode) {
+        // عند كتابة ".مود" فقط دون تحديد on/off
+        if (!mode || mode === "") {
             const statusText = currentStatus ? "🛡️ مفعل (حصري للنخبة)" : "🌐 معطل (متاح للعامة)";
             const stateWord = currentStatus ? "SECURE [⚡]" : "OPEN [🔓]";
 
-            return sock.sendMessage(
+            return await sock.sendMessage(
                 jid,
                 {
                     text:
@@ -120,14 +81,15 @@ export default {
 *┃ 📌 أوامر التحكم السريع:*
 *┃ ┠ .مود on (للتفعيل)*
 *┃ ┗ .مود off (للتعطيل)*
-*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
-                },
-                { quoted: msg }
+*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
+                    quoted: msg
+                }
             );
         }
 
+        // في حال إدخال خيار غير صحيح
         if (mode !== "on" && mode !== "off") {
-            return sock.sendMessage(
+            return await sock.sendMessage(
                 jid,
                 {
                     text:
@@ -137,18 +99,18 @@ export default {
 *┃ 📌 الصيغة الصحيحة للاستخدام:*
 *┃ ┠ .مود on  ➔ للتفعيل*
 *┃ ┗ .مود off ➔ للتعطيل*
-*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
-                },
-                { quoted: msg }
+*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
+                    quoted: msg
+                }
             );
         }
 
         const isOn = mode === "on";
 
-        // التحقق الذكي: هل الحالة المطلوبة مطابقة للحالة الحالية بالفعل؟
+        // التحقق الذكي: هل الحالة المطلوبة مطابقة للحالة الحالية؟
         if (currentStatus === isOn) {
             const alreadyMsg = isOn ? "🛡️ نظام النخبة مفعل بالفعل!" : "🌐 نظام النخبة معطل بالفعل!";
-            return sock.sendMessage(
+            return await sock.sendMessage(
                 jid,
                 {
                     text:
@@ -158,9 +120,9 @@ export default {
 *┃ ❖ عذراً يا سيدي:*
 *┃ ┠ ${alreadyMsg}*
 *┃ ┗ لا يوجد تغيير جديد لتنفيذه.*
-*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`
-                },
-                { quoted: msg }
+*◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
+                    quoted: msg
+                }
             );
         }
 
@@ -168,7 +130,7 @@ export default {
             fs.mkdirSync(dataFolder, { recursive: true });
         }
 
-        // كتابة الحالة الجديدة في الملف
+        // كتابة وتحديث الحالة الجديدة في ملف المود
         fs.writeFileSync(
             modeFile,
             JSON.stringify(
@@ -180,11 +142,14 @@ export default {
                 },
                 null,
                 2
-            )
+            ),
+            "utf8"
         );
 
         const statusMsg = isOn ? "⚔️ تم تأمين النظام وتفعيل النخبة" : "🌐 تم إلغاء التقييد وفتح الأوامر";
         const stateWord = isOn ? "SECURE [⚡]" : "OPEN [🌐]";
+
+        const targetMention = rawSender.includes("@") ? rawSender : `${senderNumber}@s.whatsapp.net`;
 
         await sock.sendMessage(
             jid,
@@ -200,12 +165,12 @@ export default {
 *┃ ┠ ${stateWord}*
 *┃ ┗ بواسطة : @${senderNumber}*
 *◇❐ ═━╾ 🩸 ╼━═ ❐◇*`,
-                mentions: [data.sender || msg.key.participant || msg.key.remoteJid]
-            },
-            { quoted: msg }
+                mentions: [targetMention],
+                quoted: msg
+            }
         );
 
-        // تسجيل الحدث في الكونسول بزخرفة دموية فخمة
+        // تسجيل الحدث في الكونسول
         console.log(
 `\x1b[38;5;220m
 ╔══════════════════════════════════════════════════╗
