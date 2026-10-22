@@ -3,7 +3,7 @@ import path from "path";
 import axios from "axios";
 
 /* ═══════════════════════════════════════
-   🎵 TIKTOK ULTIMATE SYSTEM (APIDIRECT)
+   🎵 TIKTOK ULTIMATE SYSTEM (HYBRID DOWNLOAD)
 ═══════════════════════════════════════ */
 
 const API_KEY = "ak_live_SRXV4CfsgQtwnkjI0OhicCphe6MVOoan9sySwz-PyrM";
@@ -47,40 +47,60 @@ function cleanupSelections() {
 async function searchTikTok(query) {
     let allVideos = [];
     
-    for (let page = 1; page <= 1; page++) {
-        try {
-            const response = await axios.get(SEARCH_API, {
-                params: { 
-                    query: query, 
-                    sort_by: "most_recent",
-                    page: page 
-                },
-                timeout: 30000,
-                headers: {
-                    "X-API-Key": API_KEY,
-                    Accept: "application/json",
-                    "User-Agent": "YUNO-BOT/1.0"
-                }
-            });
-            const data = response.data;
-            const videos = data?.videos || data?.posts || data?.results || data?.data || [];
-            if (Array.isArray(videos) && videos.length > 0) {
-                allVideos.push(...videos);
-            } else {
-                break;
+    try {
+        const response = await axios.get(SEARCH_API, {
+            params: { 
+                query: query, 
+                sort_by: "most_recent",
+                page: 1 
+            },
+            timeout: 30000,
+            headers: {
+                "X-API-Key": API_KEY,
+                Accept: "application/json",
+                "User-Agent": "YUNO-BOT/1.0"
             }
-        } catch (error) {
-            console.error("TikTok Search Error:", error?.response?.data || error.message);
-            break;
+        });
+        const data = response.data;
+        const videos = data?.videos || data?.posts || data?.results || data?.data || [];
+        if (Array.isArray(videos)) {
+            allVideos = videos;
         }
+    } catch (error) {
+        console.error("TikTok Search Error:", error?.response?.data || error.message);
     }
 
-    return Array.isArray(allVideos) ? allVideos : [];
+    return allVideos;
+}
+
+// دالة جديدة لاستخراج رابط الفيديو المباشر من أي رابط تيك توك
+async function fetchDirectPlayUrl(tiktokUrl) {
+    try {
+        const res = await axios.post("https://www.tikwm.com/api/", null, {
+            params: { url: tiktokUrl, hd: 1 },
+            timeout: 15000
+        });
+        if (res.data && res.data.data && res.data.data.play) {
+            return res.data.data.play; // رابط مباشر بدون علامة مائية
+        }
+    } catch (e) {
+        console.error("Failed to extract video url via TikWM:", e.message);
+    }
+    return tiktokUrl;
 }
 
 function getTikTokURL(post) {
-    // الأولوية دائماً لروابط الفيديو الصريحة المباشرة
-    return post.video_url || post.videoUrl || post.play || post.wmplay || (post.download_url) || null;
+    if (post.url) return post.url;
+    if (post.link) return post.link;
+    if (post.permalink) return post.permalink;
+    
+    // بناء رابط TikTok قياسي إذا توفر الـ ID
+    const id = post.id || post.video_id || post.videoId;
+    const username = post.author?.unique_id || post.author?.username || post.author || "user";
+    if (id) {
+        return `https://www.tiktok.com/@${username}/video/${id}`;
+    }
+    return null;
 }
 
 function getTitle(post) {
@@ -91,21 +111,25 @@ function getAuthor(post) {
     return post.author?.name || post.author?.unique_id || post.author?.username || post.author || "TikTok";
 }
 
-async function downloadVideo(url, output) {
-    const response = await axios.get(url, {
+async function downloadVideo(targetUrl, output) {
+    // محاولة الحصول على رابط الفيديو الصافي المباشر
+    let directUrl = targetUrl;
+    if (!directUrl.includes(".mp4") && !directUrl.includes("tikwm") && !directUrl.includes("v16-webapp")) {
+        directUrl = await fetchDirectPlayUrl(targetUrl);
+    }
+
+    const response = await axios.get(directUrl, {
         responseType: "stream",
         timeout: 120000,
         maxRedirects: 10,
         headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept": "video/mp4,video/*,*/*;q=0.8",
-            "Referer": "https://www.tiktok.com/"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "video/mp4,video/*,*/*"
         }
     });
 
     const type = String(response.headers["content-type"] || "").toLowerCase();
     
-    // إذا كان الرابط يرجع صفحة HTML أو JSON فهذا يعني أنه ليس رابط فيديو مباشر
     if (type.includes("text/html") || type.includes("application/json")) {
         throw new Error("رابط التحميل لم يرجع ملف فيديو مباشر.");
     }
@@ -224,7 +248,7 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "📥", key: m.key } }); } catch {}
 
                 if (!selected.url) {
-                    throw new Error("لم يتم العثور على رابط تحميل الفيديو.");
+                    throw new Error("لم يتم العثور على رابط فيديو قابل للتحميل.");
                 }
 
                 file = path.join(process.cwd(), `tiktok_${Date.now()}.mp4`);
@@ -253,29 +277,18 @@ export default {
             if (isSearchCmd && !searchInput) {
                 return await sock.sendMessage(
                     jid,
-                    {
-                        text: "⚠️ اكتب اسم الفيديو.\n\n📌 مثال:\n.تيكتوك ناروتو"
-                    },
+                    { text: "⚠️ اكتب اسم الفيديو.\n\n📌 مثال:\n.تيكتوك ناروتو" },
                     { quoted: m }
                 );
             }
 
             const finalQuery = searchInput || rawText;
-            if (!finalQuery) {
-                return await sock.sendMessage(
-                    jid,
-                    {
-                        text: "⚠️ اكتب اسم الفيديو.\n\n📌 مثال:\n.تيكتوك ناروتو"
-                    },
-                    { quoted: m }
-                );
-            }
 
             try { await sock.sendMessage(jid, { react: { text: "🔎", key: m.key } }); } catch {}
 
-            const posts = await searchTikTok(finalQuery);
+            const videos = await searchTikTok(finalQuery);
 
-            if (!posts.length) {
+            if (!videos.length) {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
@@ -284,13 +297,13 @@ export default {
                 );
             }
 
-            const results = posts
+            const results = videos
                 .slice(0, MAX_RESULTS)
                 .map(post => {
                     const id = createID();
                     const title = cleanName(getTitle(post));
                     const author = cleanName(getAuthor(post));
-                    const url = getTikTokURL(post);
+                    const url = getTikTokURL(post) || post.play || post.video_url;
 
                     return {
                         id,
@@ -306,7 +319,7 @@ export default {
                 try { await sock.sendMessage(jid, { react: { text: "❌", key: m.key } }); } catch {}
                 return await sock.sendMessage(
                     jid,
-                    { text: "❌ لم أجد روابط فيديو مباشرة صالحة للتحميل في نتائج البحث." },
+                    { text: "❌ لم أجد نتائج صالحة." },
                     { quoted: m }
                 );
             }
