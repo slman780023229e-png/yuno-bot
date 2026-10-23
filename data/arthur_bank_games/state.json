@@ -113,7 +113,7 @@
       "debt": 0,
       "creditScore": 100,
       "points": 2350,
-      "xp": 570,
+      "xp": 585,
       "level": 4,
       "wins": 44,
       "losses": 4,
@@ -452,26 +452,6 @@
         "",
         "O",
         "",
-        "X"
-      ]
-    },
-    "120363413393470630@g.us_1792787338263_3ky393": {
-      "playerX": "135974805860531@lid",
-      "playerO": "BOT",
-      "invited": "",
-      "started": true,
-      "isVsBot": true,
-      "turn": "135974805860531@lid",
-      "createdAt": 1792787338263,
-      "b": [
-        "X",
-        "",
-        "O",
-        "O",
-        "O",
-        "X",
-        "X",
-        "O",
         "X"
       ]
     }
@@ -2399,6 +2379,15 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_190b58fb-1f33-4071-a84e-b1f793502949",
+      "type": "progress",
+      "at": 1792787362675,
+      "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
     }
   ],
   "processedResults": {
