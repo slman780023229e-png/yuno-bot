@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 6433,
+      "wallet": 6538,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2210,
-      "xp": 380,
+      "points": 2225,
+      "xp": 400,
       "level": 4,
-      "wins": 41,
+      "wins": 42,
       "losses": 4,
       "title": "",
       "inventory": [],
@@ -2152,6 +2152,15 @@
       "gold": 105,
       "points": 15,
       "xp": 20
+    },
+    {
+      "id": "tx_c25c3bb2-5f0f-46a7-8893-92547e14328f",
+      "type": "progress",
+      "at": 1792706176194,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
     }
   ],
   "processedResults": {
@@ -2654,6 +2663,11 @@
       "at": 1792706168604,
       "type": "progress",
       "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:arthur_riddles:120363413393470630@g.us_1792706124767_jvgvkb:1:1:135974805860531@lid": {
+      "at": 1792706176194,
+      "type": "progress",
+      "player": "135974805860531@lid"
     }
   },
   "world": {
@@ -2665,7 +2679,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792705733489
+        "updatedAt": 1792718186436
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -2681,7 +2695,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792705733477
+        "updatedAt": 1792718186434
       }
     },
     "season": {
