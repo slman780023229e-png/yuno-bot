@@ -285,7 +285,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1792397250520,
+      "lastInterest": 1792786459341,
       "createdAt": 1792397250520,
       "bankProfile": {
         "name": "كرار",
@@ -379,7 +379,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1792786344264,
+      "lastInterest": 1792786499796,
       "createdAt": 1792497028764,
       "bankProfile": {
         "name": "ملاك المزة",
@@ -453,6 +453,26 @@
         "O",
         "",
         "X"
+      ]
+    },
+    "120363413393470630@g.us_1792786517917_tlr19g": {
+      "playerX": "135974805860531@lid",
+      "playerO": "BOT",
+      "invited": "",
+      "started": true,
+      "isVsBot": true,
+      "turn": "135974805860531@lid",
+      "createdAt": 1792786517917,
+      "b": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
       ]
     }
   },
