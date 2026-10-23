@@ -286,7 +286,13 @@
       },
       "lastDaily": 0,
       "lastInterest": 1792397250520,
-      "createdAt": 1792397250520
+      "createdAt": 1792397250520,
+      "bankProfile": {
+        "name": "كرار",
+        "logo": "🥷",
+        "openedAt": 1792786415279,
+        "updatedAt": 1792786415279
+      }
     },
     "190649840218266@lid": {
       "wallet": 1500,
@@ -2853,11 +2859,6 @@
     "967715795639:6@s.whatsapp.net": {
       "step": "name",
       "startedAt": 1791820723662
-    },
-    "187836619866125@lid": {
-      "step": "logo",
-      "startedAt": 1792786285385,
-      "name": "كرار"
     }
   }
 }
