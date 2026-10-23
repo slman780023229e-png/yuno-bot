@@ -107,7 +107,7 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 7353,
+      "wallet": 6353,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -285,7 +285,7 @@
         "defense": 1
       },
       "lastDaily": 1792786655742,
-      "lastInterest": 1792786459341,
+      "lastInterest": 1792786714901,
       "createdAt": 1792397250520,
       "bankProfile": {
         "name": "كرار",
@@ -361,7 +361,7 @@
       "createdAt": 1792496838758
     },
     "6825189593146@lid": {
-      "wallet": 2000,
+      "wallet": 3000,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -2299,6 +2299,14 @@
       "at": 1792786655742,
       "player": "187836619866125@lid",
       "amount": 500
+    },
+    {
+      "id": "tx_f15d91e1-f097-47e2-9ada-06811c646274",
+      "type": "transfer",
+      "at": 1792786763397,
+      "from": "135974805860531@lid",
+      "to": "6825189593146@lid",
+      "amount": 1000
     }
   ],
   "processedResults": {
