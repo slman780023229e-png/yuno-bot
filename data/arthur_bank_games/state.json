@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1792583349066,
-      "lastInterest": 1792786202561,
+      "lastInterest": 1792786365056,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -373,7 +373,7 @@
         "defense": 1
       },
       "lastDaily": 0,
-      "lastInterest": 1792497028764,
+      "lastInterest": 1792786344264,
       "createdAt": 1792497028764,
       "bankProfile": {
         "name": "ملاك المزة",
@@ -2855,8 +2855,9 @@
       "startedAt": 1791820723662
     },
     "187836619866125@lid": {
-      "step": "name",
-      "startedAt": 1792786285385
+      "step": "logo",
+      "startedAt": 1792786285385,
+      "name": "كرار"
     }
   }
 }
