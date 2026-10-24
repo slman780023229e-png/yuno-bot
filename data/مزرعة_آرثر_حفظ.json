@@ -12,17 +12,24 @@
           "readyAt": 1792826223317,
           "watered": true,
           "fertilized": false
+        },
+        "2": {
+          "crop": "بطاطس",
+          "plantedAt": 1792825779197,
+          "readyAt": 1792826219197,
+          "watered": true,
+          "fertilized": false
         }
       },
       "storageCapacity": 50,
       "inventory": {},
-      "water": 19,
+      "water": 18,
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
       "pens": {},
       "animals": {},
-      "xp": 10,
+      "xp": 11,
       "wins": 0,
       "losses": 0
     },
