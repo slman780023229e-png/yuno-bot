@@ -79,7 +79,7 @@
       "createdAt": 1791817714505
     },
     "176412191391926@lid": {
-      "wallet": 5885,
+      "wallet": 4685,
       "bank": 236,
       "vault": 0,
       "debt": 0,
@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 383,
+      "wallet": 645,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2400,
-      "xp": 645,
+      "points": 2440,
+      "xp": 695,
       "level": 4,
-      "wins": 45,
+      "wins": 47,
       "losses": 4,
       "title": "",
       "inventory": [],
@@ -339,15 +339,15 @@
       "createdAt": 1792400672067
     },
     "35984058130514@lid": {
-      "wallet": 13500,
+      "wallet": 13605,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 10,
-      "xp": 35,
+      "points": 25,
+      "xp": 55,
       "level": 1,
-      "wins": 0,
+      "wins": 1,
       "losses": 1,
       "title": "",
       "inventory": [],
@@ -2397,6 +2397,33 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_da963526-578b-438d-b1c5-f65eb00a4b85",
+      "type": "progress",
+      "at": 1792851142934,
+      "player": "35984058130514@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_19dec819-46d5-4351-acfe-765809c2d35c",
+      "type": "progress",
+      "at": 1792851156425,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
+    },
+    {
+      "id": "tx_71a8abd6-1f05-42fb-8fe7-e087fe46b47b",
+      "type": "progress",
+      "at": 1792851166926,
+      "player": "135974805860531@lid",
+      "gold": 157,
+      "points": 25,
+      "xp": 30
     }
   ],
   "processedResults": {
@@ -2902,6 +2929,21 @@
     },
     "progress:135974805860531@lid:arthur_riddles:120363413393470630@g.us_1792706124767_jvgvkb:1:1:135974805860531@lid": {
       "at": 1792706176194,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:35984058130514@lid:arthur_riddles:120363413393470630@g.us_1792851119487_wp9atx:0:0:35984058130514@lid": {
+      "at": 1792851142933,
+      "type": "progress",
+      "player": "35984058130514@lid"
+    },
+    "progress:135974805860531@lid:arthur_riddles:120363413393470630@g.us_1792851119487_wp9atx:0:1:135974805860531@lid": {
+      "at": 1792851156425,
+      "type": "progress",
+      "player": "135974805860531@lid"
+    },
+    "progress:135974805860531@lid:arthur_riddles:120363413393470630@g.us_1792851119487_wp9atx:0:2:135974805860531@lid": {
+      "at": 1792851166926,
       "type": "progress",
       "player": "135974805860531@lid"
     }
