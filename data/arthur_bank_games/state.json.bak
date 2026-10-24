@@ -107,7 +107,7 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 5383,
+      "wallet": 4983,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -2923,7 +2923,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792824538530
+        "updatedAt": 1792825276179
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
