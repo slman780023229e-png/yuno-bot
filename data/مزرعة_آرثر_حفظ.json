@@ -8,28 +8,24 @@
       "fields": {
         "1": {
           "crop": "يقطين",
-          "plantedAt": 1792825383317,
-          "readyAt": 1792826223317,
-          "watered": true,
-          "fertilized": false
-        },
-        "2": {
-          "crop": "بطاطس",
-          "plantedAt": 1792825779197,
-          "readyAt": 1792826219197,
+          "plantedAt": 1792826484099,
+          "readyAt": 1792827324099,
           "watered": true,
           "fertilized": false
         }
       },
       "storageCapacity": 50,
-      "inventory": {},
-      "water": 18,
+      "inventory": {
+        "يقطين": 1,
+        "بطاطس": 1
+      },
+      "water": 17,
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
       "pens": {},
       "animals": {},
-      "xp": 11,
+      "xp": 25,
       "wins": 0,
       "losses": 0
     },
