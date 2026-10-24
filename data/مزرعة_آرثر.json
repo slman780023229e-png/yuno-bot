@@ -1,0 +1,252 @@
+{
+  "version": 1,
+  "currency": "عملة",
+  "farm": {
+    "purchasePrice": 1200,
+    "startingPlots": 3,
+    "startingStorage": 50,
+    "startingWater": 20,
+    "startingWaterCapacity": 20,
+    "startingLevel": 1
+  },
+  "plotExpansions": [
+    {
+      "plots": 5,
+      "price": 8000
+    },
+    {
+      "plots": 10,
+      "price": 25000
+    },
+    {
+      "plots": 20,
+      "price": 80000
+    },
+    {
+      "plots": 35,
+      "price": 200000
+    },
+    {
+      "plots": 60,
+      "price": 500000
+    }
+  ],
+  "storageUpgrades": [
+    {
+      "capacity": 100,
+      "price": 7000
+    },
+    {
+      "capacity": 250,
+      "price": 20000
+    },
+    {
+      "capacity": 500,
+      "price": 60000
+    },
+    {
+      "capacity": 1500,
+      "price": 150000
+    }
+  ],
+  "waterUpgrades": [
+    {
+      "capacity": 50,
+      "price": 2000
+    },
+    {
+      "capacity": 100,
+      "price": 7000
+    },
+    {
+      "capacity": 250,
+      "price": 20000
+    },
+    {
+      "capacity": 500,
+      "price": 60000
+    },
+    {
+      "capacity": 1000,
+      "price": 150000
+    }
+  ],
+  "water": {
+    "buyUnitPrice": 10,
+    "waterPerCrop": 1,
+    "wellPrice": 12000,
+    "wellRefillUnits": 10,
+    "wellCooldownMinutes": 60
+  },
+  "crops": {
+    "قمح": {
+      "emoji": "🌾",
+      "seedPrice": 30,
+      "growMinutes": 2,
+      "sellPrice": 50,
+      "xp": 2
+    },
+    "جزر": {
+      "emoji": "🥕",
+      "seedPrice": 50,
+      "growMinutes": 4,
+      "sellPrice": 85,
+      "xp": 3
+    },
+    "طماطم": {
+      "emoji": "🍅",
+      "seedPrice": 100,
+      "growMinutes": 6,
+      "sellPrice": 180,
+      "xp": 4
+    },
+    "بطاطس": {
+      "emoji": "🥔",
+      "seedPrice": 150,
+      "growMinutes": 8,
+      "sellPrice": 270,
+      "xp": 5
+    },
+    "بصل": {
+      "emoji": "🧅",
+      "seedPrice": 200,
+      "growMinutes": 10,
+      "sellPrice": 370,
+      "xp": 6
+    },
+    "يقطين": {
+      "emoji": "🎃",
+      "seedPrice": 400,
+      "growMinutes": 15,
+      "sellPrice": 750,
+      "xp": 8
+    },
+    "بطيخ": {
+      "emoji": "🍉",
+      "seedPrice": 600,
+      "growMinutes": 20,
+      "sellPrice": 1150,
+      "xp": 10
+    },
+    "فراولة": {
+      "emoji": "🍓",
+      "seedPrice": 900,
+      "growMinutes": 25,
+      "sellPrice": 1800,
+      "xp": 12
+    },
+    "عنب": {
+      "emoji": "🍇",
+      "seedPrice": 1500,
+      "growMinutes": 35,
+      "sellPrice": 3000,
+      "xp": 15
+    },
+    "أناناس": {
+      "emoji": "🍍",
+      "seedPrice": 3000,
+      "growMinutes": 50,
+      "sellPrice": 6500,
+      "xp": 20
+    },
+    "مانجو": {
+      "emoji": "🥭",
+      "seedPrice": 5000,
+      "growMinutes": 60,
+      "sellPrice": 11000,
+      "xp": 25
+    },
+    "زعفران": {
+      "emoji": "🌟",
+      "seedPrice": 15000,
+      "growMinutes": 120,
+      "sellPrice": 36000,
+      "xp": 40
+    }
+  },
+  "animals": {
+    "دجاج": {
+      "emoji": "🐔",
+      "price": 500,
+      "feedPrice": 20,
+      "feedPerDay": 1,
+      "product": "بيض",
+      "productEmoji": "🥚",
+      "productEveryMinutes": 60,
+      "productSellPrice": 80,
+      "maxPerPen": 5
+    },
+    "أرنب": {
+      "emoji": "🐇",
+      "price": 800,
+      "feedPrice": 25,
+      "feedPerDay": 1,
+      "product": "فراء",
+      "productEmoji": "🧶",
+      "productEveryMinutes": 120,
+      "productSellPrice": 120,
+      "maxPerPen": 5
+    },
+    "خروف": {
+      "emoji": "🐑",
+      "price": 2000,
+      "feedPrice": 50,
+      "feedPerDay": 1,
+      "product": "صوف",
+      "productEmoji": "🧶",
+      "productEveryMinutes": 240,
+      "productSellPrice": 350,
+      "maxPerPen": 5
+    },
+    "ماعز": {
+      "emoji": "🐐",
+      "price": 2500,
+      "feedPrice": 60,
+      "feedPerDay": 1,
+      "product": "حليب",
+      "productEmoji": "🥛",
+      "productEveryMinutes": 180,
+      "productSellPrice": 300,
+      "maxPerPen": 5
+    },
+    "بقرة": {
+      "emoji": "🐄",
+      "price": 5000,
+      "feedPrice": 100,
+      "feedPerDay": 1,
+      "product": "حليب",
+      "productEmoji": "🥛",
+      "productEveryMinutes": 120,
+      "productSellPrice": 500,
+      "maxPerPen": 2
+    }
+  },
+  "pens": {
+    "دجاج": {
+      "price": 1500,
+      "capacity": 5
+    },
+    "أرنب": {
+      "price": 2000,
+      "capacity": 5
+    },
+    "خروف": {
+      "price": 5000,
+      "capacity": 5
+    },
+    "ماعز": {
+      "price": 6000,
+      "capacity": 5
+    },
+    "بقرة": {
+      "price": 10000,
+      "capacity": 2
+    }
+  },
+  "bet": {
+    "min": 100,
+    "max": 10000,
+    "feePercent": 5,
+    "durationMinutes": 30
+  }
+}

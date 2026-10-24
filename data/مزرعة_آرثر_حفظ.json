@@ -1,0 +1,32 @@
+{
+  "135974805860531@lid": {
+    "farm": {
+      "owner": "135974805860531@lid",
+      "createdAt": 1792823876725,
+      "level": 1,
+      "plots": 3,
+      "fields": {
+        "3": {
+          "crop": "يقطين",
+          "plantedAt": 1792824078432,
+          "readyAt": 1792824978432,
+          "watered": false,
+          "fertilized": false
+        }
+      },
+      "storageCapacity": 50,
+      "inventory": {},
+      "water": 20,
+      "waterCapacity": 20,
+      "well": false,
+      "lastWellAt": 0,
+      "pens": {},
+      "animals": {},
+      "xp": 1,
+      "wins": 0,
+      "losses": 0
+    },
+    "pendingBet": null,
+    "activeBet": null
+  }
+}
