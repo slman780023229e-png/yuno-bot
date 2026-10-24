@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 6538,
+      "wallet": 6983,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2225,
-      "xp": 400,
+      "points": 2400,
+      "xp": 645,
       "level": 4,
-      "wins": 42,
+      "wins": 45,
       "losses": 4,
       "title": "",
       "inventory": [],
@@ -124,8 +124,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1792583349066,
-      "lastInterest": 1792583341877,
+      "lastDaily": 1792786566125,
+      "lastInterest": 1792786784034,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -267,15 +267,15 @@
       "createdAt": 1792353095154
     },
     "187836619866125@lid": {
-      "wallet": 5035,
+      "wallet": 9420,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 550,
-      "xp": 285,
-      "level": 2,
-      "wins": 9,
+      "points": 1075,
+      "xp": 75,
+      "level": 3,
+      "wins": 18,
       "losses": 5,
       "title": "",
       "inventory": [],
@@ -284,9 +284,15 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 0,
-      "lastInterest": 1792397250520,
-      "createdAt": 1792397250520
+      "lastDaily": 1792786655742,
+      "lastInterest": 1792787197859,
+      "createdAt": 1792397250520,
+      "bankProfile": {
+        "name": "كرار",
+        "logo": "🥷",
+        "openedAt": 1792786415279,
+        "updatedAt": 1792786415279
+      }
     },
     "190649840218266@lid": {
       "wallet": 1500,
@@ -355,13 +361,13 @@
       "createdAt": 1792496838758
     },
     "6825189593146@lid": {
-      "wallet": 1500,
+      "wallet": 3000,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 0,
-      "xp": 0,
+      "points": 25,
+      "xp": 65,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -372,8 +378,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 0,
-      "lastInterest": 1792497028764,
+      "lastDaily": 1792786568709,
+      "lastInterest": 1792786499796,
       "createdAt": 1792497028764,
       "bankProfile": {
         "name": "ملاك المزة",
@@ -428,7 +434,28 @@
     }
   },
   "duels": {},
-  "xo": {},
+  "xo": {
+    "120363413393470630@g.us_1792786015310_qb94bg": {
+      "playerX": "6825189593146@lid",
+      "playerO": "BOT",
+      "invited": "",
+      "started": true,
+      "isVsBot": true,
+      "turn": "6825189593146@lid",
+      "createdAt": 1792786015310,
+      "b": [
+        "O",
+        "",
+        "",
+        "",
+        "X",
+        "",
+        "O",
+        "",
+        "X"
+      ]
+    }
+  },
   "transactions": [
     {
       "id": "tx_e247979d-fbe3-4092-9122-616b0a6526c8",
@@ -2215,6 +2242,161 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_481eabb0-63f8-4140-92c9-36ba3aa44832",
+      "type": "progress",
+      "at": 1792785882246,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_5230e2ab-5800-48c8-90be-34c194076b07",
+      "type": "progress",
+      "at": 1792785950414,
+      "player": "6825189593146@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_b3c67929-54ce-4ccf-afcc-44d1b4e61aba",
+      "type": "progress",
+      "at": 1792786058527,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_ba67d974-fbd6-4c0f-a22b-5985923489c6",
+      "type": "progress",
+      "at": 1792786534770,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_c74828ef-1951-4807-968b-e02c4073ed28",
+      "type": "daily",
+      "at": 1792786566125,
+      "player": "135974805860531@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_d5107f1f-ce77-4cd8-8710-1b3a720e6c65",
+      "type": "daily",
+      "at": 1792786568709,
+      "player": "6825189593146@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_d7d8220e-d818-4383-abd1-9bb2c5aa740e",
+      "type": "daily",
+      "at": 1792786655742,
+      "player": "187836619866125@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_f15d91e1-f097-47e2-9ada-06811c646274",
+      "type": "transfer",
+      "at": 1792786763397,
+      "from": "135974805860531@lid",
+      "to": "6825189593146@lid",
+      "amount": 1000
+    },
+    {
+      "id": "tx_fddc206d-fa34-4445-a833-72fb1ecdb157",
+      "type": "progress",
+      "at": 1792786840340,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_216c6bfb-0724-4c38-a92c-29e5c3745038",
+      "type": "progress",
+      "at": 1792786866279,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_e03734da-03f4-43b6-b6a9-aaf2fdfe4d52",
+      "type": "progress",
+      "at": 1792786887629,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_fd82bc21-8024-4c5c-9207-7fe615e2e6c4",
+      "type": "progress",
+      "at": 1792786926144,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_e4f98f75-53bd-411a-b097-9ced7d6fa4d9",
+      "type": "progress",
+      "at": 1792787000138,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_437079d4-e682-4310-8769-1735a546138a",
+      "type": "progress",
+      "at": 1792787028513,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_80e68804-7c12-477e-b882-1e14e83e687e",
+      "type": "progress",
+      "at": 1792787052306,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_fda6f636-ad14-45ea-8e44-d2d0598b3b1c",
+      "type": "progress",
+      "at": 1792787077532,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_190b58fb-1f33-4071-a84e-b1f793502949",
+      "type": "progress",
+      "at": 1792787362675,
+      "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
+    },
+    {
+      "id": "tx_4fb5d750-7e9d-44db-af74-e8b5f863ef4f",
+      "type": "progress",
+      "at": 1792787380655,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -2733,7 +2915,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792781712795
+        "updatedAt": 1792801555572
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -2749,7 +2931,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792781712635
+        "updatedAt": 1792801555571
       }
     },
     "season": {
