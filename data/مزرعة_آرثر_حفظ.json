@@ -23,11 +23,21 @@
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
-      "pens": {},
-      "animals": {},
+      "pens": {
+        "دجاج": 5
+      },
+      "animals": {
+        "دجاج": 1
+      },
       "xp": 25,
       "wins": 0,
-      "losses": 0
+      "losses": 0,
+      "animalLastProduct": {
+        "دجاج": 1792826585730
+      },
+      "feed": {
+        "دجاج": 1
+      }
     },
     "pendingBet": null,
     "activeBet": null
