@@ -1,306 +1,257 @@
-/**
- * ARTHUR BOT • FARM PRO
- * Uses the existing ARTHUR economy API: db(), save(), addProgress().
- * No changes to handler.js or the bank core are required.
- */
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { db, save, addProgress } from "../utils/arthurBankCore.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getAccount, getBankBalance, getArgs, userId, chatId, save, formatMoney } from '../utils/arthurBankCore.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = path.join(__dirname, "../data/مزرعة_آرثر.json");
-const STATE_PATH = path.join(__dirname, "../data/مزرعة_آرثر_حفظ.json");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, '..');
+const CONFIG_FILE = path.join(ROOT, 'data', 'مزرعة_آرثر.json');
+const STATE_FILE = path.join(ROOT, 'data', 'مزرعة_آرثر_حفظ.json');
+const now = () => Date.now();
+const num = (v, fallback = 0) => Number.isFinite(Number(v)) ? Math.floor(Number(v)) : fallback;
+const norm = s => String(s || '').trim().normalize('NFKC').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').toLowerCase();
 
-const DEFAULT_CONFIG = {
-  farmPrice: 1200,
-  startingPlots: 3,
-  plotPriceBase: 700,
-  water: { capacity: 8, refillCost: 90, wellCost: 1200, wellBonus: 4 },
-  storage: { capacity: 30, upgradeBase: 500, upgradeBonus: 15 },
-  crops: {
-    "قمح": { seedPrice: 35, growMinutes: 5, yield: 3, sellPrice: 22, water: 1, emoji: "🌾" },
-    "طماطم": { seedPrice: 55, growMinutes: 8, yield: 3, sellPrice: 38, water: 1, emoji: "🍅" },
-    "بطاطس": { seedPrice: 45, growMinutes: 7, yield: 3, sellPrice: 32, water: 1, emoji: "🥔" },
-    "جزر": { seedPrice: 50, growMinutes: 8, yield: 3, sellPrice: 36, water: 1, emoji: "🥕" },
-    "ذرة": { seedPrice: 80, growMinutes: 12, yield: 4, sellPrice: 52, water: 2, emoji: "🌽" },
-    "فراولة": { seedPrice: 110, growMinutes: 16, yield: 4, sellPrice: 75, water: 2, emoji: "🍓" },
-    "يقطين": { seedPrice: 150, growMinutes: 22, yield: 5, sellPrice: 95, water: 2, emoji: "🎃" }
-  },
-  fertilizer: { price: 120, speedPercent: 25 },
-  market: { sellBonusPercent: 0 },
-  virtualChallenges: { enabled: true, maxStake: 5000 }
-};
-
-function readJson(file, fallback) {
-  try { return JSON.parse(fs.readFileSync(file, "utf8")); }
-  catch { return fallback; }
-}
-function ensureFiles() {
-  fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
-  if (!fs.existsSync(CONFIG_PATH)) fs.writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2));
-  if (!fs.existsSync(STATE_PATH)) fs.writeFileSync(STATE_PATH, JSON.stringify({ version: 1, players: {}, challenges: {} }, null, 2));
-}
-function config() {
-  ensureFiles();
-  const loaded = readJson(CONFIG_PATH, DEFAULT_CONFIG);
-  return { ...DEFAULT_CONFIG, ...loaded, crops: { ...DEFAULT_CONFIG.crops, ...(loaded.crops || {}) } };
-}
-function state() {
-  ensureFiles();
-  const s = readJson(STATE_PATH, { version: 1, players: {}, challenges: {} });
-  s.players ||= {}; s.challenges ||= {};
-  return s;
-}
-let saveQueued = false;
-function persist(s) {
-  if (saveQueued) return;
-  saveQueued = true;
+function loadConfig() {
   try {
-    const tmp = STATE_PATH + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
-    fs.renameSync(tmp, STATE_PATH);
-  } catch (e) { console.error("[FARM] save failed:", e?.message || e); }
-  finally { saveQueued = false; }
-}
-function normalizeId(id) { return String(id || "").split("@")[0].replace(/\D/g, "") || String(id || ""); }
-function playerId(msg) {
-  return msg?.key?.participant || msg?.participant || (msg?.key?.fromMe ? msg?.key?.remoteJid : "");
-}
-function getPlayer(s, id) {
-  const key = normalizeId(id);
-  s.players[key] ||= { farm: false, plots: [], seeds: {}, crops: {}, water: 8, waterCapacity: 8, storageCapacity: 30, wellLevel: 0, storageLevel: 0, stats: { planted: 0, harvested: 0, sold: 0, earned: 0 } };
-  const p = s.players[key];
-  p.plots ||= []; p.seeds ||= {}; p.crops ||= {}; p.stats ||= { planted: 0, harvested: 0, sold: 0, earned: 0 };
-  return p;
-}
-function economyDb() {
-  const d = db();
-  if (!d || typeof d !== "object") throw new Error("تعذر الوصول إلى قاعدة البنك.");
-  return d;
-}
-function wallet(id) {
-  const d = economyDb();
-  const key = normalizeId(id);
-  const user = d.users?.[key] || d.users?.[`${key}@s.whatsapp.net`] || d.players?.[key] || d.accounts?.[key];
-  const candidates = [user?.gold, user?.money, user?.coins, user?.balance, user?.wallet, d.users?.[key]?.gold];
-  const val = candidates.find(v => typeof v === "number" && Number.isFinite(v));
-  if (typeof val !== "number") return null;
-  return Math.max(0, val);
-}
-/*
- * Economy writes are delegated to the same addProgress() function used by
- * existing ARTHUR mini-games. We verify funds first and refuse if the current
- * wallet schema cannot be identified. This prevents a shadow farm currency.
- */
-function changeGold(id, delta) {
-  const before = wallet(id);
-  if (before === null) throw new Error("لم أتعرف على حقل رصيدك في البنك. أرسل ملف utils/arthurBankCore.js لربطه بدقة دون تخمين.");
-  if (delta < 0 && before < -delta) throw new Error(`رصيدك غير كافٍ. رصيدك الحالي: ${before} 🪙`);
-  addProgress(id, { gold: delta });
-  save();
-  const after = wallet(id);
-  if (after === null || (delta < 0 && after > before) || (delta > 0 && after < before)) {
-    throw new Error("تعذر التحقق من تحديث رصيد البنك؛ أوقفت العملية لحماية الرصيد.");
+    const c = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    if (!c?.crops || !c?.animals || !c?.farm) throw new Error('missing required config');
+    return c;
+  } catch (e) {
+    console.error('[ARTHUR FARM] config load error:', e.message);
+    throw new Error('تعذر قراءة data/مزرعة_آرثر.json؛ تأكد من وجود ملف الإعدادات وصحة JSON.');
   }
-  return after;
 }
-function fmt(n) { return Math.floor(Number(n) || 0).toLocaleString("en-US"); }
-function cropName(input, cfg) {
-  const raw = String(input || "").trim();
-  return Object.keys(cfg.crops).find(k => k === raw || k.toLowerCase() === raw.toLowerCase());
+function readState() {
+  try { const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); return s && typeof s === 'object' && !Array.isArray(s) ? s : {}; }
+  catch { return {}; }
 }
-function ready(plot, now = Date.now()) { return Boolean(plot?.crop && now >= Number(plot.readyAt || Infinity)); }
-function remaining(ms) {
-  const mins = Math.max(1, Math.ceil(ms / 60000));
-  return mins >= 60 ? `${Math.floor(mins / 60)} س ${mins % 60} د` : `${mins} دقيقة`;
+let state = readState();
+function persist() {
+  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
+  const tmp = `${STATE_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+  fs.renameSync(tmp, STATE_FILE);
 }
-function statusText(id, p, cfg) {
-  const readyPlots = p.plots.filter(x => ready(x)).length;
-  const growing = p.plots.filter(x => x.crop && !ready(x)).length;
-  const empty = p.plots.filter(x => !x.crop).length;
-  const seedLines = Object.entries(p.seeds).filter(([, n]) => n > 0).map(([name, n]) => `• ${cfg.crops[name]?.emoji || "🌱"} ${name}: ${n} بذرة`).join("\n") || "• لا توجد بذور";
-  const cropLines = Object.entries(p.crops).filter(([, n]) => n > 0).map(([name, n]) => `• ${cfg.crops[name]?.emoji || "🌾"} ${name}: ${n}`).join("\n") || "• المخزن فارغ";
-  const plotLines = p.plots.map((x, i) => {
-    if (!x.crop) return `${i + 1}. 🟫 أرض فارغة`;
-    const c = cfg.crops[x.crop];
-    return `${i + 1}. ${c?.emoji || "🌱"} ${x.crop} — ${ready(x) ? "✅ ناضجة وجاهزة للحصاد" : `⏳ تنضج بعد ${remaining(x.readyAt - Date.now())}`}${x.watered ? " · 💧 مسقية" : " · ⚠️ تحتاج سقي"}`;
-  }).join("\n") || "لا توجد قطع أرض";
-  return `🌾 *مزرعة آرثر PRO*\n\n💰 رصيد البنك: ${wallet(id) === null ? "غير معروف" : fmt(wallet(id)) + " 🪙"}\n🚜 الأرض: ${p.farm ? "مملوكة" : "غير مشتراة"}\n🌱 القطع: ${p.plots.length} | فارغة: ${empty}\n✅ ناضجة: ${readyPlots} | 🌿 تنمو: ${growing}\n💧 الماء: ${p.water}/${p.waterCapacity}\n📦 المخزن: ${Object.values(p.crops).reduce((a, n) => a + n, 0)}/${p.storageCapacity}\n\n*القطع:*\n${plotLines}\n\n*البذور:*\n${seedLines}\n\n*المحصول المخزن:*\n${cropLines}\n\nاكتب *.مزرعة مساعدة* لعرض الأوامر.`;
+function cfg() { return loadConfig(); }
+function player(id) {
+  if (!state[id]) state[id] = { farm: null, pendingBet: null, activeBet: null };
+  return state[id];
+}
+function account(id) { return getAccount(id); }
+function wallet(id) { return num(account(id).wallet); }
+function charge(id, amount) {
+  amount = num(amount);
+  const a = account(id);
+  if (amount <= 0) return { ok: false, message: 'المبلغ غير صالح.' };
+  if (num(a.wallet) < amount) return { ok: false, message: `رصيد محفظتك لا يكفي. تحتاج ${formatMoney(amount)} ولديك ${formatMoney(a.wallet)}.` };
+  a.wallet -= amount; save(); return { ok: true };
+}
+function credit(id, amount) { const a = account(id); a.wallet = num(a.wallet) + num(amount); save(); }
+function ensureFarm(id) { const p = player(id); if (!p.farm) return null; return p.farm; }
+function initFarm(id, c) {
+  return { owner: id, createdAt: now(), level: c.farm.startingLevel, plots: c.farm.startingPlots, fields: {}, storageCapacity: c.farm.startingStorage, inventory: {}, water: c.farm.startingWater, waterCapacity: c.farm.startingWaterCapacity, well: false, lastWellAt: 0, pens: {}, animals: {}, xp: 0, wins: 0, losses: 0 };
+}
+function invCount(f) { return Object.values(f.inventory).reduce((a, b) => a + num(b), 0); }
+function addItem(f, name, qty) { f.inventory[name] = num(f.inventory[name]) + qty; if (f.inventory[name] <= 0) delete f.inventory[name]; }
+function timeLeft(ms) { const sec = Math.max(0, Math.ceil(ms / 1000)); if (sec < 60) return `${sec} ثانية`; return `${Math.floor(sec / 60)} دقيقة${sec % 60 ? ` و${sec % 60} ثانية` : ''}`; }
+function farmOverview(id, c) {
+  const f = ensureFarm(id); if (!f) return `🏡 لم تشترِ مزرعة بعد.\n💰 السعر: ${formatMoney(c.farm.purchasePrice)}\nاكتب: .شراء مزرعة`;
+  const fields = [];
+  for (let i = 1; i <= f.plots; i++) {
+    const crop = f.fields[i];
+    if (!crop) fields.push(`${i}. 🟫 أرض فارغة`);
+    else {
+      const def = c.crops[crop.crop];
+      const left = crop.readyAt - now();
+      fields.push(`${i}. ${def?.emoji || '🌱'} ${crop.crop} — ${left <= 0 ? 'جاهز للحصاد' : `ينضج بعد ${timeLeft(left)}`}${crop.watered ? ' 💧' : ''}`);
+    }
+  }
+  return `🩸 *ARTHUR FARM — مزرعتك*\n\n🌱 المستوى: ${f.level}\n🧑‍🌾 قطع الأرض: ${f.plots}\n💧 الماء: ${f.water}/${f.waterCapacity}${f.well ? ' | بئر موجود' : ''}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}\n🐄 الحيوانات: ${Object.values(f.animals).reduce((a,b)=>a+num(b),0)}\n✨ الخبرة: ${f.xp}\n\n*الأراضي:*\n${fields.join('\n')}\n\n📌 .بذور | .مخزني | .ماء | .حيوانات | .متجر المزرعة`;
 }
 function help() {
-  return `🌾 *دليل مزرعة آرثر PRO*\n\n• *.مزرعة* — حالة المزرعة والمحاصيل الناضجة وغير الناضجة\n• *.مزرعة شراء* — شراء أول مزرعة\n• *.بذور* — سوق البذور والأسعار\n• *.بذور شراء طماطم 3* — شراء 3 بذور من البنك\n• *.زراعة 1 طماطم* — زراعة بذرة في القطعة 1\n• *.سقي 1* — سقي القطعة 1 (تستهلك ماء)\n• *.سقي الكل* — سقي كل المزروعات الممكنة\n• *.حصاد 1* أو *.حصاد الكل* — حصاد المحصول الناضج\n• *.بيع طماطم 5* — بيع 5 من المخزن للبنك\n• *.بيع الكل* — بيع كل المحاصيل المخزنة\n• *.مخزن* — عرض المخزون والبذور\n• *.مزرعة توسعة* — شراء قطعة أرض إضافية\n• *.مزرعة ماء* — تعبئة الماء\n• *.مزرعة بئر* — تطوير البئر وزيادة السعة\n• *.سماد 1* — تسريع نمو القطعة 1\n• *.مزرعة مخزن* — ترقية سعة المخزن\n\n⏱️ أوقات النمو والأسعار قابلة للتعديل في data/مزرعة_آرثر.json.\n💰 جميع عمليات الشراء والبيع تستخدم اقتصاد ARTHUR الحالي، ولا توجد عملة منفصلة للمزرعة.`;
+ return `🩸 *ARTHUR FARM — دليل المزرعة*\n\n🏡 .مزرعة — عرض المزرعة\n🛒 .شراء مزرعة\n🌱 .بذور — أسعار البذور\n🌾 .زراعة 1 طماطم\n🌾 .حصاد 1\n💧 .ماء — حالة الماء\n💧 .شراء ماء 20\n🕳️ .شراء بئر\n📦 .مخزني\n💰 .بيع طماطم 3 | .بيع الكل\n🏗️ .توسعة المزرعة\n📦 .تطوير المخزن\n🚰 .تطوير الماء\n🐄 .حيوانات\n🏚️ .شراء حظيرة دجاج\n🐔 .شراء حيوان دجاج 1\n🌾 .علف دجاج 2\n🥚 .جمع المنتجات\n🎲 .رهان @لاعب 500 — إنشاء تحدي افتراضي\n🎲 .قبول الرهان — قبول التحدي الوارد\n❌ .رفض الرهان — رفضه\n\nتُستخدم محفظة بنك ARTHUR. لا تستبدل ملفات البنك أو المعالج.`;
 }
-async function execute({ sock, msg, text: rawText, args }) {
-  const jid = msg?.key?.remoteJid;
-  const sender = playerId(msg);
-  if (!jid || !sender) return;
-  const input = String(rawText || args?.join(" ") || "").trim();
-  const command = input.replace(/^[.!/#،]+/, "").trim();
-  const cfg = config();
-  const s = state();
-  const p = getPlayer(s, sender);
-  const send = async text => sock.sendMessage(jid, { text }, { quoted: msg });
-  const words = command.split(/\s+/);
-  const lower = words.map(x => x.toLowerCase());
-  const is = (...names) => names.includes(lower[0]);
-  const arg = words.slice(1);
-  const saveState = () => persist(s);
-  try {
-    if (is("مزرعة", "farm")) {
-      if (!arg.length || ["حالة", "status"].includes(arg[0])) return send(statusText(sender, p, cfg));
-      const sub = arg[0];
-      if (["مساعدة", "help"].includes(sub)) return send(help());
-      if (["شراء", "buy"].includes(sub)) {
-        if (p.farm) return send("✅ لديك مزرعة بالفعل.");
-        changeGold(sender, -cfg.farmPrice);
-        p.farm = true; p.waterCapacity = cfg.water.capacity; p.water = cfg.water.capacity;
-        p.storageCapacity = cfg.storage.capacity;
-        p.plots = Array.from({ length: cfg.startingPlots }, () => ({ crop: null, readyAt: 0, watered: false }));
-        saveState(); return send(`🎉 اشتريت مزرعتك بنجاح مقابل ${fmt(cfg.farmPrice)} 🪙 من البنك!\nعدد القطع: ${p.plots.length}\nاستخدم *.بذور* ثم *.بذور شراء طماطم 2*.`);
-      }
-      if (!p.farm) return send(`🏚️ لم تشترِ مزرعة بعد. استخدم *.مزرعة شراء* مقابل ${fmt(cfg.farmPrice)} 🪙.`);
-      if (["توسعة", "توسيع", "expand"].includes(sub)) {
-        const price = Math.floor(cfg.plotPriceBase * (1 + p.plots.length * 0.35));
-        changeGold(sender, -price); p.plots.push({ crop: null, readyAt: 0, watered: false });
-        saveState(); return send(`🚜 تمت إضافة قطعة أرض جديدة مقابل ${fmt(price)} 🪙.\nإجمالي القطع: ${p.plots.length}`);
-      }
-      if (["ماء", "تعبئة", "water"].includes(sub)) {
-        if (p.water >= p.waterCapacity) return send("💧 خزان الماء ممتلئ.");
-        changeGold(sender, -cfg.water.refillCost); p.water = p.waterCapacity;
-        saveState(); return send(`💧 تم ملء الخزان مقابل ${fmt(cfg.water.refillCost)} 🪙. الماء: ${p.water}/${p.waterCapacity}`);
-      }
-      if (["بئر", "well"].includes(sub)) {
-        const cost = cfg.water.wellCost * (p.wellLevel + 1);
-        changeGold(sender, -cost); p.wellLevel++; p.waterCapacity += cfg.water.wellBonus;
-        p.water = p.waterCapacity; saveState();
-        return send(`🪣 تم تطوير البئر إلى المستوى ${p.wellLevel}!\nالسعة الجديدة: ${p.waterCapacity} 💧\nالتكلفة: ${fmt(cost)} 🪙`);
-      }
-      if (["مخزن", "ترقية-مخزن", "storage"].includes(sub)) {
-        const cost = cfg.storage.upgradeBase * (p.storageLevel + 1);
-        changeGold(sender, -cost); p.storageLevel = (p.storageLevel || 0) + 1; p.storageCapacity += cfg.storage.upgradeBonus;
-        saveState(); return send(`📦 تمت ترقية المخزن! السعة: ${p.storageCapacity}. التكلفة: ${fmt(cost)} 🪙`);
-      }
-      return send(help());
-    }
-
-    if (is("بذور", "seed", "seeds")) {
-      if (!arg.length || ["سوق", "market"].includes(arg[0])) {
-        return send("🌱 *سوق البذور*\n\n" + Object.entries(cfg.crops).map(([n, c]) => `${c.emoji} *${n}* — البذرة ${fmt(c.seedPrice)} 🪙 | النمو ${c.growMinutes} د | الحصاد ${c.yield} | بيع الوحدة ${fmt(c.sellPrice)} 🪙`).join("\n") + "\n\nللشراء: *.بذور شراء طماطم 3*");
-      }
-      if (!p.farm) return send("اشترِ المزرعة أولًا: *.مزرعة شراء*");
-      if (["شراء", "buy"].includes(arg[0])) {
-        const name = cropName(arg[1], cfg); const qty = Math.floor(Number(arg[2] || 1));
-        if (!name || !Number.isInteger(qty) || qty < 1 || qty > 100) return send("الصيغة: *.بذور شراء طماطم 3* (العدد من 1 إلى 100).");
-        const cost = cfg.crops[name].seedPrice * qty;
-        changeGold(sender, -cost); p.seeds[name] = (p.seeds[name] || 0) + qty;
-        saveState(); return send(`🛒 اشتريت ${qty} بذرة ${cfg.crops[name].emoji} ${name} مقابل ${fmt(cost)} 🪙.\nالموجود عندك: ${p.seeds[name]} بذرة.`);
-      }
-      return send("استخدم *.بذور* لعرض السوق أو *.بذور شراء طماطم 3*.");
-    }
-
-    if (is("زراعة", "ازرع", "plant")) {
-      if (!p.farm) return send("اشترِ المزرعة أولًا: *.مزرعة شراء*");
-      const plotNo = Number(arg[0]); const name = cropName(arg[1], cfg);
-      if (!Number.isInteger(plotNo) || plotNo < 1 || plotNo > p.plots.length || !name) return send("الصيغة: *.زراعة 1 طماطم*.");
-      const plot = p.plots[plotNo - 1];
-      if (plot.crop) return send(`القطعة ${plotNo} مشغولة بمحصول ${plot.crop}. احصده أولًا إذا نضج.`);
-      if ((p.seeds[name] || 0) < 1) return send(`ليس لديك بذور ${name}. اشترِ من *.بذور شراء ${name} 1*.`);
-      p.seeds[name]--; plot.crop = name; plot.plantedAt = Date.now();
-      plot.readyAt = Date.now() + cfg.crops[name].growMinutes * 60000; plot.watered = false;
-      p.stats.planted++; saveState();
-      return send(`🌱 زرعت ${cfg.crops[name].emoji} ${name} في القطعة ${plotNo}.\n⏳ وقت النمو الأساسي: ${cfg.crops[name].growMinutes} دقيقة.\n💧 اسقِها بالأمر *.سقي ${plotNo}* لتأكيد رعايتها.`);
-    }
-
-    if (is("سقي", "اسق", "ري", "water")) {
-      if (!p.farm) return send("لا توجد مزرعة. استخدم *.مزرعة شراء*.");
-      const targets = ["الكل", "كل", "all"].includes(arg[0]) ? p.plots.map((x, i) => i).filter(i => p.plots[i].crop && !p.plots[i].watered) : [Number(arg[0]) - 1];
-      if (!targets.length || targets.some(i => !Number.isInteger(i) || i < 0 || i >= p.plots.length)) return send("استخدم *.سقي 1* أو *.سقي الكل*.");
-      const valid = targets.filter(i => p.plots[i].crop && !p.plots[i].watered);
-      if (!valid.length) return send("لا توجد مزروعات تحتاج إلى السقي.");
-      const needed = valid.reduce((n, i) => n + (cfg.crops[p.plots[i].crop]?.water || 1), 0);
-      if (p.water < needed) return send(`💧 الماء غير كافٍ. تحتاج ${needed} وحدة والموجود ${p.water}. استخدم *.مزرعة ماء*.`);
-      p.water -= needed;
-      for (const i of valid) {
-        const plot = p.plots[i]; plot.watered = true;
-        const c = cfg.crops[plot.crop];
-        plot.readyAt = Math.max(Date.now(), plot.readyAt - Math.floor(c.growMinutes * 60000 * 0.10));
-      }
-      saveState(); return send(`💧 تم سقي ${valid.length} قطعة. استهلاك الماء: ${needed}.\nالمتبقي: ${p.water}/${p.waterCapacity}.`);
-    }
-
-    if (is("حصاد", "احصد", "harvest")) {
-      if (!p.farm) return send("لا توجد مزرعة. استخدم *.مزرعة شراء*.");
-      const targets = ["الكل", "كل", "all"].includes(arg[0]) ? p.plots.map((x, i) => i).filter(i => ready(p.plots[i])) : [Number(arg[0]) - 1];
-      if (!targets.length || targets.some(i => !Number.isInteger(i) || i < 0 || i >= p.plots.length)) return send("استخدم *.حصاد 1* أو *.حصاد الكل*.");
-      const readyTargets = targets.filter(i => ready(p.plots[i]));
-      if (!readyTargets.length) {
-        const growing = p.plots.map((x, i) => x.crop && !ready(x) ? `${i + 1}: ${x.crop} بعد ${remaining(x.readyAt - Date.now())}` : null).filter(Boolean);
-        return send("⏳ لا يوجد محصول ناضج في القطع المحددة.\n" + (growing.join("\n") || "ازرع بذورًا أولًا."));
-      }
-      const currentStored = Object.values(p.crops).reduce((a, n) => a + n, 0);
-      const potential = readyTargets.reduce((sum, i) => sum + cfg.crops[p.plots[i].crop].yield, 0);
-      if (currentStored + potential > p.storageCapacity) return send(`📦 المخزن لا يتسع للحصاد. لديك ${currentStored}/${p.storageCapacity}. طوّر المخزن عبر *.مزرعة مخزن* أو بع بعض المحاصيل.`);
-      const harvested = [];
-      for (const i of readyTargets) {
-        const plot = p.plots[i]; const name = plot.crop; const amount = cfg.crops[name].yield;
-        p.crops[name] = (p.crops[name] || 0) + amount;
-        harvested.push(`${cfg.crops[name].emoji} ${name} ×${amount} (قطعة ${i + 1})`);
-        plot.crop = null; plot.readyAt = 0; plot.watered = false; plot.plantedAt = 0;
-        p.stats.harvested += amount;
-      }
-      saveState(); return send(`🌾 *تم الحصاد بنجاح!*\n${harvested.join("\n")}\n\n📦 المخزن: ${Object.values(p.crops).reduce((a, n) => a + n, 0)}/${p.storageCapacity}`);
-    }
-
-    if (is("بيع", "بيع-محصول", "sell")) {
-      if (!p.farm) return send("اشترِ المزرعة أولًا.");
-      const all = ["الكل", "كل", "all"].includes(arg[0]);
-      let sold = [], total = 0;
-      const inventory = all ? Object.entries(p.crops).filter(([, n]) => n > 0) : [[cropName(arg[0], cfg), Math.floor(Number(arg[1] || 1))]];
-      if (!inventory.length || inventory.some(([name, qty]) => !name || !Number.isInteger(qty) || qty < 1 || (p.crops[name] || 0) < qty)) {
-        return send("الصيغة: *.بيع طماطم 5* أو *.بيع الكل*. تأكد من وجود الكمية في المخزن.");
-      }
-      for (const [name, qty] of inventory) {
-        const price = cfg.crops[name].sellPrice;
-        const value = price * qty; p.crops[name] -= qty; total += value;
-        sold.push(`${cfg.crops[name].emoji} ${name} ×${qty} = ${fmt(value)} 🪙`);
-      }
-      // Credit through the same shared ARTHUR economy API.
-      addProgress(sender, { gold: total }); save();
-      p.stats.sold += inventory.reduce((n, [, qty]) => n + qty, 0); p.stats.earned += total;
-      saveState();
-      return send(`🧺 *تم البيع إلى السوق!*\n${sold.join("\n")}\n\n💰 أضيف إلى رصيد البنك: +${fmt(total)} 🪙\n🏦 الرصيد الحالي: ${wallet(sender) === null ? "تحقق من البنك" : fmt(wallet(sender)) + " 🪙"}`);
-    }
-
-    if (is("مخزن", "المخزن", "inventory")) {
-      return send(statusText(sender, p, cfg));
-    }
-
-    if (is("سماد", "fertilizer")) {
-      if (!p.farm) return send("اشترِ المزرعة أولًا.");
-      const n = Number(arg[0]);
-      if (!Number.isInteger(n) || n < 1 || n > p.plots.length || !p.plots[n - 1].crop) return send("الصيغة: *.سماد 1* على قطعة مزروعة.");
-      const plot = p.plots[n - 1]; const cost = cfg.fertilizer.price;
-      changeGold(sender, -cost);
-      const shorten = Math.floor(cfg.crops[plot.crop].growMinutes * 60000 * cfg.fertilizer.speedPercent / 100);
-      plot.readyAt = Math.max(Date.now(), plot.readyAt - shorten);
-      saveState(); return send(`🌿 استخدمت السماد في القطعة ${n}. تم تقليل وقت النمو بنسبة ${cfg.fertilizer.speedPercent}% مقابل ${fmt(cost)} 🪙.`);
-    }
-
-    if (is("تحدي-حصاد", "تحدي", "challenge")) {
-      return send("🏆 تحديات الرهان الافتراضي بين اللاعبين غير مفعّلة في هذه النسخة؛ أفضّل عدم تشغيلها قبل تأكيد آلية حجز الرصيد في البنك. يمكن تطويرها لاحقًا دون التأثير على الزراعة.");
-    }
-  } catch (e) {
-    console.error("[FARM] command error:", e?.stack || e);
-    return send(`⚠️ لم تُنفذ العملية: ${e?.message || "خطأ غير معروف"}\nلم أغيّر ملفات الهاندلر.`);
-  }
-  return false;
+async function reply(sock, jid, text, mentions = []) { await sock.sendMessage(jid, { text, ...(mentions.length ? { mentions } : {}) }); }
+function getMention(msg, data) {
+  const ctx = msg?.message?.extendedTextMessage?.contextInfo || msg?.message?.imageMessage?.contextInfo || {};
+  const mentioned = ctx.mentionedJid?.[0];
+  const quoted = ctx.participant;
+  return String(data.target || mentioned || quoted || '').trim();
 }
 
 export default {
-  name: "مزرعة آرثر PRO",
-  command: /^(مزرعة|farm|بذور|seed|seeds|زراعة|ازرع|plant|سقي|اسق|ري|water|حصاد|احصد|harvest|بيع|بيع-محصول|sell|مخزن|المخزن|inventory|سماد|fertilizer|تحدي-حصاد|تحدي|challenge)$/i,
-  category: "ألعاب",
-  description: "مزرعة متكاملة متصلة باقتصاد ARTHUR",
-  execute
+  name: 'arthur-farm', command: 'مزرعة', aliases: ['مزرعتي','شراء','بذور','زراعة','حصاد','مخزني','ماء','بيع','توسعة','تطوير','متجر','حيوانات','حظيرتي','علف','جمع','رهان','قبول','رفض','ترتيب','تسميد','سقي','رهاني','إنهاء'],
+  category: 'games', description: 'مملكة زراعية: محاصيل ومياه ومخازن وحيوانات وتحديات افتراضية.',
+  async execute(sock, msg, data = {}) {
+    const jid = chatId(msg, data), id = userId(msg, data);
+    if (!jid || !id) return;
+    let args = getArgs(msg, data);
+    if (args.length && /^(?:\.|!|\/)?(?:مزرعة|مزرعتي|شراء|بذور|زراعة|حصاد|مخزني|ماء|بيع|توسعة|تطوير|متجر|حيوانات|حظيرتي|علف|جمع|رهان|قبول|رفض|ترتيب)/i.test(args[0])) {
+      const first = norm(args[0]);
+      if (['مزرعة','مزرعتي','بذور','زراعة','حصاد','مخزني','ماء','بيع','توسعة','تطوير','متجر','حيوانات','حظيرتي','علف','جمع','رهان','قبول','رفض','ترتيب'].includes(first)) args = [first, ...args.slice(1)];
+      else if (first === 'شراء') args = ['شراء', ...args.slice(1)];
+    }
+    // Prefix parser: handler supplies text without prefix in normal use; support full command too.
+    const raw = String(data.noPrefixText || data.text || args.join(' ')).trim();
+    const parts = raw.split(/\s+/).filter(Boolean);
+    let cmd = norm(parts[0] || 'مزرعة');
+    if (cmd.startsWith('.')) cmd = cmd.slice(1);
+    if (cmd === 'مزرعتي') cmd = 'مزرعة';
+    if (cmd === 'شراء' && norm(parts[1]) === 'مزرعة') { cmd = 'شراء مزرعة'; parts.splice(1, 1); }
+    else if (cmd === 'شراء' && norm(parts[1]) === 'ماء') { cmd = 'شراء ماء'; parts.splice(1, 1); }
+    else if (cmd === 'شراء' && norm(parts[1]) === 'بئر') { cmd = 'شراء بئر'; parts.splice(1, 1); }
+    else if (cmd === 'شراء' && norm(parts[1]) === 'حظيرة') { cmd = 'شراء حظيرة'; parts.splice(1, 1); }
+    else if (cmd === 'شراء' && norm(parts[1]) === 'حيوان') { cmd = 'شراء حيوان'; parts.splice(1, 1); }
+    else if (cmd === 'تطوير' && norm(parts[1]) === 'المخزن') { cmd = 'تطوير المخزن'; parts.splice(1, 1); }
+    else if (cmd === 'تطوير' && norm(parts[1]) === 'الماء') { cmd = 'تطوير الماء'; parts.splice(1, 1); }
+    else if (cmd === 'توسعة' && norm(parts[1]) === 'المزرعة') { cmd = 'توسعة المزرعة'; parts.splice(1, 1); }
+    else if (cmd === 'قبول' && norm(parts[1]) === 'الرهان') { cmd = 'قبول الرهان'; parts.splice(1, 1); }
+    else if (cmd === 'رفض' && norm(parts[1]) === 'الرهان') { cmd = 'رفض الرهان'; parts.splice(1, 1); }
+    else if (cmd === 'إنهاء' && norm(parts[1]) === 'الرهان') { cmd = 'إنهاء الرهان'; parts.splice(1, 1); }
+    else if (cmd === 'رهاني') cmd = 'رهاني';
+    else if (cmd === 'متجر') cmd = 'متجر المزرعة';
+    else if (cmd === 'ترتيب') cmd = 'ترتيب المزارعين';
+    else if (cmd === 'حظيرتي') cmd = 'حيوانات';
+    const a = parts.slice(1);
+    let c;
+    try { c = cfg(); } catch (e) { return reply(sock, jid, `❌ ${e.message}`); }
+    const p = player(id);
+    const f = ensureFarm(id);
+
+    if (cmd === 'مساعدة' || cmd === 'مزرعة مساعدة' || cmd === 'help') return reply(sock, jid, help());
+    if (cmd === 'مزرعة') return reply(sock, jid, farmOverview(id, c));
+    if (cmd === 'شراء مزرعة') {
+      if (p.farm) return reply(sock, jid, '🏡 لديك مزرعة بالفعل! اكتب .مزرعة لعرضها.');
+      const paid = charge(id, c.farm.purchasePrice); if (!paid.ok) return reply(sock, jid, `❌ ${paid.message}`);
+      p.farm = initFarm(id, c); persist(); return reply(sock, jid, `👑 مبروك! أصبحت مالك مزرعة ARTHUR FARM.\n💰 التكلفة: ${formatMoney(c.farm.purchasePrice)}\n🌱 الأراضي: ${p.farm.plots}\n💧 الماء: ${p.farm.water}/${p.farm.waterCapacity}\n📦 سعة المخزن: ${p.farm.storageCapacity}\nاكتب .مزرعة لعرض مزرعتك.`);
+    }
+    if (cmd === 'بذور' || cmd === 'متجر المزرعة') {
+      const crops = Object.entries(c.crops).map(([n,x]) => `${x.emoji} ${n}: بذرة ${formatMoney(x.seedPrice)} | نضج ${x.growMinutes} د | بيع ${formatMoney(x.sellPrice)}`).join('\n');
+      const animals = Object.entries(c.animals).map(([n,x]) => `${x.emoji} ${n}: ${formatMoney(x.price)} | المنتج ${x.product} كل ${x.productEveryMinutes} د`).join('\n');
+      return reply(sock, jid, `🌱 *متجر البذور*\n${crops}\n\n🐄 *متجر الحيوانات*\n${animals}\n\n🏗️ التوسعة والمخزن والماء: اكتب .توسعة المزرعة أو .تطوير المخزن أو .تطوير الماء`);
+    }
+    if (!f && !['شراء مزرعة','ترتيب المزارعين','رهان','قبول الرهان','رفض الرهان'].includes(cmd)) return reply(sock, jid, '🏡 يجب شراء مزرعة أولًا. اكتب .شراء مزرعة');
+
+    if (cmd === 'زراعة') {
+      const plot = num(a[0], 0), cropName = a.slice(1).join(' '), key = Object.keys(c.crops).find(k => norm(k) === norm(cropName));
+      if (!Number.isInteger(plot) || plot < 1 || plot > f.plots) return reply(sock, jid, `❌ رقم قطعة الأرض غير صالح. لديك ${f.plots} قطع.`);
+      if (!key) return reply(sock, jid, '❌ المحصول غير موجود. اكتب .بذور لرؤية المحاصيل.');
+      if (f.fields[plot]) return reply(sock, jid, `❌ الأرض ${plot} مشغولة بمحصول ${f.fields[plot].crop}. احصده أولًا.`);
+      const crop = c.crops[key], paid = charge(id, crop.seedPrice); if (!paid.ok) return reply(sock, jid, `❌ ${paid.message}`);
+      f.fields[plot] = { crop: key, plantedAt: now(), readyAt: now() + crop.growMinutes * 60000, watered: false, fertilized: false };
+      p.farm.xp += 1; persist(); return reply(sock, jid, `${crop.emoji} زُرع ${key} في الأرض ${plot}!\n💰 ثمن البذرة: ${formatMoney(crop.seedPrice)}\n⏳ النضج بعد ${crop.growMinutes} دقيقة.\n💧 الماء المتوفر: ${f.water}/${f.waterCapacity}`);
+    }
+    if (cmd === 'حصاد') {
+      const plot = num(a[0], 0); if (!plot || plot > f.plots || !f.fields[plot]) return reply(sock, jid, '❌ لا يوجد محصول في قطعة الأرض المحددة.');
+      const crop = f.fields[plot], def = c.crops[crop.crop];
+      if (crop.readyAt > now()) return reply(sock, jid, `⏳ لم ينضج ${crop.crop} بعد. بقي ${timeLeft(crop.readyAt - now())}.`);
+      if (invCount(f) + 1 > f.storageCapacity) return reply(sock, jid, '📦 المخزن ممتلئ! بِع بعض المنتجات أو طوّر المخزن قبل الحصاد.');
+      addItem(f, crop.crop, 1); delete f.fields[plot]; f.xp += def.xp; persist(); return reply(sock, jid, `🌾 تم حصاد ${def.emoji} ${crop.crop}!\n📦 أضيف إلى المخزن.\n💵 سعر البيع الأساسي: ${formatMoney(def.sellPrice)}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}`);
+    }
+    if (cmd === 'ماء') { if (f.well) { const cycles = Math.floor((now() - num(f.lastWellAt, now())) / (c.water.wellCooldownMinutes * 60000)); if (cycles > 0) { f.water = Math.min(f.waterCapacity, f.water + cycles * c.water.wellRefillUnits); f.lastWellAt = num(f.lastWellAt, now()) + cycles * c.water.wellCooldownMinutes * 60000; persist(); } } return reply(sock, jid, `💧 *مخزون المياه*\nالماء: ${f.water}/${f.waterCapacity}\n${f.well ? `🕳️ البئر: موجود — يعيد ${c.water.wellRefillUnits} وحدة كل ${c.water.wellCooldownMinutes} دقيقة.` : `🕳️ لا يوجد بئر. شراؤه: ${formatMoney(c.water.wellPrice)} — .شراء بئر`}\nلشراء الماء: .شراء ماء 20 (السعر ${formatMoney(c.water.buyUnitPrice)} لكل وحدة).`); }
+    if (cmd === 'شراء ماء') {
+      const qty = num(a[0], 0); if (qty < 1 || qty > f.waterCapacity - f.water) return reply(sock, jid, `❌ الكمية غير صالحة. المساحة المتاحة ${f.waterCapacity - f.water}.`);
+      const cost = qty * c.water.buyUnitPrice, paid = charge(id, cost); if (!paid.ok) return reply(sock, jid, `❌ ${paid.message}`);
+      f.water += qty; persist(); return reply(sock, jid, `💧 تم شراء ${qty} وحدة ماء مقابل ${formatMoney(cost)}. المخزون ${f.water}/${f.waterCapacity}.`);
+    }
+    if (cmd === 'شراء بئر') {
+      if (f.well) return reply(sock, jid, '🕳️ لديك بئر بالفعل.'); const paid = charge(id, c.water.wellPrice); if (!paid.ok) return reply(sock, jid, `❌ ${paid.message}`);
+      f.well = true; f.lastWellAt = now(); persist(); return reply(sock, jid, `🕳️ تم حفر البئر! اكتب .ماء لمعرفة حالة المياه.`);
+    }
+    if (cmd === 'سقي') {
+      const plot = num(a[0], 0); if (!plot || !f.fields[plot]) return reply(sock, jid, '❌ حدد قطعة أرض مزروعة: .سقي 1');
+      if (f.fields[plot].watered) return reply(sock, jid, '💧 هذا المحصول تم سقيه بالفعل.');
+      if (f.water < c.water.waterPerCrop) return reply(sock, jid, '🚱 الماء غير كافٍ. اكتب .شراء ماء 10 أو استخدم البئر بعد تجدد الماء.');
+      f.water -= c.water.waterPerCrop; f.fields[plot].watered = true; f.fields[plot].readyAt = Math.max(now(), f.fields[plot].readyAt - Math.min(60000, c.crops[f.fields[plot].crop].growMinutes * 5000)); persist();
+      return reply(sock, jid, `💧 تم سقي الأرض ${plot}! انخفض وقت النضج قليلًا. الماء: ${f.water}/${f.waterCapacity}.`);
+    }
+    if (cmd === 'تسميد') {
+      const plot = num(a[0], 0); if (!plot || !f.fields[plot]) return reply(sock, jid, '❌ استخدم .تسميد 1');
+      const cost = 100, paid = charge(id, cost); if (!paid.ok) return reply(sock, jid, `❌ ${paid.message}`);
+      if (f.fields[plot].fertilized) { credit(id, cost); return reply(sock, jid, '🧪 هذا المحصول سُمّد بالفعل.'); }
+      f.fields[plot].fertilized = true; f.fields[plot].readyAt = Math.max(now(), f.fields[plot].readyAt - 120000); persist(); return reply(sock, jid, `🧪 تم تسميد المحصول مقابل ${formatMoney(cost)} وتقليل وقت نموه.`);
+    }
+    if (cmd === 'مخزني') {
+      const items = Object.entries(f.inventory); return reply(sock, jid, `📦 *مخزنك*\nالسعة: ${invCount(f)}/${f.storageCapacity}\n${items.length ? items.map(([n,q]) => `• ${n}: ${q}`).join('\n') : 'المخزن فارغ.'}\n\n💰 قيمة البيع الأساسية التقريبية: ${formatMoney(items.reduce((sum,[n,q])=>sum+num(q)*(c.crops[n]?.sellPrice || Object.values(c.animals).find(x=>x.product===n)?.productSellPrice || 0),0))}`);
+    }
+    if (cmd === 'بيع') {
+      if (!a.length) return reply(sock, jid, 'استخدم .بيع طماطم 2 أو .بيع الكل');
+      let qty = 0, total = 0, sold = [];
+      if (norm(a[0]) === 'الكل') {
+        for (const [name, count] of Object.entries(f.inventory)) { const price = c.crops[name]?.sellPrice || Object.values(c.animals).find(x=>x.product===name)?.productSellPrice || 0; if (price > 0) { total += price * count; qty += count; sold.push(`${name} ×${count}`); delete f.inventory[name]; } }
+      } else {
+        const name = Object.keys(c.crops).find(k=>norm(k)===norm(a[0])) || [...new Set(Object.values(c.animals).map(x=>x.product))].find(k=>norm(k)===norm(a[0]));
+        if (!name) return reply(sock, jid, '❌ المنتج غير معروف.');
+        const available = num(f.inventory[name]); qty = norm(a[1]) === 'الكل' || !a[1] ? available : Math.min(available, num(a[1]));
+        if (qty < 1) return reply(sock, jid, '❌ لا توجد كمية متاحة للبيع.');
+        const price = c.crops[name]?.sellPrice || Object.values(c.animals).find(x=>x.product===name)?.productSellPrice || 0; total = price * qty; delete f.inventory[name]; if (available > qty) f.inventory[name] = available - qty; sold.push(`${name} ×${qty}`);
+      }
+      if (qty < 1 || total < 1) return reply(sock, jid, '❌ لا توجد منتجات قابلة للبيع.');
+      credit(id, total); persist(); return reply(sock, jid, `💰 تم البيع بنجاح!\n📦 ${sold.join('، ')}\n💵 الأرباح: ${formatMoney(total)}\n👛 رصيد المحفظة: ${formatMoney(wallet(id))}`);
+    }
+    if (cmd === 'توسعة المزرعة') {
+      const options = c.plotExpansions.filter(x=>x.plots>f.plots);
+      if (!a.length) return reply(sock, jid, `🏗️ *توسعة الأراضي*\nحاليًا: ${f.plots} قطعة\n${options.map(x=>`${x.plots} قطعة: ${formatMoney(x.price)}`).join('\n')}\nاكتب .توسعة المزرعة عدد_الأراضي`);
+      const target = num(a[0]); const opt = c.plotExpansions.find(x=>x.plots===target && x.plots>f.plots); if (!opt) return reply(sock, jid, '❌ اختر مستوى توسعة صحيحًا من القائمة.');
+      const paid = charge(id,opt.price); if (!paid.ok) return reply(sock,jid,`❌ ${paid.message}`); f.plots=opt.plots; f.level++; persist(); return reply(sock,jid,`🏡 تمت التوسعة! أصبحت تملك ${f.plots} قطعة أرض.`);
+    }
+    if (cmd === 'تطوير المخزن') {
+      const opt = c.storageUpgrades.find(x=>x.capacity>f.storageCapacity); if (!opt) return reply(sock,jid,'👑 مخزنك وصل إلى أعلى مستوى.');
+      const paid=charge(id,opt.price); if(!paid.ok)return reply(sock,jid,`❌ ${paid.message}`); f.storageCapacity=opt.capacity; persist(); return reply(sock,jid,`📦 تمت ترقية المخزن إلى ${f.storageCapacity} وحدة مقابل ${formatMoney(opt.price)}.`);
+    }
+    if (cmd === 'تطوير الماء') {
+      const opt=c.waterUpgrades.find(x=>x.capacity>f.waterCapacity); if(!opt)return reply(sock,jid,'👑 وصلت سعة المياه إلى الحد الأعلى.');
+      const paid=charge(id,opt.price); if(!paid.ok)return reply(sock,jid,`❌ ${paid.message}`); f.waterCapacity=opt.capacity; persist(); return reply(sock,jid,`🚰 تمت ترقية خزان الماء إلى ${f.waterCapacity} وحدة. لم تتم تعبئة الخزان تلقائيًا.`);
+    }
+    if (cmd === 'حيوانات') {
+      const pens=Object.entries(f.pens).map(([n,q])=>`${n}: ${q} سعة`); const animals=Object.entries(f.animals).map(([n,q])=>`${c.animals[n]?.emoji||'🐾'} ${n}: ${q}`).join('\n') || 'لا تملك حيوانات.';
+      return reply(sock,jid,`🐄 *مزرعة الحيوانات*\n${animals}\n\n🏚️ الحظائر: ${pens.join('، ') || 'لا توجد حظائر'}\n\n${Object.entries(c.animals).map(([n,x])=>`${x.emoji} ${n}: ${formatMoney(x.price)} | المنتج ${x.product}`).join('\n')}\n\n.شراء حظيرة دجاج\n.شراء حيوان دجاج 1\n.علف دجاج 2\n.جمع المنتجات`);
+    }
+    if (cmd === 'شراء حظيرة') {
+      const name=Object.keys(c.pens).find(k=>norm(k)===norm(a.join(' '))); if(!name)return reply(sock,jid,'❌ نوع الحظيرة غير معروف.');
+      if(f.pens[name])return reply(sock,jid,'🏚️ لديك حظيرة من هذا النوع بالفعل.'); const paid=charge(id,c.pens[name].price);if(!paid.ok)return reply(sock,jid,`❌ ${paid.message}`);f.pens[name]=c.pens[name].capacity;persist();return reply(sock,jid,`🏚️ تم شراء حظيرة ${name} بسعة ${f.pens[name]}.`);
+    }
+    if (cmd === 'شراء حيوان') {
+      const name=Object.keys(c.animals).find(k=>norm(k)===norm(a[0])); const qty=Math.max(1,Math.min(100,num(a[1],1))); if(!name)return reply(sock,jid,'❌ نوع الحيوان غير معروف.'); if(!f.pens[name])return reply(sock,jid,`❌ تحتاج إلى حظيرة ${name} أولًا: .شراء حظيرة ${name}`);
+      if(num(f.animals[name])+qty>f.pens[name])return reply(sock,jid,`❌ سعة الحظيرة لا تكفي. السعة ${f.pens[name]} والحالي ${num(f.animals[name])}.`);
+      const cost=c.animals[name].price*qty,paid=charge(id,cost);if(!paid.ok)return reply(sock,jid,`❌ ${paid.message}`);f.animals[name]=num(f.animals[name])+qty;f.animalLastProduct ||= {};f.animalLastProduct[name] ||= now();persist();return reply(sock,jid,`🐾 اشتريت ${qty} من ${name} مقابل ${formatMoney(cost)}.`);
+    }
+    if (cmd === 'علف') {
+      const name=Object.keys(c.animals).find(k=>norm(k)===norm(a[0]));const qty=Math.max(1,Math.min(100,num(a[1],1)));if(!name||!num(f.animals[name]))return reply(sock,jid,'❌ لا تملك هذا الحيوان.');const cost=c.animals[name].feedPrice*qty;const paid=charge(id,cost);if(!paid.ok)return reply(sock,jid,`❌ ${paid.message}`);f.feed ||= {};f.feed[name]=num(f.feed[name])+qty;persist();return reply(sock,jid,`🌾 اشتريت ${qty} وجبة علف لـ${name}. إجمالي العلف المتاح: ${f.feed[name]}.`);
+    }
+    if (cmd === 'جمع المنتجات') {
+      let collected=[];for(const [name,count] of Object.entries(f.animals)){const def=c.animals[name];if(!def||count<1)continue;const last=f.animalLastProduct?.[name]||now();const cycles=Math.floor((now()-last)/(def.productEveryMinutes*60000));const feedUnits=num(f.feed?.[name]);const fundedCycles=Math.min(cycles,Math.floor(feedUnits/count));const qty=fundedCycles*count;if(qty>0){if(invCount(f)+qty>f.storageCapacity)return reply(sock,jid,'📦 المخزن لا يتسع للمنتجات. بع بعض المخزون أولًا.');addItem(f,def.product,qty);f.feed[name]=feedUnits-qty;f.animalLastProduct[name]=last+fundedCycles*def.productEveryMinutes*60000;collected.push(`${def.product} ×${qty} من ${name}`);}}
+      if(!collected.length)return reply(sock,jid,'⏳ لا توجد منتجات جاهزة. تأكد من مرور وقت الإنتاج وتوفر العلف (وحدة علف لكل حيوان في دورة إنتاج).');persist();return reply(sock,jid,`🐄 تم جمع المنتجات:\n${collected.join('\n')}\n📦 ${invCount(f)}/${f.storageCapacity}`);
+    }
+    if (cmd === 'رهان') {
+      const target=getMention(msg,data); const amount=num(a.find(x=>/^\d+$/.test(x)),0); if(!target||target===id)return reply(sock,jid,'🎲 لتحدي لاعب، اعمل منشن له واكتب مثلًا: .رهان @اللاعب 500');
+      if(amount<c.bet.min||amount>c.bet.max)return reply(sock,jid,`❌ قيمة التحدي يجب أن تكون بين ${c.bet.min} و${c.bet.max}.`);
+      if(!ensureFarm(target))return reply(sock,jid,'❌ يجب أن يمتلك اللاعب الآخر مزرعة أولًا.');
+      if(p.pendingBet||p.activeBet||player(target).pendingBet||player(target).activeBet)return reply(sock,jid,'❌ أحد اللاعبين لديه تحدٍ آخر قيد التنفيذ.');
+      const paid=charge(id,amount);if(!paid.ok)return reply(sock,jid,`❌ ${paid.message}`);
+      p.pendingBet={from:id,to:target,amount,createdAt:now(),chat:jid};player(target).pendingBet={from:id,to:target,amount,createdAt:now(),chat:jid};persist();return reply(sock,jid,`🎲 *تحدي حصاد جديد!*\n👤 المتحدي: @${id.split('@')[0]}\n👤 المنافس: @${target.split('@')[0]}\n💰 الرهان: ${formatMoney(amount)} لكل لاعب\n⏳ المدة: ${c.bet.durationMinutes} دقيقة\n\nلقبول التحدي: .قبول الرهان\nلرفضه: .رفض الرهان`,[id,target]);
+    }
+    if (cmd === 'قبول الرهان') {
+      const bet=p.pendingBet;if(!bet||bet.to!==id)return reply(sock,jid,'❌ لا يوجد تحدٍ وارد لك.');const paid=charge(id,bet.amount);if(!paid.ok)return reply(sock,jid,`❌ لا يمكنك تغطية الرهان: ${paid.message}`);
+      const shared={...bet,acceptedAt:now(),endsAt:now()+c.bet.durationMinutes*60000,startXP:{[bet.from]:num(player(bet.from).farm?.xp),[bet.to]:num(player(bet.to).farm?.xp)}};
+      player(bet.from).activeBet=shared;player(bet.to).activeBet=shared;player(bet.from).pendingBet=null;player(bet.to).pendingBet=null;persist();return reply(sock,jid,`⚔️ بدأ تحدي الحصاد!\nكل لاعب لديه ${c.bet.durationMinutes} دقيقة لحصد المحاصيل.\nالفائز هو صاحب أكبر قيمة من المحاصيل التي حصدها خلال التحدي.\nاكتب .رهاني لمعرفة الوقت المتبقي.`);
+    }
+    if (cmd === 'رفض الرهان') {
+      const bet=p.pendingBet;if(!bet||bet.to!==id)return reply(sock,jid,'❌ لا يوجد تحدٍ وارد لك.');credit(bet.from,bet.amount);player(bet.from).pendingBet=null;p.pendingBet=null;persist();return reply(sock,jid,'❌ تم رفض التحدي وإرجاع مبلغ المتحدي.');
+    }
+    if (cmd === 'رهاني') {
+      if(!p.activeBet)return reply(sock,jid,'لا يوجد تحدٍ نشط.');const b=p.activeBet;return reply(sock,jid,`⚔️ التحدي نشط. الوقت المتبقي: ${timeLeft(b.endsAt-now())}.\nعند الانتهاء استخدم .إنهاء الرهان`);
+    }
+    if (cmd === 'إنهاء الرهان') {
+      if(!p.activeBet)return reply(sock,jid,'لا يوجد تحدٍ نشط.');const b=p.activeBet;if(now()<b.endsAt)return reply(sock,jid,`⏳ لم ينتهِ التحدي. بقي ${timeLeft(b.endsAt-now())}.`);
+      const p1=player(b.from).farm,p2=player(b.to).farm;const score1=Math.max(0,num(p1?.xp)-num(b.startXP?.[b.from])),score2=Math.max(0,num(p2?.xp)-num(b.startXP?.[b.to]));const winner=score1===score2?'':score1>score2?b.from:b.to;const pot=b.amount*2;const fee=Math.floor(pot*c.bet.feePercent/100);
+      if(winner)credit(winner,pot-fee);else {credit(b.from,b.amount);credit(b.to,b.amount);}player(b.from).activeBet=null;player(b.to).activeBet=null;if(winner)player(winner).farm.wins++;if(winner){const loser=winner===b.from?b.to:b.from;player(loser).farm.losses++;}persist();return reply(sock,jid,winner?`🏆 انتهى التحدي! الفائز: @${winner.split('@')[0]}\n💰 الجائزة: ${formatMoney(pot-fee)} (بعد رسم ${fee}).`:'🤝 انتهى التحدي بالتعادل، وأُعيد الرهان لكل لاعب.',winner?[winner]:[]);
+    }
+    if (cmd === 'ترتيب المزارعين') {
+      const rows=Object.entries(state).filter(([,v])=>v.farm).map(([uid,v])=>({uid, f:v.farm, value:num(v.farm.xp)*100+num(v.farm.plots)*200+invCount(v.farm)*10})).sort((a,b)=>b.value-a.value).slice(0,10);
+      return reply(sock,jid,`🏆 *أفضل المزارعين*\n${rows.length?rows.map((r,i)=>`${i+1}. @${r.uid.split('@')[0]} — مستوى ${r.f.level} | خبرة ${r.f.xp}`).join('\n'):'لا يوجد مزارعون بعد.'}`,rows.map(r=>r.uid));
+    }
+    return reply(sock,jid,help());
+  }
 };
