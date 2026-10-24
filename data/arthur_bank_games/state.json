@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 383,
+      "wallet": 488,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2400,
-      "xp": 645,
+      "points": 2415,
+      "xp": 665,
       "level": 4,
-      "wins": 45,
+      "wins": 46,
       "losses": 4,
       "title": "",
       "inventory": [],
@@ -2406,6 +2406,15 @@
       "gold": 105,
       "points": 15,
       "xp": 20
+    },
+    {
+      "id": "tx_19dec819-46d5-4351-acfe-765809c2d35c",
+      "type": "progress",
+      "at": 1792851156425,
+      "player": "135974805860531@lid",
+      "gold": 105,
+      "points": 15,
+      "xp": 20
     }
   ],
   "processedResults": {
@@ -2918,6 +2927,11 @@
       "at": 1792851142933,
       "type": "progress",
       "player": "35984058130514@lid"
+    },
+    "progress:135974805860531@lid:arthur_riddles:120363413393470630@g.us_1792851119487_wp9atx:0:1:135974805860531@lid": {
+      "at": 1792851156425,
+      "type": "progress",
+      "player": "135974805860531@lid"
     }
   },
   "world": {
