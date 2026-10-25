@@ -267,15 +267,15 @@
       "createdAt": 1792353095154
     },
     "187836619866125@lid": {
-      "wallet": 11495,
+      "wallet": 11810,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1350,
-      "xp": 425,
+      "points": 1400,
+      "xp": 485,
       "level": 3,
-      "wins": 23,
+      "wins": 24,
       "losses": 5,
       "title": "",
       "inventory": [],
@@ -453,26 +453,6 @@
         "O",
         "",
         "X"
-      ]
-    },
-    "120363413393470630@g.us_1792909478900_g2chkz": {
-      "playerX": "187836619866125@lid",
-      "playerO": "BOT",
-      "invited": "",
-      "started": true,
-      "isVsBot": true,
-      "turn": "187836619866125@lid",
-      "createdAt": 1792909478900,
-      "b": [
-        "X",
-        "O",
-        "X",
-        "",
-        "O",
-        "",
-        "X",
-        "",
-        "O"
       ]
     }
   },
@@ -2510,6 +2490,15 @@
       "id": "tx_639366db-97a4-45fe-9413-fe620baec31c",
       "type": "progress",
       "at": 1792909356889,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_8d128a5c-c3b4-4a9e-aa02-526e160e529f",
+      "type": "progress",
+      "at": 1792909498114,
       "player": "187836619866125@lid",
       "gold": 315,
       "points": 50,
