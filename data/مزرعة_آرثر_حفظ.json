@@ -5,17 +5,11 @@
       "createdAt": 1792823876725,
       "level": 1,
       "plots": 3,
-      "fields": {
-        "1": {
-          "crop": "يقطين",
-          "plantedAt": 1792935495736,
-          "readyAt": 1792936335736,
-          "watered": true,
-          "fertilized": false
-        }
-      },
+      "fields": {},
       "storageCapacity": 50,
-      "inventory": {},
+      "inventory": {
+        "يقطين": 1
+      },
       "water": 13,
       "waterCapacity": 20,
       "well": false,
@@ -26,7 +20,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 73,
+      "xp": 81,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
