@@ -12,6 +12,13 @@
           "readyAt": 1792950600956,
           "watered": true,
           "fertilized": false
+        },
+        "2": {
+          "crop": "يقطين",
+          "plantedAt": 1792961427094,
+          "readyAt": 1792962327094,
+          "watered": false,
+          "fertilized": false
         }
       },
       "storageCapacity": 50,
@@ -28,7 +35,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 7,
+      "xp": 8,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
@@ -62,17 +69,29 @@
             "id": "plant",
             "title": "ازرع 3 محاصيل",
             "target": 3,
-            "progress": 1,
+            "progress": 2,
             "reward": 200,
             "xp": 8,
             "claimed": false
           }
         ]
       },
-      "totalXp": 82
+      "totalXp": 83
     },
     "pendingBet": null,
-    "activeBet": null
+    "activeBet": {
+      "from": "6825189593146@lid",
+      "to": "135974805860531@lid",
+      "amount": 200,
+      "createdAt": 1792961451919,
+      "chat": "120363415577859600@g.us",
+      "acceptedAt": 1792961636904,
+      "endsAt": 1792963436904,
+      "startXP": {
+        "6825189593146@lid": 0,
+        "135974805860531@lid": 83
+      }
+    }
   },
   "176412191391926@lid": {
     "farm": {
@@ -117,10 +136,53 @@
       "losses": 0,
       "feed": {},
       "animalLastProduct": {},
-      "daily": null,
+      "daily": {
+        "date": "2026-10-25",
+        "quests": [
+          {
+            "id": "harvest",
+            "title": "احصد 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 250,
+            "xp": 10,
+            "claimed": false
+          },
+          {
+            "id": "sell",
+            "title": "بع 5 منتجات",
+            "target": 5,
+            "progress": 0,
+            "reward": 300,
+            "xp": 12,
+            "claimed": false
+          },
+          {
+            "id": "plant",
+            "title": "ازرع 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 200,
+            "xp": 8,
+            "claimed": false
+          }
+        ]
+      },
       "factories": {}
     },
     "pendingBet": null,
-    "activeBet": null
+    "activeBet": {
+      "from": "6825189593146@lid",
+      "to": "135974805860531@lid",
+      "amount": 200,
+      "createdAt": 1792961451919,
+      "chat": "120363415577859600@g.us",
+      "acceptedAt": 1792961636904,
+      "endsAt": 1792963436904,
+      "startXP": {
+        "6825189593146@lid": 0,
+        "135974805860531@lid": 83
+      }
+    }
   }
 }

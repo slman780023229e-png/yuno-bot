@@ -12,6 +12,13 @@
           "readyAt": 1792950600956,
           "watered": true,
           "fertilized": false
+        },
+        "2": {
+          "crop": "يقطين",
+          "plantedAt": 1792961427094,
+          "readyAt": 1792962327094,
+          "watered": false,
+          "fertilized": false
         }
       },
       "storageCapacity": 50,
@@ -28,7 +35,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 7,
+      "xp": 8,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
@@ -62,16 +69,22 @@
             "id": "plant",
             "title": "ازرع 3 محاصيل",
             "target": 3,
-            "progress": 1,
+            "progress": 2,
             "reward": 200,
             "xp": 8,
             "claimed": false
           }
         ]
       },
-      "totalXp": 82
+      "totalXp": 83
     },
-    "pendingBet": null,
+    "pendingBet": {
+      "from": "6825189593146@lid",
+      "to": "135974805860531@lid",
+      "amount": 200,
+      "createdAt": 1792961451919,
+      "chat": "120363415577859600@g.us"
+    },
     "activeBet": null
   },
   "176412191391926@lid": {
@@ -94,6 +107,70 @@
       "losses": 0
     },
     "pendingBet": null,
+    "activeBet": null
+  },
+  "6825189593146@lid": {
+    "farm": {
+      "owner": "6825189593146@lid",
+      "createdAt": 1792961339810,
+      "level": 1,
+      "totalXp": 0,
+      "plots": 3,
+      "fields": {},
+      "storageCapacity": 50,
+      "inventory": {},
+      "water": 20,
+      "waterCapacity": 20,
+      "well": false,
+      "lastWellAt": 0,
+      "pens": {},
+      "animals": {},
+      "xp": 0,
+      "wins": 0,
+      "losses": 0,
+      "feed": {},
+      "animalLastProduct": {},
+      "daily": {
+        "date": "2026-10-25",
+        "quests": [
+          {
+            "id": "harvest",
+            "title": "احصد 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 250,
+            "xp": 10,
+            "claimed": false
+          },
+          {
+            "id": "sell",
+            "title": "بع 5 منتجات",
+            "target": 5,
+            "progress": 0,
+            "reward": 300,
+            "xp": 12,
+            "claimed": false
+          },
+          {
+            "id": "plant",
+            "title": "ازرع 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 200,
+            "xp": 8,
+            "claimed": false
+          }
+        ]
+      },
+      "factories": {}
+    },
+    "pendingBet": {
+      "from": "6825189593146@lid",
+      "to": "135974805860531@lid",
+      "amount": 200,
+      "createdAt": 1792961451919,
+      "chat": "120363415577859600@g.us"
+    },
     "activeBet": null
   }
 }
