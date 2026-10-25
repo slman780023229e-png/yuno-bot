@@ -459,7 +459,7 @@
       "playerX": "135974805860531@lid",
       "playerO": "6825189593146@lid",
       "invited": "6825189593146@lid",
-      "started": false,
+      "started": true,
       "isVsBot": false,
       "turn": "135974805860531@lid",
       "createdAt": 1792962038785,
