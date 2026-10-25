@@ -95,5 +95,32 @@
     },
     "pendingBet": null,
     "activeBet": null
+  },
+  "6825189593146@lid": {
+    "farm": {
+      "owner": "6825189593146@lid",
+      "createdAt": 1792961339810,
+      "level": 1,
+      "totalXp": 0,
+      "plots": 3,
+      "fields": {},
+      "storageCapacity": 50,
+      "inventory": {},
+      "water": 20,
+      "waterCapacity": 20,
+      "well": false,
+      "lastWellAt": 0,
+      "pens": {},
+      "animals": {},
+      "xp": 0,
+      "wins": 0,
+      "losses": 0,
+      "feed": {},
+      "animalLastProduct": {},
+      "daily": null,
+      "factories": {}
+    },
+    "pendingBet": null,
+    "activeBet": null
   }
 }

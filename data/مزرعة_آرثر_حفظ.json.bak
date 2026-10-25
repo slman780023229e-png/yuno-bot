@@ -9,8 +9,8 @@
         "1": {
           "crop": "قمح",
           "plantedAt": 1792950490956,
-          "readyAt": 1792950610956,
-          "watered": false,
+          "readyAt": 1792950600956,
+          "watered": true,
           "fertilized": false
         }
       },
@@ -18,7 +18,7 @@
       "inventory": {
         "يقطين": 1
       },
-      "water": 13,
+      "water": 12,
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
