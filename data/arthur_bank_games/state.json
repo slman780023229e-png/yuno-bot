@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1792786566125,
-      "lastInterest": 1792825472621,
+      "lastInterest": 1792935516644,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -453,6 +453,26 @@
         "O",
         "",
         "X"
+      ]
+    },
+    "120363413569620683@g.us_1792935533005_czij07": {
+      "playerX": "135974805860531@lid",
+      "playerO": "BOT",
+      "invited": "",
+      "started": true,
+      "isVsBot": true,
+      "turn": "135974805860531@lid",
+      "createdAt": 1792935533005,
+      "b": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
       ]
     }
   },
