@@ -3,9 +3,17 @@
     "farm": {
       "owner": "135974805860531@lid",
       "createdAt": 1792823876725,
-      "level": 1,
+      "level": 3,
       "plots": 3,
-      "fields": {},
+      "fields": {
+        "1": {
+          "crop": "قمح",
+          "plantedAt": 1792950490956,
+          "readyAt": 1792950610956,
+          "watered": false,
+          "fertilized": false
+        }
+      },
       "storageCapacity": 50,
       "inventory": {
         "يقطين": 1
@@ -20,15 +28,48 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 81,
+      "xp": 7,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
         "دجاج": 1792826585730
       },
       "feed": {
-        "دجاج": 1
-      }
+        "دجاج": 3
+      },
+      "daily": {
+        "date": "2026-10-25",
+        "quests": [
+          {
+            "id": "harvest",
+            "title": "احصد 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 250,
+            "xp": 10,
+            "claimed": false
+          },
+          {
+            "id": "sell",
+            "title": "بع 5 منتجات",
+            "target": 5,
+            "progress": 0,
+            "reward": 300,
+            "xp": 12,
+            "claimed": false
+          },
+          {
+            "id": "plant",
+            "title": "ازرع 3 محاصيل",
+            "target": 3,
+            "progress": 1,
+            "reward": 200,
+            "xp": 8,
+            "claimed": false
+          }
+        ]
+      },
+      "totalXp": 82
     },
     "pendingBet": null,
     "activeBet": null

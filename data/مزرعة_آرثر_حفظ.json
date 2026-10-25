@@ -3,14 +3,22 @@
     "farm": {
       "owner": "135974805860531@lid",
       "createdAt": 1792823876725,
-      "level": 1,
+      "level": 3,
       "plots": 3,
-      "fields": {},
+      "fields": {
+        "1": {
+          "crop": "قمح",
+          "plantedAt": 1792950490956,
+          "readyAt": 1792950600956,
+          "watered": true,
+          "fertilized": false
+        }
+      },
       "storageCapacity": 50,
       "inventory": {
         "يقطين": 1
       },
-      "water": 13,
+      "water": 12,
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
@@ -20,7 +28,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 81,
+      "xp": 7,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
@@ -54,13 +62,14 @@
             "id": "plant",
             "title": "ازرع 3 محاصيل",
             "target": 3,
-            "progress": 0,
+            "progress": 1,
             "reward": 200,
             "xp": 8,
             "claimed": false
           }
         ]
-      }
+      },
+      "totalXp": 82
     },
     "pendingBet": null,
     "activeBet": null
