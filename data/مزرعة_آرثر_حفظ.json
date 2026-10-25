@@ -12,13 +12,6 @@
           "readyAt": 1792936335736,
           "watered": true,
           "fertilized": false
-        },
-        "3": {
-          "crop": "يقطين",
-          "plantedAt": 1792827478910,
-          "readyAt": 1792828318910,
-          "watered": true,
-          "fertilized": false
         }
       },
       "storageCapacity": 50,
@@ -33,7 +26,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 65,
+      "xp": 73,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
