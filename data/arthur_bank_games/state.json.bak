@@ -267,15 +267,15 @@
       "createdAt": 1792353095154
     },
     "187836619866125@lid": {
-      "wallet": 9420,
+      "wallet": 11495,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 1075,
-      "xp": 75,
+      "points": 1350,
+      "xp": 425,
       "level": 3,
-      "wins": 18,
+      "wins": 23,
       "losses": 5,
       "title": "",
       "inventory": [],
@@ -284,8 +284,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1792786655742,
-      "lastInterest": 1792787197859,
+      "lastDaily": 1792909270231,
+      "lastInterest": 1792909179934,
       "createdAt": 1792397250520,
       "bankProfile": {
         "name": "كرار",
@@ -2442,6 +2442,58 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_e407c62d-fd0b-4fb4-a2ba-2a0c492c1dd0",
+      "type": "progress",
+      "at": 1792909155798,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_435753d4-a7f2-4c0e-9e5a-066dfb80d3f6",
+      "type": "progress",
+      "at": 1792909230059,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_d1cbb0a2-e9a2-43d8-81a1-94a650f43e67",
+      "type": "progress",
+      "at": 1792909262815,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_08c1788d-02cb-4035-b5ad-6213f26bcbd8",
+      "type": "daily",
+      "at": 1792909270231,
+      "player": "187836619866125@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_205d0762-b2b5-45d4-aab4-fb4470f38668",
+      "type": "progress",
+      "at": 1792909312619,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_639366db-97a4-45fe-9413-fe620baec31c",
+      "type": "progress",
+      "at": 1792909356889,
+      "player": "187836619866125@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
     }
   ],
   "processedResults": {
@@ -2988,7 +3040,7 @@
         "description": "أسئلة فخاخ تحتاج إلى الانتباه",
         "enabled": true,
         "registeredAt": 1791819608544,
-        "updatedAt": 1792880984292
+        "updatedAt": 1792903066948
       },
       "arthur_intelligence": {
         "id": "arthur_intelligence",
