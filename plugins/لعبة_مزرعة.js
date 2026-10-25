@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(ROOT, 'data', 'مزرعة_آرثر.json');
 const STATE_FILE = path.join(ROOT, 'data', 'مزرعة_آرثر_حفظ.json');
+const BACKUP_FILE = `${STATE_FILE}.bak`;
 const now = () => Date.now();
 const num = (v, fallback = 0) => Number.isFinite(Number(v)) ? Math.floor(Number(v)) : fallback;
 const norm = s => String(s || '').trim().normalize('NFKC').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').toLowerCase();
@@ -22,17 +23,76 @@ function loadConfig() {
     throw new Error('تعذر قراءة data/مزرعة_آرثر.json؛ تأكد من وجود ملف الإعدادات وصحة JSON.');
   }
 }
+function validState(s) { return !!s && typeof s === 'object' && !Array.isArray(s); }
 function readState() {
-  try { const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); return s && typeof s === 'object' && !Array.isArray(s) ? s : {}; }
-  catch { return {}; }
+  for (const file of [STATE_FILE, BACKUP_FILE]) {
+    try { const s = JSON.parse(fs.readFileSync(file, 'utf8')); if (validState(s)) return s; }
+    catch (e) { if (e.code !== 'ENOENT') console.error(`[ARTHUR FARM] state read failed (${path.basename(file)}):`, e.message); }
+  }
+  return {};
 }
 let state = readState();
 function persist() {
   fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
   const tmp = `${STATE_FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+  const payload = JSON.stringify(state, null, 2);
+  fs.writeFileSync(tmp, payload, { encoding: 'utf8', mode: 0o600 });
+  // Keep the last known-good state before replacing it.
+  if (fs.existsSync(STATE_FILE)) {
+    try { fs.copyFileSync(STATE_FILE, BACKUP_FILE); } catch (e) { console.error('[ARTHUR FARM] backup failed:', e.message); }
+  }
   fs.renameSync(tmp, STATE_FILE);
 }
+function dayKey(t = now()) { const d = new Date(t); return `${d.getUTCFullYear()}-${d.getUTCMonth()+1}-${d.getUTCDate()}`; }
+function seasonInfo(t = now()) {
+  const month = new Date(t).getUTCMonth();
+  const season = month <= 1 || month === 11 ? 'الشتاء' : month <= 4 ? 'الربيع' : month <= 7 ? 'الصيف' : 'الخريف';
+  const weather = ['مشمس ☀️','غائم ☁️','ممطر 🌧️','نسيم لطيف 🍃'][Math.floor(t / 86400000) % 4];
+  return { season, weather };
+}
+function xpNeeded(level) { return Math.max(20, level * 25); }
+function addXP(f, amount) {
+  const earned = Math.max(0, num(amount));
+  f.totalXp = Math.max(0, num(f.totalXp, num(f.xp))) + earned;
+  f.xp = Math.max(0, num(f.xp)) + earned;
+  let levels = 0;
+  while (f.level < 100 && f.xp >= xpNeeded(f.level)) { f.xp -= xpNeeded(f.level); f.level++; levels++; }
+  return levels;
+}
+function sellPrice(c, name, t = now()) {
+  let base = 0;
+  if (c.crops?.[name]) base = num(c.crops[name].sellPrice);
+  else if (c.products?.[name]) base = num(c.products[name].sellPrice);
+  else {
+    const producers = Object.values(c.animals || {}).filter(x => x.product === name);
+    // Shared inventory keys cannot distinguish source animal; use a documented midpoint price.
+    if (producers.length) base = Math.max(1, Math.round(producers.reduce((sum, x) => sum + num(x.productSellPrice), 0) / producers.length));
+  }
+  if (!base) return 0;
+  // Deterministic per-day/item fluctuation: +/-10%; identical prices for every player that day.
+  const day = dayKey(t);
+  let hash = 0;
+  for (const ch of `${day}:${name}`) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  const multiplier = 0.9 + (hash % 201) / 1000;
+  return Math.max(1, Math.round(base * multiplier));
+}
+function ensureDaily(f) {
+  const key = dayKey();
+  if (f.daily?.date !== key) {
+    const options = [
+      { id: 'harvest', title: 'احصد 3 محاصيل', target: 3, progress: 0, reward: 250, xp: 10 },
+      { id: 'sell', title: 'بع 5 منتجات', target: 5, progress: 0, reward: 300, xp: 12 },
+      { id: 'plant', title: 'ازرع 3 محاصيل', target: 3, progress: 0, reward: 200, xp: 8 }
+    ];
+    f.daily = { date: key, quests: options.map(q => ({ ...q, claimed: false })) };
+  }
+  return f.daily;
+}
+function progressQuest(f, id, amount = 1) {
+  const daily = ensureDaily(f); const q = daily.quests.find(x => x.id === id);
+  if (q && !q.claimed) q.progress = Math.min(q.target, num(q.progress) + num(amount));
+}
+
 function cfg() { return loadConfig(); }
 function player(id) {
   if (!state[id]) state[id] = { farm: null, pendingBet: null, activeBet: null };
@@ -50,7 +110,7 @@ function charge(id, amount) {
 function credit(id, amount) { const a = account(id); a.wallet = num(a.wallet) + num(amount); save(); }
 function ensureFarm(id) { const p = player(id); if (!p.farm) return null; return p.farm; }
 function initFarm(id, c) {
-  return { owner: id, createdAt: now(), level: c.farm.startingLevel, plots: c.farm.startingPlots, fields: {}, storageCapacity: c.farm.startingStorage, inventory: {}, water: c.farm.startingWater, waterCapacity: c.farm.startingWaterCapacity, well: false, lastWellAt: 0, pens: {}, animals: {}, xp: 0, wins: 0, losses: 0 };
+  return { owner: id, createdAt: now(), level: c.farm.startingLevel, totalXp: 0, plots: c.farm.startingPlots, fields: {}, storageCapacity: c.farm.startingStorage, inventory: {}, water: c.farm.startingWater, waterCapacity: c.farm.startingWaterCapacity, well: false, lastWellAt: 0, pens: {}, animals: {}, xp: 0, wins: 0, losses: 0, feed: {}, animalLastProduct: {}, daily: null, factories: {} };
 }
 function invCount(f) { return Object.values(f.inventory).reduce((a, b) => a + num(b), 0); }
 function addItem(f, name, qty) { f.inventory[name] = num(f.inventory[name]) + qty; if (f.inventory[name] <= 0) delete f.inventory[name]; }
@@ -67,7 +127,8 @@ function farmOverview(id, c) {
       fields.push(`${i}. ${def?.emoji || '🌱'} ${crop.crop} — ${left <= 0 ? 'جاهز للحصاد' : `ينضج بعد ${timeLeft(left)}`}${crop.watered ? ' 💧' : ''}`);
     }
   }
-  return `🩸 *ARTHUR FARM — مزرعتك*\n\n🌱 المستوى: ${f.level}\n🧑‍🌾 قطع الأرض: ${f.plots}\n💧 الماء: ${f.water}/${f.waterCapacity}${f.well ? ' | بئر موجود' : ''}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}\n🐄 الحيوانات: ${Object.values(f.animals).reduce((a,b)=>a+num(b),0)}\n✨ الخبرة: ${f.xp}\n\n*الأراضي:*\n${fields.join('\n')}\n\n📌 .بذور | .مخزني | .ماء | .حيوانات | .متجر المزرعة`;
+  const env = seasonInfo(); ensureDaily(f);
+  return `🩸 *ARTHUR FARM — مزرعتك*\n\n🌦️ ${env.season} | الطقس: ${env.weather}\n🌱 المستوى: ${f.level}\n🧑‍🌾 قطع الأرض: ${f.plots}\n💧 الماء: ${f.water}/${f.waterCapacity}${f.well ? ' | بئر موجود' : ''}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}\n🐄 الحيوانات: ${Object.values(f.animals).reduce((a,b)=>a+num(b),0)}\n✨ الخبرة: ${f.xp}/${xpNeeded(f.level)}\n\n*الأراضي:*\n${fields.join('\n')}\n\n📌 .بذور | .مخزني | .ماء | .حيوانات | .متجر المزرعة`;
 }
 function help() {
  return `🩸 *ARTHUR FARM — دليل المزرعة*\n\n🏡 .مزرعة — عرض المزرعة\n🛒 .شراء مزرعة\n🌱 .بذور — أسعار البذور\n🌾 .زراعة 1 طماطم\n🌾 .حصاد 1\n💧 .ماء — حالة الماء\n💧 .شراء ماء 20\n🕳️ .شراء بئر\n📦 .مخزني\n💰 .بيع طماطم 3 | .بيع الكل\n🏗️ .توسعة المزرعة\n📦 .تطوير المخزن\n🚰 .تطوير الماء\n🐄 .حيوانات\n🏚️ .شراء حظيرة دجاج\n🐔 .شراء حيوان دجاج 1\n🌾 .علف دجاج 2\n🥚 .جمع المنتجات\n🎲 .رهان @لاعب 500 — إنشاء تحدي افتراضي\n🎲 .قبول الرهان — قبول التحدي الوارد\n❌ .رفض الرهان — رفضه\n\nتُستخدم محفظة بنك ARTHUR. لا تستبدل ملفات البنك أو المعالج.`;
@@ -81,7 +142,7 @@ function getMention(msg, data) {
 }
 
 export default {
-  name: 'arthur-farm', command: 'مزرعة', aliases: ['مزرعتي','شراء','بذور','زراعة','حصاد','مخزني','ماء','بيع','توسعة','تطوير','متجر','حيوانات','حظيرتي','علف','جمع','رهان','قبول','رفض','ترتيب','تسميد','سقي','رهاني','إنهاء'],
+  name: 'arthur-farm', command: 'مزرعة', aliases: ['مزرعتي','شراء','بذور','زراعة','حصاد','مخزني','ماء','بيع','توسعة','تطوير','متجر','حيوانات','حظيرتي','علف','جمع','رهان','قبول','رفض','ترتيب','تسميد','سقي','رهاني','إنهاء','طقس','مهام','مهمة','استلام','مصنع','تصنيع','سوق','إنجازاتي'],
   category: 'games', description: 'مملكة زراعية: محاصيل ومياه ومخازن وحيوانات وتحديات افتراضية.',
   async execute(sock, msg, data = {}) {
     const jid = chatId(msg, data), id = userId(msg, data);
@@ -108,16 +169,27 @@ export default {
     else if (cmd === 'توسعة' && norm(parts[1]) === 'المزرعة') { cmd = 'توسعة المزرعة'; parts.splice(1, 1); }
     else if (cmd === 'قبول' && norm(parts[1]) === 'الرهان') { cmd = 'قبول الرهان'; parts.splice(1, 1); }
     else if (cmd === 'رفض' && norm(parts[1]) === 'الرهان') { cmd = 'رفض الرهان'; parts.splice(1, 1); }
-    else if (cmd === 'إنهاء' && norm(parts[1]) === 'الرهان') { cmd = 'إنهاء الرهان'; parts.splice(1, 1); }
+    else if (cmd === 'انهاء' && norm(parts[1]) === 'الرهان') { cmd = 'إنهاء الرهان'; parts.splice(1, 1); }
     else if (cmd === 'رهاني') cmd = 'رهاني';
     else if (cmd === 'متجر') cmd = 'متجر المزرعة';
     else if (cmd === 'ترتيب') cmd = 'ترتيب المزارعين';
+    else if (cmd === 'استلام' && norm(parts[1]) === 'مهمة') { cmd = 'استلام مهمة'; parts.splice(1, 1); }
+    else if (cmd === 'انجازاتي') cmd = 'انجازاتي';
     else if (cmd === 'حظيرتي') cmd = 'حيوانات';
     const a = parts.slice(1);
     let c;
     try { c = cfg(); } catch (e) { return reply(sock, jid, `❌ ${e.message}`); }
     const p = player(id);
     const f = ensureFarm(id);
+    // Automatically release an expired, unaccepted challenge when either player next interacts.
+    const pending = p.pendingBet;
+    if (pending && now() - num(pending.createdAt) >= num(c.bet.durationMinutes, 30) * 60000) {
+      const other = pending.from === id ? pending.to : pending.from;
+      if (pending.from === id) credit(id, pending.amount);
+      else if (pending.to === id) credit(pending.from, pending.amount);
+      if (state[other]?.pendingBet?.createdAt === pending.createdAt) state[other].pendingBet = null;
+      p.pendingBet = null; persist();
+    }
 
     if (cmd === 'مساعدة' || cmd === 'مزرعة مساعدة' || cmd === 'help') return reply(sock, jid, help());
     if (cmd === 'مزرعة') return reply(sock, jid, farmOverview(id, c));
@@ -140,14 +212,14 @@ export default {
       if (f.fields[plot]) return reply(sock, jid, `❌ الأرض ${plot} مشغولة بمحصول ${f.fields[plot].crop}. احصده أولًا.`);
       const crop = c.crops[key], paid = charge(id, crop.seedPrice); if (!paid.ok) return reply(sock, jid, `❌ ${paid.message}`);
       f.fields[plot] = { crop: key, plantedAt: now(), readyAt: now() + crop.growMinutes * 60000, watered: false, fertilized: false };
-      p.farm.xp += 1; persist(); return reply(sock, jid, `${crop.emoji} زُرع ${key} في الأرض ${plot}!\n💰 ثمن البذرة: ${formatMoney(crop.seedPrice)}\n⏳ النضج بعد ${crop.growMinutes} دقيقة.\n💧 الماء المتوفر: ${f.water}/${f.waterCapacity}`);
+      addXP(p.farm, 1); progressQuest(p.farm, 'plant', 1); persist(); return reply(sock, jid, `${crop.emoji} زُرع ${key} في الأرض ${plot}!\n💰 ثمن البذرة: ${formatMoney(crop.seedPrice)}\n⏳ النضج بعد ${crop.growMinutes} دقيقة.\n💧 الماء المتوفر: ${f.water}/${f.waterCapacity}`);
     }
     if (cmd === 'حصاد') {
       const plot = num(a[0], 0); if (!plot || plot > f.plots || !f.fields[plot]) return reply(sock, jid, '❌ لا يوجد محصول في قطعة الأرض المحددة.');
       const crop = f.fields[plot], def = c.crops[crop.crop];
       if (crop.readyAt > now()) return reply(sock, jid, `⏳ لم ينضج ${crop.crop} بعد. بقي ${timeLeft(crop.readyAt - now())}.`);
       if (invCount(f) + 1 > f.storageCapacity) return reply(sock, jid, '📦 المخزن ممتلئ! بِع بعض المنتجات أو طوّر المخزن قبل الحصاد.');
-      addItem(f, crop.crop, 1); delete f.fields[plot]; f.xp += def.xp; persist(); return reply(sock, jid, `🌾 تم حصاد ${def.emoji} ${crop.crop}!\n📦 أضيف إلى المخزن.\n💵 سعر البيع الأساسي: ${formatMoney(def.sellPrice)}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}`);
+      addItem(f, crop.crop, 1); delete f.fields[plot]; const gainedLevels = addXP(f, def.xp); progressQuest(f, 'harvest', 1); persist(); return reply(sock, jid, `🌾 تم حصاد ${def.emoji} ${crop.crop}!\n📦 أضيف إلى المخزن.\n💵 سعر البيع الأساسي: ${formatMoney(def.sellPrice)}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}${gainedLevels ? `\n🎉 ارتقيت ${gainedLevels} مستوى!` : ''}`);
     }
     if (cmd === 'ماء') { if (f.well) { const cycles = Math.floor((now() - num(f.lastWellAt, now())) / (c.water.wellCooldownMinutes * 60000)); if (cycles > 0) { f.water = Math.min(f.waterCapacity, f.water + cycles * c.water.wellRefillUnits); f.lastWellAt = num(f.lastWellAt, now()) + cycles * c.water.wellCooldownMinutes * 60000; persist(); } } return reply(sock, jid, `💧 *مخزون المياه*\nالماء: ${f.water}/${f.waterCapacity}\n${f.well ? `🕳️ البئر: موجود — يعيد ${c.water.wellRefillUnits} وحدة كل ${c.water.wellCooldownMinutes} دقيقة.` : `🕳️ لا يوجد بئر. شراؤه: ${formatMoney(c.water.wellPrice)} — .شراء بئر`}\nلشراء الماء: .شراء ماء 20 (السعر ${formatMoney(c.water.buyUnitPrice)} لكل وحدة).`); }
     if (cmd === 'شراء ماء') {
@@ -173,22 +245,22 @@ export default {
       f.fields[plot].fertilized = true; f.fields[plot].readyAt = Math.max(now(), f.fields[plot].readyAt - 120000); persist(); return reply(sock, jid, `🧪 تم تسميد المحصول مقابل ${formatMoney(cost)} وتقليل وقت نموه.`);
     }
     if (cmd === 'مخزني') {
-      const items = Object.entries(f.inventory); return reply(sock, jid, `📦 *مخزنك*\nالسعة: ${invCount(f)}/${f.storageCapacity}\n${items.length ? items.map(([n,q]) => `• ${n}: ${q}`).join('\n') : 'المخزن فارغ.'}\n\n💰 قيمة البيع الأساسية التقريبية: ${formatMoney(items.reduce((sum,[n,q])=>sum+num(q)*(c.crops[n]?.sellPrice || Object.values(c.animals).find(x=>x.product===n)?.productSellPrice || 0),0))}`);
+      const items = Object.entries(f.inventory); return reply(sock, jid, `📦 *مخزنك*\nالسعة: ${invCount(f)}/${f.storageCapacity}\n${items.length ? items.map(([n,q]) => `• ${n}: ${q}`).join('\n') : 'المخزن فارغ.'}\n\n💰 قيمة البيع الأساسية التقريبية: ${formatMoney(items.reduce((sum,[n,q])=>sum+num(q)*sellPrice(c,n),0))}`);
     }
     if (cmd === 'بيع') {
       if (!a.length) return reply(sock, jid, 'استخدم .بيع طماطم 2 أو .بيع الكل');
       let qty = 0, total = 0, sold = [];
       if (norm(a[0]) === 'الكل') {
-        for (const [name, count] of Object.entries(f.inventory)) { const price = c.crops[name]?.sellPrice || Object.values(c.animals).find(x=>x.product===name)?.productSellPrice || 0; if (price > 0) { total += price * count; qty += count; sold.push(`${name} ×${count}`); delete f.inventory[name]; } }
+        for (const [name, count] of Object.entries(f.inventory)) { const price = sellPrice(c, name); if (price > 0) { total += price * count; qty += count; sold.push(`${name} ×${count}`); delete f.inventory[name]; } }
       } else {
-        const name = Object.keys(c.crops).find(k=>norm(k)===norm(a[0])) || [...new Set(Object.values(c.animals).map(x=>x.product))].find(k=>norm(k)===norm(a[0]));
+        const name = Object.keys(c.crops).find(k=>norm(k)===norm(a[0])) || Object.keys(c.products || {}).find(k=>norm(k)===norm(a[0])) || [...new Set(Object.values(c.animals).map(x=>x.product))].find(k=>norm(k)===norm(a[0]));
         if (!name) return reply(sock, jid, '❌ المنتج غير معروف.');
         const available = num(f.inventory[name]); qty = norm(a[1]) === 'الكل' || !a[1] ? available : Math.min(available, num(a[1]));
         if (qty < 1) return reply(sock, jid, '❌ لا توجد كمية متاحة للبيع.');
-        const price = c.crops[name]?.sellPrice || Object.values(c.animals).find(x=>x.product===name)?.productSellPrice || 0; total = price * qty; delete f.inventory[name]; if (available > qty) f.inventory[name] = available - qty; sold.push(`${name} ×${qty}`);
+        const price = sellPrice(c, name); total = price * qty; delete f.inventory[name]; if (available > qty) f.inventory[name] = available - qty; sold.push(`${name} ×${qty}`);
       }
       if (qty < 1 || total < 1) return reply(sock, jid, '❌ لا توجد منتجات قابلة للبيع.');
-      credit(id, total); persist(); return reply(sock, jid, `💰 تم البيع بنجاح!\n📦 ${sold.join('، ')}\n💵 الأرباح: ${formatMoney(total)}\n👛 رصيد المحفظة: ${formatMoney(wallet(id))}`);
+      credit(id, total); progressQuest(f, 'sell', qty); persist(); return reply(sock, jid, `💰 تم البيع بنجاح!\n📦 ${sold.join('، ')}\n💵 الأرباح: ${formatMoney(total)}\n👛 رصيد المحفظة: ${formatMoney(wallet(id))}`);
     }
     if (cmd === 'توسعة المزرعة') {
       const options = c.plotExpansions.filter(x=>x.plots>f.plots);
@@ -234,7 +306,7 @@ export default {
     }
     if (cmd === 'قبول الرهان') {
       const bet=p.pendingBet;if(!bet||bet.to!==id)return reply(sock,jid,'❌ لا يوجد تحدٍ وارد لك.');const paid=charge(id,bet.amount);if(!paid.ok)return reply(sock,jid,`❌ لا يمكنك تغطية الرهان: ${paid.message}`);
-      const shared={...bet,acceptedAt:now(),endsAt:now()+c.bet.durationMinutes*60000,startXP:{[bet.from]:num(player(bet.from).farm?.xp),[bet.to]:num(player(bet.to).farm?.xp)}};
+      const shared={...bet,acceptedAt:now(),endsAt:now()+c.bet.durationMinutes*60000,startXP:{[bet.from]:num(player(bet.from).farm?.totalXp, num(player(bet.from).farm?.xp)),[bet.to]:num(player(bet.to).farm?.totalXp, num(player(bet.to).farm?.xp))}};
       player(bet.from).activeBet=shared;player(bet.to).activeBet=shared;player(bet.from).pendingBet=null;player(bet.to).pendingBet=null;persist();return reply(sock,jid,`⚔️ بدأ تحدي الحصاد!\nكل لاعب لديه ${c.bet.durationMinutes} دقيقة لحصد المحاصيل.\nالفائز هو صاحب أكبر قيمة من المحاصيل التي حصدها خلال التحدي.\nاكتب .رهاني لمعرفة الوقت المتبقي.`);
     }
     if (cmd === 'رفض الرهان') {
@@ -243,10 +315,53 @@ export default {
     if (cmd === 'رهاني') {
       if(!p.activeBet)return reply(sock,jid,'لا يوجد تحدٍ نشط.');const b=p.activeBet;return reply(sock,jid,`⚔️ التحدي نشط. الوقت المتبقي: ${timeLeft(b.endsAt-now())}.\nعند الانتهاء استخدم .إنهاء الرهان`);
     }
-    if (cmd === 'إنهاء الرهان') {
+    if (cmd === 'انهاء الرهان') {
       if(!p.activeBet)return reply(sock,jid,'لا يوجد تحدٍ نشط.');const b=p.activeBet;if(now()<b.endsAt)return reply(sock,jid,`⏳ لم ينتهِ التحدي. بقي ${timeLeft(b.endsAt-now())}.`);
-      const p1=player(b.from).farm,p2=player(b.to).farm;const score1=Math.max(0,num(p1?.xp)-num(b.startXP?.[b.from])),score2=Math.max(0,num(p2?.xp)-num(b.startXP?.[b.to]));const winner=score1===score2?'':score1>score2?b.from:b.to;const pot=b.amount*2;const fee=Math.floor(pot*c.bet.feePercent/100);
+      const p1=player(b.from).farm,p2=player(b.to).farm;const score1=Math.max(0,num(p1?.totalXp, num(p1?.xp))-num(b.startXP?.[b.from])),score2=Math.max(0,num(p2?.totalXp, num(p2?.xp))-num(b.startXP?.[b.to]));const winner=score1===score2?'':score1>score2?b.from:b.to;const pot=b.amount*2;const fee=Math.floor(pot*c.bet.feePercent/100);
       if(winner)credit(winner,pot-fee);else {credit(b.from,b.amount);credit(b.to,b.amount);}player(b.from).activeBet=null;player(b.to).activeBet=null;if(winner)player(winner).farm.wins++;if(winner){const loser=winner===b.from?b.to:b.from;player(loser).farm.losses++;}persist();return reply(sock,jid,winner?`🏆 انتهى التحدي! الفائز: @${winner.split('@')[0]}\n💰 الجائزة: ${formatMoney(pot-fee)} (بعد رسم ${fee}).`:'🤝 انتهى التحدي بالتعادل، وأُعيد الرهان لكل لاعب.',winner?[winner]:[]);
+    }
+    if (cmd === 'طقس') {
+      const env = seasonInfo();
+      return reply(sock, jid, `🌦️ *أحوال مزرعة آرثر*\n🍂 الموسم: ${env.season}\n⛅ الطقس: ${env.weather}\n💡 الطقس الحالي تجميلي في هذا الإصدار؛ لا يدمّر المحاصيل ولا يغيّر أرباحك عشوائيًا.`);
+    }
+    if (cmd === 'مهام') {
+      const daily = ensureDaily(f); persist();
+      return reply(sock, jid, `📜 *مهام اليوم*\n${daily.quests.map((q,i)=>`${i+1}. ${q.title}\n   التقدم: ${q.progress}/${q.target} ${q.claimed ? '✅ مستلمة' : q.progress >= q.target ? '🎁 جاهزة للاستلام' : '⏳ مستمرة'}\n   المكافأة: ${formatMoney(q.reward)} + ${q.xp} خبرة`).join('\n\n')}\n\nللاستلام: .استلام مهمة رقم_المهمة`);
+    }
+    if (cmd === 'استلام مهمة') {
+      const daily = ensureDaily(f), index = num(a[0], 0) - 1, q = daily.quests[index];
+      if (!q) return reply(sock, jid, '❌ اختر رقم مهمة صحيحًا من .مهام');
+      if (q.claimed) return reply(sock, jid, '✅ سبق أن استلمت مكافأة هذه المهمة.');
+      if (q.progress < q.target) return reply(sock, jid, `⏳ لم تكتمل المهمة بعد: ${q.progress}/${q.target}.`);
+      q.claimed = true; credit(id, q.reward); const gained = addXP(f, q.xp); persist();
+      return reply(sock, jid, `🎉 استلمت مكافأة «${q.title}»!\n💰 ${formatMoney(q.reward)}\n✨ ${q.xp} خبرة${gained ? `\n👑 ارتقيت ${gained} مستوى!` : ''}`);
+    }
+    if (cmd === 'مصنع') {
+      const recipes = Object.entries(c.recipes || {});
+      return reply(sock, jid, `🏭 *مصانع آرثر*\n${recipes.length ? recipes.map(([name,r])=>`${r.emoji || '📦'} ${name}: ${Object.entries(r.inputs || {}).map(([n,q])=>`${n} ×${q}`).join(' + ')} ← ${r.outputQty || 1} ${r.output || name} | تكلفة تشغيل ${formatMoney(r.cost || 0)}`).join('\n') : 'لا توجد وصفات تصنيع في ملف الإعدادات.'}\n\nللتصنيع: .تصنيع اسم_المنتج كمية`);
+    }
+    if (cmd === 'تصنيع') {
+      const qty = Math.max(1, Math.min(50, num(a.at(-1), 1)));
+      const productName = a.length > 1 && /^\d+$/.test(a.at(-1)) ? a.slice(0,-1).join(' ') : a.join(' ');
+      const recipe = (c.recipes || {})[productName];
+      if (!recipe) return reply(sock, jid, '❌ الوصفة غير موجودة. اكتب .مصنع لعرض الوصفات.');
+      if (invCount(f) + num(recipe.outputQty,1) * qty > f.storageCapacity) return reply(sock, jid, '📦 المخزن لا يتسع للناتج؛ بع بعض المنتجات أولًا.');
+      for (const [item, count] of Object.entries(recipe.inputs || {})) if (num(f.inventory[item]) < num(count) * qty) return reply(sock, jid, `❌ تحتاج ${num(count)*qty} من ${item}، والمتوفر ${num(f.inventory[item])}.`);
+      const cost = num(recipe.cost) * qty; const paid = cost ? charge(id,cost) : {ok:true};
+      if (!paid.ok) return reply(sock,jid,`❌ ${paid.message}`);
+      for (const [item,count] of Object.entries(recipe.inputs || {})) addItem(f,item,-num(count)*qty);
+      const out = recipe.output || productName; addItem(f,out,num(recipe.outputQty,1)*qty); persist();
+      return reply(sock,jid,`🏭 اكتمل التصنيع!\n📦 الناتج: ${out} ×${num(recipe.outputQty,1)*qty}\n💰 تكلفة التشغيل: ${formatMoney(cost)}\n📦 المخزن: ${invCount(f)}/${f.storageCapacity}`);
+    }
+    if (cmd === 'سوق') {
+      const env = seasonInfo();
+      const crops = Object.entries(c.crops).map(([n,x])=>`${x.emoji} ${n}: شراء ${formatMoney(x.seedPrice)} | بيع ${formatMoney(sellPrice(c,n))}`).join('\n');
+      const products = Object.entries(c.products || {}).map(([n,x])=>`${x.emoji || '📦'} ${n}: بيع ${formatMoney(sellPrice(c,n))}`).join('\n');
+      return reply(sock,jid,`📈 *سوق آرثر اليومي*\n🌦️ ${env.season} — ${env.weather}\nتتغير أسعار البيع يوميًا ضمن نطاق محدود (±10%)، وبالسعر نفسه لجميع اللاعبين.\n\n${crops}${products ? `\n\n${products}` : ''}`);
+    }
+    if (cmd === 'انجازاتي') {
+      const totalAnimals = Object.values(f.animals || {}).reduce((sum,v)=>sum+num(v),0);
+      return reply(sock,jid,`🏅 *إنجازات مزرعتك*\n🌱 المستوى: ${f.level}/100\n✨ الخبرة الحالية: ${f.xp}/${xpNeeded(f.level)}\n🌾 الأراضي: ${f.plots}\n🐄 الحيوانات: ${totalAnimals}\n🏆 انتصارات التحدي: ${num(f.wins)}\n🛡️ خسائر التحدي: ${num(f.losses)}\n📦 المنتجات بالمخزن: ${invCount(f)}\n🗓️ أنشئت المزرعة: ${new Date(f.createdAt || now()).toLocaleDateString('ar')}`);
     }
     if (cmd === 'ترتيب المزارعين') {
       const rows=Object.entries(state).filter(([,v])=>v.farm).map(([uid,v])=>({uid, f:v.farm, value:num(v.farm.xp)*100+num(v.farm.plots)*200+invCount(v.farm)*10})).sort((a,b)=>b.value-a.value).slice(0,10);
