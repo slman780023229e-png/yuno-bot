@@ -107,16 +107,16 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 9455,
+      "wallet": 9055,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2565,
-      "xp": 865,
+      "points": 2575,
+      "xp": 885,
       "level": 4,
       "wins": 49,
-      "losses": 4,
+      "losses": 5,
       "title": "",
       "inventory": [],
       "skills": {
@@ -361,15 +361,15 @@
       "createdAt": 1792496838758
     },
     "6825189593146@lid": {
-      "wallet": 1600,
+      "wallet": 1915,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 25,
-      "xp": 80,
+      "points": 75,
+      "xp": 140,
       "level": 1,
-      "wins": 0,
+      "wins": 1,
       "losses": 0,
       "title": "",
       "inventory": [],
@@ -2528,6 +2528,24 @@
       "gold": 0,
       "points": 0,
       "xp": 15
+    },
+    {
+      "id": "tx_6b56d3ac-9178-41a8-8c9a-a570d3b45642",
+      "type": "progress",
+      "at": 1792962118075,
+      "player": "6825189593146@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
+    },
+    {
+      "id": "tx_cec85cfc-674d-4bb4-b53a-423590ffef86",
+      "type": "progress",
+      "at": 1792962118078,
+      "player": "135974805860531@lid",
+      "gold": 0,
+      "points": 10,
+      "xp": 20
     }
   ],
   "processedResults": {
