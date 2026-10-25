@@ -3041,7 +3041,7 @@
         "description": "ألغاز ذكية بإجابات مباشرة",
         "enabled": true,
         "registeredAt": 1791819608543,
-        "updatedAt": 1792903066947
+        "updatedAt": 1792927377321
       },
       "arthur_traps": {
         "id": "arthur_traps",
@@ -3057,7 +3057,7 @@
         "description": "لعبة ذكاء فردية وجماعية بمراحل متدرجة",
         "enabled": true,
         "registeredAt": 1791819608545,
-        "updatedAt": 1792903066946
+        "updatedAt": 1792927377320
       }
     },
     "season": {
