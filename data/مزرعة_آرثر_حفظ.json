@@ -6,26 +6,27 @@
       "level": 3,
       "plots": 3,
       "fields": {
-        "1": {
-          "crop": "قمح",
-          "plantedAt": 1792950490956,
-          "readyAt": 1792950600956,
-          "watered": true,
-          "fertilized": false
-        },
         "2": {
           "crop": "يقطين",
           "plantedAt": 1792961427094,
           "readyAt": 1792962327094,
           "watered": false,
           "fertilized": false
+        },
+        "3": {
+          "crop": "يقطين",
+          "plantedAt": 1792961836635,
+          "readyAt": 1792962676635,
+          "watered": true,
+          "fertilized": false
         }
       },
       "storageCapacity": 50,
       "inventory": {
-        "يقطين": 1
+        "يقطين": 1,
+        "قمح": 1
       },
-      "water": 12,
+      "water": 11,
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
@@ -35,7 +36,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 8,
+      "xp": 11,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
@@ -51,7 +52,7 @@
             "id": "harvest",
             "title": "احصد 3 محاصيل",
             "target": 3,
-            "progress": 0,
+            "progress": 1,
             "reward": 250,
             "xp": 10,
             "claimed": false
@@ -69,14 +70,14 @@
             "id": "plant",
             "title": "ازرع 3 محاصيل",
             "target": 3,
-            "progress": 2,
+            "progress": 3,
             "reward": 200,
             "xp": 8,
             "claimed": false
           }
         ]
       },
-      "totalXp": 83
+      "totalXp": 86
     },
     "pendingBet": null,
     "activeBet": {

@@ -19,13 +19,20 @@
           "readyAt": 1792962327094,
           "watered": false,
           "fertilized": false
+        },
+        "3": {
+          "crop": "يقطين",
+          "plantedAt": 1792961836635,
+          "readyAt": 1792962676635,
+          "watered": true,
+          "fertilized": false
         }
       },
       "storageCapacity": 50,
       "inventory": {
         "يقطين": 1
       },
-      "water": 12,
+      "water": 11,
       "waterCapacity": 20,
       "well": false,
       "lastWellAt": 0,
@@ -35,7 +42,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 8,
+      "xp": 9,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
@@ -69,23 +76,29 @@
             "id": "plant",
             "title": "ازرع 3 محاصيل",
             "target": 3,
-            "progress": 2,
+            "progress": 3,
             "reward": 200,
             "xp": 8,
             "claimed": false
           }
         ]
       },
-      "totalXp": 83
+      "totalXp": 84
     },
-    "pendingBet": {
+    "pendingBet": null,
+    "activeBet": {
       "from": "6825189593146@lid",
       "to": "135974805860531@lid",
       "amount": 200,
       "createdAt": 1792961451919,
-      "chat": "120363415577859600@g.us"
-    },
-    "activeBet": null
+      "chat": "120363415577859600@g.us",
+      "acceptedAt": 1792961636904,
+      "endsAt": 1792963436904,
+      "startXP": {
+        "6825189593146@lid": 0,
+        "135974805860531@lid": 83
+      }
+    }
   },
   "176412191391926@lid": {
     "farm": {
@@ -164,13 +177,19 @@
       },
       "factories": {}
     },
-    "pendingBet": {
+    "pendingBet": null,
+    "activeBet": {
       "from": "6825189593146@lid",
       "to": "135974805860531@lid",
       "amount": 200,
       "createdAt": 1792961451919,
-      "chat": "120363415577859600@g.us"
-    },
-    "activeBet": null
+      "chat": "120363415577859600@g.us",
+      "acceptedAt": 1792961636904,
+      "endsAt": 1792963436904,
+      "startXP": {
+        "6825189593146@lid": 0,
+        "135974805860531@lid": 83
+      }
+    }
   }
 }

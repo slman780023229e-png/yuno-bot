@@ -107,7 +107,7 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 9655,
+      "wallet": 9455,
       "bank": 0,
       "vault": 0,
       "debt": 0,
@@ -367,7 +367,7 @@
       "debt": 0,
       "creditScore": 100,
       "points": 25,
-      "xp": 65,
+      "xp": 80,
       "level": 1,
       "wins": 0,
       "losses": 0,
@@ -2519,6 +2519,15 @@
       "at": 1792935568250,
       "player": "135974805860531@lid",
       "amount": 500
+    },
+    {
+      "id": "tx_801253db-4f26-4778-bca7-fe85f11c87dc",
+      "type": "progress",
+      "at": 1792961748954,
+      "player": "6825189593146@lid",
+      "gold": 0,
+      "points": 0,
+      "xp": 15
     }
   ],
   "processedResults": {
