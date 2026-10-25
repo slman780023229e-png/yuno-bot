@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "currency": "عملة",
   "farm": {
     "purchasePrice": 1200,
@@ -248,5 +248,89 @@
     "max": 10000,
     "feePercent": 5,
     "durationMinutes": 30
+  },
+  "products": {
+    "دقيق": {
+      "emoji": "🌾",
+      "sellPrice": 90
+    },
+    "خبز": {
+      "emoji": "🍞",
+      "sellPrice": 180
+    },
+    "جبن": {
+      "emoji": "🧀",
+      "sellPrice": 650
+    },
+    "عصير فراولة": {
+      "emoji": "🧃",
+      "sellPrice": 2100
+    },
+    "مربى فراولة": {
+      "emoji": "🍯",
+      "sellPrice": 2400
+    }
+  },
+  "recipes": {
+    "دقيق": {
+      "emoji": "🌾",
+      "inputs": {
+        "قمح": 2
+      },
+      "output": "دقيق",
+      "outputQty": 1,
+      "cost": 10
+    },
+    "خبز": {
+      "emoji": "🍞",
+      "inputs": {
+        "دقيق": 1
+      },
+      "output": "خبز",
+      "outputQty": 1,
+      "cost": 20
+    },
+    "جبن": {
+      "emoji": "🧀",
+      "inputs": {
+        "حليب": 2
+      },
+      "output": "جبن",
+      "outputQty": 1,
+      "cost": 40
+    },
+    "عصير فراولة": {
+      "emoji": "🧃",
+      "inputs": {
+        "فراولة": 2
+      },
+      "output": "عصير فراولة",
+      "outputQty": 1,
+      "cost": 30
+    },
+    "مربى فراولة": {
+      "emoji": "🍯",
+      "inputs": {
+        "فراولة": 3
+      },
+      "output": "مربى فراولة",
+      "outputQty": 1,
+      "cost": 50
+    }
+  },
+  "progression": {
+    "maxLevel": 100,
+    "xpPerLevelBase": 25,
+    "minimumXpPerLevel": 20
+  },
+  "dailyQuests": {
+    "enabled": true,
+    "reset": "UTC",
+    "maxClaimsPerQuest": 1
+  },
+  "world": {
+    "seasonsEnabled": true,
+    "weatherAffectsCrops": false,
+    "note": "الطقس والفصول تجميليان في هذا الإصدار؛ لا توجد خسائر عشوائية."
   }
 }

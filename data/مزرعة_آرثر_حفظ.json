@@ -27,7 +27,39 @@
         "دجاج": 1792826585730
       },
       "feed": {
-        "دجاج": 1
+        "دجاج": 3
+      },
+      "daily": {
+        "date": "2026-10-25",
+        "quests": [
+          {
+            "id": "harvest",
+            "title": "احصد 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 250,
+            "xp": 10,
+            "claimed": false
+          },
+          {
+            "id": "sell",
+            "title": "بع 5 منتجات",
+            "target": 5,
+            "progress": 0,
+            "reward": 300,
+            "xp": 12,
+            "claimed": false
+          },
+          {
+            "id": "plant",
+            "title": "ازرع 3 محاصيل",
+            "target": 3,
+            "progress": 0,
+            "reward": 200,
+            "xp": 8,
+            "claimed": false
+          }
+        ]
       }
     },
     "pendingBet": null,

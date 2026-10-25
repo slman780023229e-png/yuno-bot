@@ -1,0 +1,58 @@
+{
+  "135974805860531@lid": {
+    "farm": {
+      "owner": "135974805860531@lid",
+      "createdAt": 1792823876725,
+      "level": 1,
+      "plots": 3,
+      "fields": {},
+      "storageCapacity": 50,
+      "inventory": {
+        "يقطين": 1
+      },
+      "water": 13,
+      "waterCapacity": 20,
+      "well": false,
+      "lastWellAt": 0,
+      "pens": {
+        "دجاج": 5
+      },
+      "animals": {
+        "دجاج": 1
+      },
+      "xp": 81,
+      "wins": 0,
+      "losses": 0,
+      "animalLastProduct": {
+        "دجاج": 1792826585730
+      },
+      "feed": {
+        "دجاج": 1
+      }
+    },
+    "pendingBet": null,
+    "activeBet": null
+  },
+  "176412191391926@lid": {
+    "farm": {
+      "owner": "176412191391926@lid",
+      "createdAt": 1792844192092,
+      "level": 1,
+      "plots": 3,
+      "fields": {},
+      "storageCapacity": 50,
+      "inventory": {},
+      "water": 20,
+      "waterCapacity": 20,
+      "well": false,
+      "lastWellAt": 0,
+      "pens": {},
+      "animals": {},
+      "xp": 0,
+      "wins": 0,
+      "losses": 0
+    },
+    "pendingBet": null,
+    "activeBet": null
+  }
+}
