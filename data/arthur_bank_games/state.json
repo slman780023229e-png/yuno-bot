@@ -107,13 +107,13 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 8875,
+      "wallet": 9375,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2540,
-      "xp": 815,
+      "points": 2565,
+      "xp": 865,
       "level": 4,
       "wins": 49,
       "losses": 4,
@@ -124,7 +124,7 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1792786566125,
+      "lastDaily": 1792935568250,
       "lastInterest": 1792935516644,
       "createdAt": 1792083933949,
       "bankProfile": {
@@ -2512,6 +2512,13 @@
       "gold": 315,
       "points": 50,
       "xp": 60
+    },
+    {
+      "id": "tx_19f36e68-40fa-4cd7-aa73-a726c97fb96a",
+      "type": "daily",
+      "at": 1792935568250,
+      "player": "135974805860531@lid",
+      "amount": 500
     }
   ],
   "processedResults": {
