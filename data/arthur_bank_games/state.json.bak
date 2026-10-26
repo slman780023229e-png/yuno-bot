@@ -25,7 +25,7 @@
         "defense": 1
       },
       "lastDaily": 1791994572062,
-      "lastInterest": 1792340058434,
+      "lastInterest": 1793036903992,
       "createdAt": 1791757197518,
       "bankProfile": {
         "name": "سلمان",
@@ -107,15 +107,15 @@
       }
     },
     "135974805860531@lid": {
-      "wallet": 9055,
+      "wallet": 9870,
       "bank": 0,
       "vault": 0,
       "debt": 0,
       "creditScore": 100,
-      "points": 2575,
-      "xp": 885,
+      "points": 2650,
+      "xp": 995,
       "level": 4,
-      "wins": 49,
+      "wins": 50,
       "losses": 5,
       "title": "",
       "inventory": [],
@@ -124,8 +124,8 @@
         "strength": 1,
         "defense": 1
       },
-      "lastDaily": 1792935568250,
-      "lastInterest": 1792935516644,
+      "lastDaily": 1793036318570,
+      "lastInterest": 1793037074708,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -453,6 +453,26 @@
         "O",
         "",
         "X"
+      ]
+    },
+    "120363413569620683@g.us_1793037131508_f9zwtf": {
+      "playerX": "135974805860531@lid",
+      "playerO": "BOT",
+      "invited": "",
+      "started": true,
+      "isVsBot": true,
+      "turn": "BOT",
+      "createdAt": 1793037131508,
+      "b": [
+        "",
+        "",
+        "X",
+        "",
+        "O",
+        "",
+        "X",
+        "",
+        ""
       ]
     }
   },
@@ -2546,6 +2566,22 @@
       "gold": 0,
       "points": 10,
       "xp": 20
+    },
+    {
+      "id": "tx_c81ff3bd-ab75-46d2-9e49-75cd1d1e74b7",
+      "type": "daily",
+      "at": 1793036318570,
+      "player": "135974805860531@lid",
+      "amount": 500
+    },
+    {
+      "id": "tx_1cec6c79-202c-4a38-acff-8a23d530bd88",
+      "type": "progress",
+      "at": 1793037114224,
+      "player": "135974805860531@lid",
+      "gold": 315,
+      "points": 50,
+      "xp": 60
     }
   ],
   "processedResults": {
