@@ -25,7 +25,7 @@
         "defense": 1
       },
       "lastDaily": 1791994572062,
-      "lastInterest": 1792340058434,
+      "lastInterest": 1793036903992,
       "createdAt": 1791757197518,
       "bankProfile": {
         "name": "سلمان",
@@ -125,7 +125,7 @@
         "defense": 1
       },
       "lastDaily": 1793036318570,
-      "lastInterest": 1792935516644,
+      "lastInterest": 1793037074708,
       "createdAt": 1792083933949,
       "bankProfile": {
         "name": "slman",
@@ -453,6 +453,26 @@
         "O",
         "",
         "X"
+      ]
+    },
+    "120363413569620683@g.us_1793037089072_zd3o7d": {
+      "playerX": "135974805860531@lid",
+      "playerO": "BOT",
+      "invited": "",
+      "started": true,
+      "isVsBot": true,
+      "turn": "135974805860531@lid",
+      "createdAt": 1793037089072,
+      "b": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
       ]
     }
   },
