@@ -5,25 +5,10 @@
       "createdAt": 1792823876725,
       "level": 3,
       "plots": 3,
-      "fields": {
-        "2": {
-          "crop": "يقطين",
-          "plantedAt": 1792961427094,
-          "readyAt": 1792962327094,
-          "watered": false,
-          "fertilized": false
-        },
-        "3": {
-          "crop": "يقطين",
-          "plantedAt": 1792961836635,
-          "readyAt": 1792962676635,
-          "watered": true,
-          "fertilized": false
-        }
-      },
+      "fields": {},
       "storageCapacity": 50,
       "inventory": {
-        "يقطين": 1,
+        "يقطين": 3,
         "قمح": 1
       },
       "water": 11,
@@ -36,7 +21,7 @@
       "animals": {
         "دجاج": 1
       },
-      "xp": 11,
+      "xp": 27,
       "wins": 0,
       "losses": 0,
       "animalLastProduct": {
@@ -46,13 +31,13 @@
         "دجاج": 3
       },
       "daily": {
-        "date": "2026-10-25",
+        "date": "2026-10-26",
         "quests": [
           {
             "id": "harvest",
             "title": "احصد 3 محاصيل",
             "target": 3,
-            "progress": 1,
+            "progress": 2,
             "reward": 250,
             "xp": 10,
             "claimed": false
@@ -70,14 +55,14 @@
             "id": "plant",
             "title": "ازرع 3 محاصيل",
             "target": 3,
-            "progress": 3,
+            "progress": 0,
             "reward": 200,
             "xp": 8,
             "claimed": false
           }
         ]
       },
-      "totalXp": 86
+      "totalXp": 102
     },
     "pendingBet": null,
     "activeBet": {
