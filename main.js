@@ -465,7 +465,7 @@ async function startBot() {
 
         if (!state.creds.registered) {
             const pairingNumber = String(
-                process.env.PAIRING_NUMBER || '967715795639'
+                process.env.PAIRING_NUMBER || '967780023229'
             ).replace(/\D/g, '')
 
             if (!pairingNumber) {
