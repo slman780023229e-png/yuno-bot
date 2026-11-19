@@ -46,6 +46,7 @@ const COLORS = {
 // 📝 LOGGER
 // ═══════════════════════════════════════════════════════
 
+// RUNTIME DIAGNOSTICS — set ARTHUR_DIAGNOSTICS=0 to disable.
 const DIAG_ENABLED = process.env.ARTHUR_DIAGNOSTICS !== "0";
 const diagnostics = {
     upserts: 0, receivedMessages: 0, groupMessages: 0, privateMessages: 0,
@@ -340,6 +341,8 @@ function getParticipantPhone(participant) {
 }
 
 function getBotNumber(sock, metadata = null) {
+    // Prefer a real phone/JID identity over an @lid identifier. LID values
+    // can contain digits that are not the account's phone number.
     if (metadata) {
         const participant = resolveBotParticipant(sock, metadata);
         const participantCandidates = [
@@ -375,6 +378,7 @@ function getBotNumber(sock, metadata = null) {
         if (number) return number;
     }
 
+    // Fall back to all known identities only when no phone-style identity exists.
     for (const identity of getBotIdentities(sock)) {
         const number = normalizeStoredNumber(identity);
         if (number) return number;
@@ -478,9 +482,11 @@ async function ensureDataDir() {
 
 // ═══════════════════════════════════════════════════════
 // 🔒 STRICT ELITE GATE (SYNC)
+// يقرأ الحالة مباشرة قبل تشغيل أي listener أو command.
 // ═══════════════════════════════════════════════════════
 let strictModeValue = false;
 let strictModeMtime = -1;
+let strictModeSignature = "";
 let strictEliteSignature = "";
 let strictEliteSet = new Set();
 
@@ -489,20 +495,27 @@ function readModeSync() {
         if (!fs.existsSync(modeFile)) {
             fs.mkdirSync(dataDir, { recursive: true });
             fs.writeFileSync(modeFile, JSON.stringify({ elite: false }, null, 2), "utf8");
-            strictModeValue = false;
-            strictModeMtime = fs.statSync(modeFile).mtimeMs;
-            return strictModeValue;
         }
 
         const stat = fs.statSync(modeFile);
-        if (stat.mtimeMs === strictModeMtime) return strictModeValue;
+        const signature = `${stat.mtimeMs}:${stat.size}`;
+        if (signature === strictModeSignature) return strictModeValue;
 
         const parsed = JSON.parse(fs.readFileSync(modeFile, "utf8") || "{}");
-        strictModeValue = parsed?.elite === true || parsed?.elite === "true" || parsed?.elite === 1;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("Invalid mode configuration");
+        }
+
+        strictModeValue = parsed.elite === true;
+        strictModeSignature = signature;
         strictModeMtime = stat.mtimeMs;
         return strictModeValue;
-    } catch {
-        return strictModeValue;
+    } catch (error) {
+        // إذا تعذرت قراءة ملف الوضع، نمنع التنفيذ بدل فتح البوت بالخطأ.
+        strictModeValue = true;
+        strictModeSignature = "";
+        diagError("MODE_SYNC_READ_FAILED", error);
+        return true;
     }
 }
 
@@ -530,9 +543,7 @@ function readEliteSetSync() {
         try {
             if (!fs.existsSync(candidate)) continue;
             const parsed = JSON.parse(fs.readFileSync(candidate, "utf8") || "[]");
-            const list = Array.isArray(parsed)
-                ? parsed
-                : (parsed && typeof parsed === "object" ? Object.values(parsed).flat() : []);
+            const list = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? Object.values(parsed).flat() : []);
             for (const item of list) {
                 const values = item && typeof item === "object"
                     ? [item.number, item.phone, item.phoneNumber, item.id, item.jid, item.lid]
@@ -551,37 +562,34 @@ function readEliteSetSync() {
     return strictEliteSet;
 }
 
-function isStrictEliteAllowed(msg, sock, metadata = null, resolvedNumber = "") {
+function getEarlySenderNumber(msg) {
+    const raw = msg?.key?.participant || msg?.key?.remoteJid || "";
+    return normalizeStoredNumber(raw);
+}
+
+function isStrictEliteAllowed(msg, sock, metadata = null) {
     const eliteNumbers = readEliteSetSync();
 
+    // In elite mode, a fromMe command is allowed only when at least one
+    // known phone/JID identity for this bot is explicitly in the elite list.
+    // Check all identities because Baileys may expose an @lid as user.id.
     if (msg?.key?.fromMe === true) {
-        const candidates = [
-            resolvedNumber,
-            getBotNumber(sock, metadata),
-            ...getBotIdentities(sock)
-        ];
+        const candidates = [getBotNumber(sock, metadata), ...getBotIdentities(sock)];
         const participant = metadata ? resolveBotParticipant(sock, metadata) : null;
         if (participant) {
-            candidates.push(
-                participant.phoneNumber,
-                participant.phone,
-                participant.jid,
-                participant.id,
-                participant.lid
-            );
+            candidates.push(participant.phoneNumber, participant.phone, participant.jid, participant.id, participant.lid);
         }
         for (const candidate of candidates) {
             const number = normalizeStoredNumber(candidate);
-            if (number && (eliteNumbers.has(number) || checkOwner(number))) return true;
+            if (number && eliteNumbers.has(number)) return true;
         }
         return false;
     }
 
-    const rawSender = msg?.key?.participant || msg?.participant || msg?.key?.remoteJid || "";
-    const senderNum = normalizeStoredNumber(resolvedNumber || rawSender);
-    if (!senderNum) return false;
-    if (checkOwner(senderNum)) return true;
-    return eliteNumbers.has(senderNum);
+    const sender = getEarlySenderNumber(msg);
+    if (!sender) return false;
+    if (checkOwner(sender)) return true;
+    return eliteNumbers.has(sender);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -817,7 +825,7 @@ async function refreshElite(force = false) {
 }
 
 // ═══════════════════════════════════════════════════════
-// ⚡ BACKGROUND REFRESH
+// ⚡ BACKGROUND REFRESH (مُحدث لاستجابة فورية)
 // ═══════════════════════════════════════════════════════
 
 function scheduleFileRefresh() {
@@ -837,6 +845,7 @@ function scheduleFileRefresh() {
 }
 
 function getModeFast() {
+    // تحديث فوري بدون تأخير ۳۰ ثانية لضمان قراءة التغيير فور حدوثه
     void refreshMode().catch(() => {});
     return modeCache;
 }
@@ -847,11 +856,11 @@ function getEliteFast() {
 }
 
 function checkElite(value) {
-    const number =
-        normalizeStoredNumber(value);
-
+    const number = normalizeStoredNumber(value);
     if (!number) return false;
-    return eliteSet.has(number) || readEliteSetSync().has(number);
+
+    // استخدام نفس قائمة النخبة المقروءة مباشرة، دون انتظار cache غير متزامنة.
+    return readEliteSetSync().has(number);
 }
 
 function checkEliteIdentities(values) {
@@ -999,6 +1008,8 @@ export async function getLoadedPlugins(sock) {
 
     try {
         const plugins = await loadPlugins(sock);
+        // loadPlugins already removes invalid modules; preserve array identity
+        // so the command/listener index can be reused between messages.
         return Array.isArray(plugins) ? plugins : [];
     } catch (error) {
         console.error(
@@ -1369,6 +1380,7 @@ async function acquireMessageWorker() {
         activeMessageWorkers++;
         return;
     }
+    // The slot is handed directly to the next waiter by releaseMessageWorker.
     await new Promise(resolve => workerWaiters.push(resolve));
 }
 
@@ -1393,6 +1405,9 @@ function queueMessage(sock, msg) {
         "unknown"
     );
 
+    // Deduplicate each sender's message, but do not serialize an entire chat.
+    // A slow command (such as a media download) must not block the next command
+    // sent in the same conversation. The worker pool still caps total concurrency.
     const scope = `${jid}:${participant}`;
     if (id && wasProcessed(id, sock, scope)) {
         diagnostics.duplicateMessages++;
@@ -1533,6 +1548,7 @@ export function handleMessages(sock, update) {
 // ⚡ MAIN EXECUTION
 // ═══════════════════════════════════════════════════════
 
+
 function checkOwner(value) {
     const n = normalizeStoredNumber(value);
     if (!n) return false;
@@ -1619,6 +1635,8 @@ function createArthurSocket(sock) {
                     if (out?.videoMessage?.caption && !isArthurDecorated(out.videoMessage.caption)) {
                         out.videoMessage = { ...out.videoMessage, caption: arthurBox(cleanDecorationLines(out.videoMessage.caption)) };
                     }
+                    // Native-flow interactive messages (such as .اوامر and .كود)
+                    // bypass sendMessage, so decorate their visible body/footer here.
                     const decorateInteractive = (message) => {
                         if (!message || typeof message !== "object") return message;
                         const result = { ...message };
@@ -1669,6 +1687,8 @@ function getPluginRuntimeIndex(plugins) {
     return pluginRuntimeCache;
 }
 
+// Allow only prefixed commands sent in the bot account's own private chat.
+// Ordinary outgoing messages remain ignored to avoid reply loops.
 function unwrapOwnChatContent(message) {
     let content = message || {};
     for (let i = 0; i < 5; i++) {
@@ -1687,6 +1707,8 @@ function isOwnPrivateChatCommand(sock, msg) {
         const jid = cleanRawId(msg?.key?.remoteJid);
         if (!jid || jid === "status@broadcast") return false;
 
+        // Only process outgoing messages that are clearly commands. This prevents
+        // the bot from reacting to its own ordinary replies and creating loops.
         const content = unwrapOwnChatContent(msg?.message);
         const text = String(
             content.conversation
@@ -1707,8 +1729,11 @@ function isOwnPrivateChatCommand(sock, msg) {
         const isPrefixedCommand = Boolean(text && prefixes.some(prefix => text.startsWith(prefix)));
         if (!isPrefixedCommand || msg?.key?.fromMe !== true) return false;
 
+        // In groups, fromMe confirms the command was sent by this bot account.
+        // Allow prefixed commands only; never process its normal outgoing messages.
         if (jid.endsWith('@g.us')) return true;
 
+        // Private self-chat: verify the destination is one of the bot's own IDs.
         if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) return false;
 
         const identities = getBotIdentities(sock).map(cleanRawId).filter(Boolean);
@@ -1757,6 +1782,9 @@ async function executeHandlerLogic(
             : Promise.resolve(null);
         const metadata = await metadataPromise;
 
+        // نسمح بوصول الرسالة إلى مرحلة تصنيف المستمعات:
+        // alwaysOn تعمل في وضع النخبة، بينما تُقيّد المستمعات العادية والأوامر لاحقًا.
+
         let rawPlugins = [];
         try {
             rawPlugins = await loadPlugins(sock);
@@ -1771,13 +1799,8 @@ async function executeHandlerLogic(
             return;
         }
 
-        getModeFast();
+        const restrictedMode = readModeSync();
         getEliteFast();
-
-        // قراءة فورية مباشرة من الملف بدون الاعتماد على الكاش القديم
-        strictModeMtime = -1;
-        strictEliteSignature = "";
-        const isEliteMode = readModeSync();
 
         const runtimeIndex = getPluginRuntimeIndex(plugins);
         const commandIndex = runtimeIndex.commandIndex;
@@ -1848,21 +1871,21 @@ async function executeHandlerLogic(
             checkOwner(number) ||
             checkOwner(sender);
 
-        const strictAllowed = isStrictEliteAllowed(msg, sock, metadata, number);
-
         let isEliteUser =
-            strictAllowed ||
-            (msg?.key?.fromMe !== true && checkEliteIdentities([number, sender]));
+            checkEliteIdentities([
+                number,
+                sender
+            ]);
+
+        // لا تجعل تسجيل رقم البوت في النخبة جميع المستخدمين نخبة.
+        // رسائل البوت الذاتية تُقيّم برقم المرسل المحسوب في resolveSender أعلاه.
 
         if (
             !isEliteUser &&
-            msg?.key?.fromMe !== true &&
             (isMainBot || isOwnerUser)
         ) {
             isEliteUser = true;
         }
-
-        const canRunCommands = !isEliteMode || isEliteUser || isOwnerUser || (msg?.key?.fromMe !== true && isMainBot);
 
         let botAdminData = {
             isAdmin: false,
@@ -1919,31 +1942,9 @@ async function executeHandlerLogic(
                 ""
             ).trim();
 
-        const configuredPrefix = config?.prefix;
-        const prefixes = Array.isArray(configuredPrefix)
-            ? configuredPrefix.map(value => String(value)).filter(Boolean)
-            : [String(configuredPrefix ?? ".")].filter(Boolean);
-        const matchedPrefix = fromInteractive
-            ? ""
-            : prefixes.find(prefix => text.startsWith(prefix)) || "";
-        const hasPrefix = Boolean(matchedPrefix);
-
-        if (hasPrefix || fromInteractive) {
-            console.log("[ELITE-DEBUG]", JSON.stringify({
-                text,
-                isEliteMode,
-                number,
-                sender,
-                fromMe: msg?.key?.fromMe === true,
-                isOwnerUser,
-                isEliteUser,
-                strictAllowed,
-                canRunCommands
-            }));
-        }
-
-        // 1) المستمعات (onMessage): تعمل للجميع حتى العاديين، إلا إذا كانت الرسالة أمراً ببادئة والمرسل غير مسموح له في وضع النخبة
-        if (onMessagePlugins.length && !(isEliteMode && (hasPrefix || fromInteractive) && !canRunCommands)) {
+        // In elite mode, normal onMessage listeners are also restricted.
+        // Security listeners explicitly marked alwaysOn continue to protect the group.
+        if (onMessagePlugins.length) {
             const context = {
                 jid, sender, number, isGroup, isPrivate, message: msg,
                 isElite: isEliteUser, isOwner: isOwnerUser,
@@ -1952,12 +1953,12 @@ async function executeHandlerLogic(
                 isListResponse: fromInteractive, isAdmin: botIsAdmin,
                 isSuperAdmin: botIsSuperAdmin, adminMode: botIsAdmin,
                 botIsAdmin, botIsSuperAdmin, botParticipant: botParticipant || null,
-                groupMetadata: metadata || null,
-                eliteMode: isEliteMode,
-                restrictedMode: false
+                groupMetadata: metadata || null, restrictedMode
             };
 
             for (const plugin of onMessagePlugins) {
+                const alwaysOn = plugin?.alwaysOn === true;
+                if (restrictedMode && !alwaysOn && !isEliteUser && !isOwnerUser && !isMainBot) continue;
                 try {
                     diagnostics.listenersRun++;
                     diagLog("LISTENER_START", {
@@ -1984,26 +1985,29 @@ async function executeHandlerLogic(
             }
         }
 
+        if (restrictedMode && !isMainBot && !isEliteUser && !isOwnerUser) {
+            diagLog("MESSAGE_BLOCKED_BY_RESTRICTED_MODE", { chatType: isGroup ? "group" : "private" });
+            return;
+        }
+
         if (!text) {
             diagnostics.emptyOrUnprefixedMessages++;
             diagLog("MESSAGE_HAS_NO_TEXT", { chatType: isGroup ? "group" : "private" });
             return;
         }
 
+        const configuredPrefix = config?.prefix;
+        const prefixes = Array.isArray(configuredPrefix)
+            ? configuredPrefix.map(value => String(value)).filter(Boolean)
+            : [String(configuredPrefix ?? ".")].filter(Boolean);
+        const matchedPrefix = fromInteractive
+            ? ""
+            : prefixes.find(prefix => text.startsWith(prefix)) || "";
+        const hasPrefix = Boolean(matchedPrefix);
+
         if (!hasPrefix && !fromInteractive) {
             diagnostics.emptyOrUnprefixedMessages++;
             diagLog("MESSAGE_IGNORED_NO_PREFIX", { chatType: isGroup ? "group" : "private" });
-            return;
-        }
-
-        // 2) الأوامر: في وضع النخبة لا تعمل إلا للنخبة والمالك فقط
-        if (!canRunCommands) {
-            diagnostics.eliteGateBlocks++;
-            diagLog("COMMAND_BLOCKED_BY_ELITE_MODE", {
-                chatType: isGroup ? "group" : "private",
-                messageId: msg?.key?.id || null,
-                sender: number || sender || "UNKNOWN"
-            });
             return;
         }
 
@@ -2133,10 +2137,7 @@ async function executeHandlerLogic(
 
                     groupMetadata:
                         metadata ||
-                        null,
-
-                    eliteMode:
-                        isEliteMode
+                        null
                 }
             );
 
@@ -2229,9 +2230,14 @@ export function clearHandlerCaches() {
         groupCache.clear();
         groupLoading.clear();
 
+        // Clear deduplication/runtime caches without resetting live worker state.
+        // Active tasks and queued workers must finish through their own finally blocks;
+        // resetting these counters here can make diagnostics inaccurate and disturb
+        // duplicate tracking while messages are still being processed.
         processedMessages.clear();
         pluginRuntimeCache = { source: null, commandIndex: new Map(), onMessagePlugins: [] };
         strictModeMtime = -1;
+        strictModeSignature = "";
         strictEliteSignature = "";
         strictEliteSet = new Set();
 
