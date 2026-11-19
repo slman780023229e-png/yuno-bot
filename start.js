@@ -65,6 +65,21 @@ function clearTempCache() {
     } catch {}
 }
 
+// ==========================================================
+// 🍃 التحقق من إعداد MongoDB للجلسة
+// ==========================================================
+function checkMongoConfig() {
+    if (process.env.MONGO_URI) {
+        console.log(
+            chalk.green("🍃 [MongoDB]: MONGO_URI جاهز للجلسة السحابية.")
+        );
+    } else {
+        console.log(
+            chalk.yellow("⚠️ [MongoDB]: MONGO_URI غير مضبوط في البيئة الحالية.")
+        );
+    }
+}
+
 const sleep = ms =>
     new Promise(resolve => setTimeout(resolve, ms));
 
@@ -197,9 +212,10 @@ async function loading(text) {
 async function start() {
     console.clear();
 
-    // إبقاء إجراءات الحماية والتنظيف الأصلية
+    // إبقاء إجراءات الحماية والتنظيف الأصلية + فحص MongoDB
     protectAndCleanSession();
     clearTempCache();
+    checkMongoConfig();
 
     console.clear();
 
@@ -245,14 +261,15 @@ async function start() {
     console.log("");
 
     // ======================================================
-    // ⚙️ تشغيل main.js — نفس الطريقة الأصلية
+    // ⚙️ تشغيل main.js — تمرير متغيرات البيئة كاملة
     // ======================================================
     const bot = spawn(
         "node",
         [path.join(__dirname, "main.js")],
         {
             stdio: "inherit",
-            cwd: __dirname
+            cwd: __dirname,
+            env: { ...process.env }
         }
     );
 
