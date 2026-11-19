@@ -486,6 +486,7 @@ async function ensureDataDir() {
 // ═══════════════════════════════════════════════════════
 let strictModeValue = false;
 let strictModeMtime = -1;
+let strictModeSignature = "";
 let strictEliteSignature = "";
 let strictEliteSet = new Set();
 
@@ -494,22 +495,27 @@ function readModeSync() {
         if (!fs.existsSync(modeFile)) {
             fs.mkdirSync(dataDir, { recursive: true });
             fs.writeFileSync(modeFile, JSON.stringify({ elite: false }, null, 2), "utf8");
-            strictModeValue = false;
-            strictModeMtime = fs.statSync(modeFile).mtimeMs;
-            return strictModeValue;
         }
 
         const stat = fs.statSync(modeFile);
-        if (stat.mtimeMs === strictModeMtime) return strictModeValue;
+        const signature = `${stat.mtimeMs}:${stat.size}`;
+        if (signature === strictModeSignature) return strictModeValue;
 
         const parsed = JSON.parse(fs.readFileSync(modeFile, "utf8") || "{}");
-        strictModeValue = parsed?.elite === true;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("Invalid mode configuration");
+        }
+
+        strictModeValue = parsed.elite === true;
+        strictModeSignature = signature;
         strictModeMtime = stat.mtimeMs;
         return strictModeValue;
-    } catch {
-        // Fail closed only when the file exists but cannot be read: don't silently
-        // switch a protected bot to normal mode because of a transient read error.
-        return strictModeValue;
+    } catch (error) {
+        // إذا تعذرت قراءة ملف الوضع، نمنع التنفيذ بدل فتح البوت بالخطأ.
+        strictModeValue = true;
+        strictModeSignature = "";
+        diagError("MODE_SYNC_READ_FAILED", error);
+        return true;
     }
 }
 
@@ -850,13 +856,11 @@ function getEliteFast() {
 }
 
 function checkElite(value) {
-    const number =
-        normalizeStoredNumber(value);
+    const number = normalizeStoredNumber(value);
+    if (!number) return false;
 
-    return (
-        !!number &&
-        eliteSet.has(number)
-    );
+    // استخدام نفس قائمة النخبة المقروءة مباشرة، دون انتظار cache غير متزامنة.
+    return readEliteSetSync().has(number);
 }
 
 function checkEliteIdentities(values) {
@@ -1778,18 +1782,8 @@ async function executeHandlerLogic(
             : Promise.resolve(null);
         const metadata = await metadataPromise;
 
-        // Strict elite gate stays enabled. For group messages, resolve metadata
-        // first so the bot's phone identity can be matched to its participant.
-        if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) {
-            diagnostics.eliteGateBlocks++;
-            diagLog("MESSAGE_BLOCKED_BY_STRICT_ELITE_MODE", {
-                chatType: isGroup ? "group" : "private",
-                messageId: msg?.key?.id || null,
-                metadataAvailable: Boolean(metadata),
-                senderIdentityAvailable: Boolean(msg?.key?.participant || msg?.key?.remoteJid)
-            });
-            return;
-        }
+        // نسمح بوصول الرسالة إلى مرحلة تصنيف المستمعات:
+        // alwaysOn تعمل في وضع النخبة، بينما تُقيّد المستمعات العادية والأوامر لاحقًا.
 
         let rawPlugins = [];
         try {
@@ -1805,7 +1799,7 @@ async function executeHandlerLogic(
             return;
         }
 
-        getModeFast();
+        const restrictedMode = readModeSync();
         getEliteFast();
 
         const runtimeIndex = getPluginRuntimeIndex(plugins);
@@ -1948,11 +1942,19 @@ async function executeHandlerLogic(
                 ""
             ).trim();
 
-        const mode = getModeFast();
-        const restrictedMode = mode?.elite === true;
+        // حدّد الرسائل التي تحاول تشغيل أمر قبل استدعاء onMessage.
+        // بعض الإضافات تنفّذ أوامر البادئة داخل onMessage حتى لو لم تعرّف plugin.command؛
+        // لذلك لا نعتمد على وجود command وحده لتصنيفها.
+        const configuredPrefixForGate = config?.prefix;
+        const prefixesForGate = Array.isArray(configuredPrefixForGate)
+            ? configuredPrefixForGate.map(value => String(value)).filter(Boolean)
+            : [String(configuredPrefixForGate ?? ".")].filter(Boolean);
+        const isPrefixedCommandMessage = !fromInteractive &&
+            prefixesForGate.some(prefix => text.startsWith(prefix));
+        const isCommandResponseMessage = isPrefixedCommandMessage || fromInteractive;
 
-        // In elite mode, normal onMessage listeners are also restricted.
-        // Security listeners explicitly marked alwaysOn continue to protect the group.
+        // المستمعات التلقائية تستمر مع الرسائل العادية وأحداث واتساب،
+        // لكن لا نسمح لأي onMessage بتنفيذ أمر بادئة لغير النخبة.
         if (onMessagePlugins.length) {
             const context = {
                 jid, sender, number, isGroup, isPrivate, message: msg,
@@ -1966,8 +1968,18 @@ async function executeHandlerLogic(
             };
 
             for (const plugin of onMessagePlugins) {
-                const alwaysOn = plugin?.alwaysOn === true;
-                if (restrictedMode && !alwaysOn && !isEliteUser && !isOwnerUser && !isMainBot) continue;
+                // A plugin with `command` is a prefix-command plugin, not an automatic
+                // event listener. Do not let its onMessage hook answer for non-elite users.
+                // Plugins without `command` are event listeners and always keep running.
+                const isPrefixCommandPlugin = Boolean(plugin?.command || plugin?.aliases || plugin?.cmd || plugin?.commands);
+                if (restrictedMode && !isEliteUser && !isOwnerUser && isCommandResponseMessage) {
+                    diagLog("ONMESSAGE_COMMAND_BLOCKED_BY_ELITE_MODE", {
+                        listener: plugin?.name || plugin?.command || "anonymous",
+                        identifiedAsCommandPlugin: isPrefixCommandPlugin,
+                        messageId: msg?.key?.id || null
+                    });
+                    continue;
+                }
                 try {
                     diagnostics.listenersRun++;
                     diagLog("LISTENER_START", {
@@ -1994,7 +2006,9 @@ async function executeHandlerLogic(
             }
         }
 
-        if (restrictedMode && !isMainBot && !isEliteUser && !isOwnerUser) {
+        // isMainBot describes this bot account, not the message sender; it must not
+        // bypass the elite restriction for ordinary users.
+        if (restrictedMode && !isEliteUser && !isOwnerUser) {
             diagLog("MESSAGE_BLOCKED_BY_RESTRICTED_MODE", { chatType: isGroup ? "group" : "private" });
             return;
         }
@@ -2005,10 +2019,7 @@ async function executeHandlerLogic(
             return;
         }
 
-        const configuredPrefix = config?.prefix;
-        const prefixes = Array.isArray(configuredPrefix)
-            ? configuredPrefix.map(value => String(value)).filter(Boolean)
-            : [String(configuredPrefix ?? ".")].filter(Boolean);
+        const prefixes = prefixesForGate;
         const matchedPrefix = fromInteractive
             ? ""
             : prefixes.find(prefix => text.startsWith(prefix)) || "";
@@ -2058,6 +2069,13 @@ async function executeHandlerLogic(
             commandIndex.get(
                 commandName
             );
+
+        // الحماية النهائية: لا يُنفّذ أي أمر بادئة لغير النخبة عند تفعيل الوضع.
+        if (restrictedMode && !isEliteUser && !isOwnerUser) {
+            diagnostics.eliteGateBlocks++;
+            diagLog("PREFIX_COMMAND_BLOCKED_BY_ELITE_MODE", { commandName, sender: number || sender || null });
+            return;
+        }
 
         if (!cmd) {
             diagLog("COMMAND_NOT_FOUND", { commandName, chatType: isGroup ? "group" : "private" });
@@ -2246,6 +2264,7 @@ export function clearHandlerCaches() {
         processedMessages.clear();
         pluginRuntimeCache = { source: null, commandIndex: new Map(), onMessagePlugins: [] };
         strictModeMtime = -1;
+        strictModeSignature = "";
         strictEliteSignature = "";
         strictEliteSet = new Set();
 
