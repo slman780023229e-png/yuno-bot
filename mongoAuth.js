@@ -14,29 +14,38 @@ export async function useMongoDBAuthState(mongoUrl, sessionId = 'arthur-session'
     await mongoose.connection.asPromise();
   }
 
-  const db = mongoose.connection.useDb('whatsapp_bot').db;
+  const db = mongoose.connection.useDb('whatsapp_bot', { useCache: true }).db;
   const collection = db.collection('auth_sessions');
 
+  // ذاكرة تخزين سريعة في الرام لتجنب بطء الشبكة مع كل رسالة
+  const memoryCache = new Map();
+  const prefix = `${sessionId}-`;
+
+  // تحميل الجلسة كاملة إلى الرام مرة واحدة عند التشغيل
+  const existingDocs = await collection
+    .find({ _id: { $regex: `^${prefix}` } })
+    .toArray();
+
+  for (const doc of existingDocs) {
+    const key = doc._id.slice(prefix.length);
+    memoryCache.set(key, JSON.parse(doc.value, BufferJSON.reviver));
+  }
+
   const writeData = async (data, id) => {
+    memoryCache.set(id, data);
     const serialized = JSON.stringify(data, BufferJSON.replacer);
     await collection.updateOne(
-      { _id: `${sessionId}-${id}` },
+      { _id: `${prefix}${id}` },
       { $set: { value: serialized } },
       { upsert: true }
     );
   };
 
-  const readData = async (id) => {
-    const doc = await collection.findOne({ _id: `${sessionId}-${id}` });
-    if (!doc) return null;
-    return JSON.parse(doc.value, BufferJSON.reviver);
+  const readData = (id) => {
+    return memoryCache.has(id) ? memoryCache.get(id) : null;
   };
 
-  const removeData = async (id) => {
-    await collection.deleteOne({ _id: `${sessionId}-${id}` });
-  };
-
-  const creds = (await readData('creds')) || initAuthCreds();
+  const creds = readData('creds') || initAuthCreds();
 
   return {
     state: {
@@ -44,26 +53,50 @@ export async function useMongoDBAuthState(mongoUrl, sessionId = 'arthur-session'
       keys: {
         get: async (type, ids) => {
           const data = {};
-          await Promise.all(
-            ids.map(async (id) => {
-              const value = await readData(`${type}-${id}`);
-              if (value !== null && value !== undefined) {
-                data[id] = value;
-              }
-            })
-          );
+          for (const id of ids) {
+            const value = readData(`${type}-${id}`);
+            if (value !== null && value !== undefined) {
+              data[id] = value;
+            }
+          }
           return data;
         },
         set: async (data) => {
-          const tasks = [];
+          const bulkOps = [];
+
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id];
               const key = `${category}-${id}`;
-              tasks.push(value ? writeData(value, key) : removeData(key));
+
+              if (value) {
+                memoryCache.set(key, value);
+                bulkOps.push({
+                  updateOne: {
+                    filter: { _id: `${prefix}${key}` },
+                    update: {
+                      $set: { value: JSON.stringify(value, BufferJSON.replacer) },
+                    },
+                    upsert: true,
+                  },
+                });
+              } else {
+                memoryCache.delete(key);
+                bulkOps.push({
+                  deleteOne: {
+                    filter: { _id: `${prefix}${key}` },
+                  },
+                });
+              }
             }
           }
-          await Promise.all(tasks);
+
+          // حفظ التحديثات في MongoDB بالخلفية دفعة واحدة دون تأخير الرد
+          if (bulkOps.length > 0) {
+            collection.bulkWrite(bulkOps, { ordered: false }).catch((err) => {
+              console.error('MongoDB key sync error:', err.message);
+            });
+          }
         },
       },
     },
