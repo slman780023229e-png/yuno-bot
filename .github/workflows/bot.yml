@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 290
 
     steps:
       - name: Checkout Code
@@ -100,23 +100,37 @@ jobs:
             fi
           }
 
-          node start.js &
-          BOT_PID=$!
+          cleanup_and_exit() {
+            echo "Shutting down runner. Attempting final save..."
+            save_changes || echo "Final save failed."
+            exit "${1:-0}"
+          }
 
-          echo "ARTHUR BOT started. Auto-save interval: 5 minutes."
+          trap 'cleanup_and_exit 0' SIGTERM SIGINT
 
-          while kill -0 "$BOT_PID" 2>/dev/null; do
-            sleep 300
+          echo "ARTHUR BOT supervisor started. Auto-save interval: 5 minutes."
 
-            if kill -0 "$BOT_PID" 2>/dev/null; then
-              save_changes || echo "Auto-save failed; will retry later."
-            fi
+          while true; do
+            node start.js &
+            BOT_PID=$!
+            echo "ARTHUR BOT started (PID: $BOT_PID)."
+
+            LAST_SAVE=$(date +%s)
+
+            while kill -0 "$BOT_PID" 2>/dev/null; do
+              sleep 5
+              NOW=$(date +%s)
+              if [ $((NOW - LAST_SAVE)) -ge 300 ]; then
+                if kill -0 "$BOT_PID" 2>/dev/null; then
+                  save_changes || echo "Auto-save failed; will retry later."
+                fi
+                LAST_SAVE=$(date +%s)
+              fi
+            done
+
+            wait "$BOT_PID"
+            BOT_STATUS=$?
+            echo "Bot exited with status $BOT_STATUS. Saving progress and restarting immediately..."
+            save_changes || echo "Save after exit failed."
+            sleep 2
           done
-
-          wait "$BOT_PID"
-          BOT_STATUS=$?
-
-          echo "Bot stopped. Attempting final save..."
-          save_changes || echo "Final save failed."
-
-          exit "$BOT_STATUS"
