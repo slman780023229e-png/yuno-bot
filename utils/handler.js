@@ -1942,8 +1942,9 @@ async function executeHandlerLogic(
                 ""
             ).trim();
 
-        // In elite mode, normal onMessage listeners are also restricted.
-        // Security listeners explicitly marked alwaysOn continue to protect the group.
+        // Event listeners (delete, registration, logging, group events, etc.) run normally
+        // even in elite mode. Only onMessage hooks that belong to command plugins are
+        // restricted, matching the normal prefixed-command permission gate below.
         if (onMessagePlugins.length) {
             const context = {
                 jid, sender, number, isGroup, isPrivate, message: msg,
@@ -1957,8 +1958,11 @@ async function executeHandlerLogic(
             };
 
             for (const plugin of onMessagePlugins) {
-                const alwaysOn = plugin?.alwaysOn === true;
-                if (restrictedMode && !alwaysOn && !isEliteUser && !isOwnerUser && !isMainBot) continue;
+                // A plugin with `command` is a prefix-command plugin, not an automatic
+                // event listener. Do not let its onMessage hook answer for non-elite users.
+                // Plugins without `command` are event listeners and always keep running.
+                const isPrefixCommandPlugin = Boolean(plugin?.command);
+                if (restrictedMode && isPrefixCommandPlugin && !isEliteUser && !isOwnerUser) continue;
                 try {
                     diagnostics.listenersRun++;
                     diagLog("LISTENER_START", {
@@ -1985,7 +1989,9 @@ async function executeHandlerLogic(
             }
         }
 
-        if (restrictedMode && !isMainBot && !isEliteUser && !isOwnerUser) {
+        // isMainBot describes this bot account, not the message sender; it must not
+        // bypass the elite restriction for ordinary users.
+        if (restrictedMode && !isEliteUser && !isOwnerUser) {
             diagLog("MESSAGE_BLOCKED_BY_RESTRICTED_MODE", { chatType: isGroup ? "group" : "private" });
             return;
         }
