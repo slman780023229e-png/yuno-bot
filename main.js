@@ -29,6 +29,9 @@ import {
     proto
 } from '@whiskeysockets/baileys'
 
+import { useMongoDBAuthState } from './mongoAuth.js'
+import mongoose from 'mongoose'
+
 import pino from 'pino'
 import chalk from 'chalk'
 import fs from 'fs-extra'
@@ -37,7 +40,7 @@ import { fileURLToPath } from 'url'
 import http from 'http'
 
 // ============================================================
-// PATHS
+// PATHS & MONGO AUTH CONFIG
 // ============================================================
 
 const __filename = fileURLToPath(import.meta.url)
@@ -46,42 +49,54 @@ const __dirname = path.dirname(__filename)
 const sessionDir = path.join(__dirname, 'ملف_الاتصال')
 const dataDir = path.join(__dirname, 'data')
 
+const MONGO_URI = process.env.MONGO_URI || ''
+const MONGO_SESSION_ID = process.env.MONGO_SESSION_ID || 'arthur-session'
+const useMongoSession = Boolean(MONGO_URI && MONGO_URI.trim() !== '')
+
 // ============================================================
 // SESSION RESTORE CONDITION
 // ============================================================
 
-try {
-    fs.ensureDirSync(sessionDir)
+if (!useMongoSession) {
+    try {
+        fs.ensureDirSync(sessionDir)
 
-    const credsPath = path.join(sessionDir, 'creds.json')
+        const credsPath = path.join(sessionDir, 'creds.json')
 
-    if (
-        !fs.existsSync(credsPath) &&
-        process.env.SESSION_DATA &&
-        process.env.SESSION_DATA.trim() !== ''
-    ) {
-        fs.writeFileSync(
-            credsPath,
-            process.env.SESSION_DATA,
-            'utf-8'
-        )
-
-        console.log(
-            chalk.green(
-                '✅ تم تحميل الجلسة من متغير البيئة لعدم وجود ملف اتصال محلي.'
+        if (
+            !fs.existsSync(credsPath) &&
+            process.env.SESSION_DATA &&
+            process.env.SESSION_DATA.trim() !== ''
+        ) {
+            fs.writeFileSync(
+                credsPath,
+                process.env.SESSION_DATA,
+                'utf-8'
             )
-        )
-    } else {
+
+            console.log(
+                chalk.green(
+                    '✅ تم تحميل الجلسة من متغير البيئة لعدم وجود ملف اتصال محلي.'
+                )
+            )
+        } else {
+            console.log(
+                chalk.gray(
+                    'ℹ️ تم الاعتماد على ملف الاتصال المحلي الموجود مسبقاً ولم يتم فرض متغير البيئة.'
+                )
+            )
+        }
+    } catch (e) {
         console.log(
-            chalk.gray(
-                'ℹ️ تم الاعتماد على ملف الاتصال المحلي الموجود مسبقاً ولم يتم فرض متغير البيئة.'
+            chalk.red(
+                '⚠️ خطأ في معالجة مسار الجلسة: ' + e.message
             )
         )
     }
-} catch (e) {
+} else {
     console.log(
-        chalk.red(
-            '⚠️ خطأ في معالجة مسار الجلسة: ' + e.message
+        chalk.green(
+            '🍃 تم تفعيل حفظ جلسة واتساب عبر MongoDB.'
         )
     )
 }
@@ -145,6 +160,16 @@ function clearReconnectTimer() {
         clearTimeout(reconnectTimer)
         reconnectTimer = null
     }
+}
+
+async function clearMongoSession(sessionId = MONGO_SESSION_ID) {
+    if (!useMongoSession || !mongoose.connection?.db) return
+    const collection = mongoose.connection
+        .useDb('whatsapp_bot')
+        .db.collection('auth_sessions')
+    await collection.deleteMany({
+        _id: { $regex: `^${sessionId}-` }
+    })
 }
 
 // ============================================================
@@ -228,7 +253,9 @@ async function startBot() {
 
     try {
         try {
-            await fs.ensureDir(sessionDir)
+            if (!useMongoSession) {
+                await fs.ensureDir(sessionDir)
+            }
             await fs.ensureDir(dataDir)
         } catch (e) {
             console.log(
@@ -277,8 +304,9 @@ async function startBot() {
             )
         )
 
-        const { state, saveCreds } =
-            await useMultiFileAuthState(sessionDir)
+        const { state, saveCreds } = useMongoSession
+            ? await useMongoDBAuthState(MONGO_URI, MONGO_SESSION_ID)
+            : await useMultiFileAuthState(sessionDir)
 
         let version
 
@@ -657,14 +685,16 @@ async function startBot() {
                         )
                     )
 
-                    // حذف ملفات الاتصال والجلسة القديمة ليطلب كود جديد تلقائياً
                     try {
-                        if (fs.existsSync(sessionDir)) {
+                        if (useMongoSession) {
+                            await clearMongoSession()
+                            console.log(chalk.green('🗑️ Successfully cleared MongoDB session.'))
+                        } else if (fs.existsSync(sessionDir)) {
                             fs.removeSync(sessionDir)
                             console.log(chalk.green('🗑️ Successfully cleared session directory.'))
                         }
                     } catch (err) {
-                        console.error(chalk.red('❌ Failed to clear session directory:'), err)
+                        console.error(chalk.red('❌ Failed to clear session:'), err)
                     }
 
                     if (currentSock === sock) {
@@ -676,8 +706,7 @@ async function startBot() {
                     }
 
                     clearReconnectTimer()
-                    
-                    // إعادة التشغيل فوراً لطلب كود الربط الجديد
+
                     setTimeout(async () => {
                         try {
                             await startBot()
@@ -685,7 +714,7 @@ async function startBot() {
                             console.error(chalk.red('❌ Restart after logout failed:'), error)
                         }
                     }, 2000)
-                    
+
                     return
                 }
 
@@ -794,12 +823,6 @@ async function startBot() {
                     }
                 }
 
-                /*
-                 * handler.js may restrict append to fromMe messages.
-                 * For append batches containing incoming messages, present
-                 * the incoming batch as notify so it reaches that handler.
-                 * Outgoing-only append batches keep their original type.
-                 */
                 const containsIncomingMessage =
                     validMessages.some(
                         message => message.key.fromMe !== true
