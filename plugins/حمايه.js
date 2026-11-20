@@ -5,15 +5,13 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dataDir = path.join(__dirname, "../data");
-const file = path.join(dataDir, "contactGuard.json");
+const DATA_DIR = path.join(__dirname, "../data");
+const DATA_FILE = path.join(DATA_DIR, "contactGuard.json");
 
-const ELITE_FILES = [
-    "النخبة.json",
-    "النخبه.json",
-    "النخبة",
-    "النخبه"
-];
+const MAX_PROCESSED = 10000;
+const SETTINGS_CACHE_MS = 500;
+const METADATA_CACHE_MS = 1000;
+const MAX_METADATA_CACHE = 500;
 
 const MESSAGE_WRAPPERS = [
     "ephemeralMessage",
@@ -25,42 +23,86 @@ const MESSAGE_WRAPPERS = [
     "editedMessage"
 ];
 
-// حدود الذاكرة والتخزين المؤقت
-const MAX_PROCESSED_MESSAGES = 5000;
-const SETTINGS_CACHE_MS = 1000;
-const METADATA_CACHE_MS = 1500;
-
 const processedMessages = new Set();
 const metadataCache = new Map();
 const metadataRequests = new Map();
 
 let settingsCache = null;
 let settingsCacheTime = 0;
-let eliteCache = null;
-let eliteCacheTime = 0;
 
-function logError(context, error) {
+function log(context, error) {
     console.error(
         `[ContactGuard] ${context}:`,
         error?.stack || error?.message || error
     );
 }
 
-function ensureStorage() {
-    fs.mkdirSync(dataDir, { recursive: true });
-
-    if (!fs.existsSync(file)) {
-        fs.writeFileSync(file, "{}", "utf8");
-    }
-}
-
-function isPlainObject(value) {
+function isObject(value) {
     return (
         value !== null &&
         typeof value === "object" &&
         !Array.isArray(value)
     );
 }
+
+function ensureStorage() {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+
+    if (!fs.existsSync(DATA_FILE)) {
+        fs.writeFileSync(DATA_FILE, "{}", "utf8");
+    }
+}
+
+function normalizeJid(value) {
+    if (typeof value !== "string") return "";
+
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/:\d+(?=@)/, "");
+}
+
+function getPhone(value) {
+    if (typeof value !== "string") return "";
+
+    const input = value.trim();
+
+    if (/^\+?\d{5,}$/.test(input)) {
+        return input.replace(/\D/g, "");
+    }
+
+    const jid = normalizeJid(input);
+
+    const match = jid.match(
+        /^(\+?\d+)@(s\.whatsapp\.net|c\.us)$/
+    );
+
+    return match
+        ? match[1].replace(/\D/g, "")
+        : "";
+}
+
+function sameIdentity(a, b) {
+    const first = normalizeJid(a);
+    const second = normalizeJid(b);
+
+    if (!first || !second) return false;
+
+    if (first === second) return true;
+
+    const phoneA = getPhone(a);
+    const phoneB = getPhone(b);
+
+    return Boolean(
+        phoneA &&
+        phoneB &&
+        phoneA === phoneB
+    );
+}
+
+// ==============================
+// SETTINGS
+// ==============================
 
 function loadData(force = false) {
     const now = Date.now();
@@ -77,44 +119,43 @@ function loadData(force = false) {
         ensureStorage();
 
         const parsed = JSON.parse(
-            fs.readFileSync(file, "utf8")
+            fs.readFileSync(DATA_FILE, "utf8")
         );
 
-        if (!isPlainObject(parsed)) {
-            throw new Error("ملف الإعدادات ليس كائن JSON صالحًا.");
+        if (!isObject(parsed)) {
+            throw new Error("ملف الإعدادات غير صالح.");
         }
 
-        const result = {};
+        const clean = {};
 
         for (const [jid, enabled] of Object.entries(parsed)) {
             if (
-                typeof jid === "string" &&
                 jid.endsWith("@g.us") &&
                 typeof enabled === "boolean"
             ) {
-                result[jid] = enabled;
+                clean[jid] = enabled;
             }
         }
 
-        settingsCache = result;
+        settingsCache = clean;
         settingsCacheTime = now;
 
-        return result;
+        return clean;
     } catch (error) {
-        logError("فشل تحميل الإعدادات", error);
+        log("فشل قراءة الإعدادات", error);
 
-        // لا نستخدم إعدادات قديمة إذا فشلت القراءة.
         settingsCache = null;
         settingsCacheTime = 0;
 
-        return {};
+        throw error;
     }
 }
 
 function saveData(data) {
     ensureStorage();
 
-    const temporaryFile = `${file}.tmp`;
+    const temporaryFile =
+        `${DATA_FILE}.${process.pid}.tmp`;
 
     try {
         fs.writeFileSync(
@@ -123,10 +164,12 @@ function saveData(data) {
             "utf8"
         );
 
-        fs.renameSync(temporaryFile, file);
+        fs.renameSync(temporaryFile, DATA_FILE);
 
         settingsCache = { ...data };
         settingsCacheTime = Date.now();
+
+        return true;
     } catch (error) {
         try {
             if (fs.existsSync(temporaryFile)) {
@@ -138,147 +181,18 @@ function saveData(data) {
     }
 }
 
-function normalizeJid(jid) {
-    if (typeof jid !== "string") return "";
+// ==============================
+// IDENTITIES
+// ==============================
 
-    return jid
-        .trim()
-        .toLowerCase()
-        .replace(/:\d+(?=@)/, "");
-}
-
-function phoneDigits(value) {
-    if (typeof value !== "string") return "";
-
-    const input = value.trim();
-
-    if (!input) return "";
-
-    if (/^\+?\d+$/.test(input)) {
-        const digits = input.replace(/\D/g, "");
-        return digits.length >= 5 ? digits : "";
-    }
-
-    const jid = normalizeJid(input);
-
-    const match = jid.match(
-        /^(\+?\d+)@(s\.whatsapp\.net|c\.us)$/
+function getSenderCandidates(msg) {
+    return [
+        msg.key?.participant,
+        msg.participant,
+        msg.key?.participantAlt
+    ].filter(
+        value => typeof value === "string" && value.length > 0
     );
-
-    if (!match) return "";
-
-    const digits = match[1].replace(/\D/g, "");
-
-    return digits.length >= 5 ? digits : "";
-}
-
-function sameIdentity(first, second) {
-    const a = normalizeJid(first);
-    const b = normalizeJid(second);
-
-    if (!a || !b) return false;
-    if (a === b) return true;
-
-    const phoneA = phoneDigits(first);
-    const phoneB = phoneDigits(second);
-
-    return Boolean(phoneA && phoneB && phoneA === phoneB);
-}
-
-function getElite(force = false) {
-    const now = Date.now();
-
-    if (
-        !force &&
-        eliteCache &&
-        now - eliteCacheTime < 5000
-    ) {
-        return eliteCache;
-    }
-
-    const elite = new Set();
-
-    for (const filename of ELITE_FILES) {
-        const filePath = path.join(dataDir, filename);
-
-        if (!fs.existsSync(filePath)) continue;
-
-        try {
-            const parsed = JSON.parse(
-                fs.readFileSync(filePath, "utf8")
-            );
-
-            const values = [];
-
-            function collect(value, depth = 0) {
-                if (depth > 12 || value == null) return;
-
-                if (
-                    typeof value === "string" ||
-                    typeof value === "number"
-                ) {
-                    values.push(String(value));
-                    return;
-                }
-
-                if (Array.isArray(value)) {
-                    for (const item of value) {
-                        collect(item, depth + 1);
-                    }
-
-                    return;
-                }
-
-                if (isPlainObject(value)) {
-                    for (const item of Object.values(value)) {
-                        collect(item, depth + 1);
-                    }
-                }
-            }
-
-            collect(parsed);
-
-            for (const value of values) {
-                const digits = phoneDigits(value);
-
-                if (digits) elite.add(digits);
-            }
-
-            // الحفاظ على أولوية أول ملف صالح.
-            eliteCache = elite;
-            eliteCacheTime = now;
-
-            return elite;
-        } catch (error) {
-            logError(
-                `تعذرت قراءة ملف النخبة ${filename}`,
-                error
-            );
-        }
-    }
-
-    eliteCache = elite;
-    eliteCacheTime = now;
-
-    return elite;
-}
-
-function isEliteNumber(jid, elite, participant) {
-    const candidates = [
-        jid,
-        participant?.phoneNumber,
-        participant?.id
-    ];
-
-    for (const candidate of candidates) {
-        const digits = phoneDigits(candidate);
-
-        if (digits && elite.has(digits)) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 function getBotIdentities(sock) {
@@ -288,16 +202,18 @@ function getBotIdentities(sock) {
     ].filter(Boolean);
 }
 
-function isBotIdentity(sock, jid) {
-    if (!jid) return false;
+function isBotIdentity(sock, candidates) {
+    const botIds = getBotIdentities(sock);
 
-    return getBotIdentities(sock).some(
-        botJid => sameIdentity(botJid, jid)
+    return candidates.some(candidate =>
+        botIds.some(botId =>
+            sameIdentity(candidate, botId)
+        )
     );
 }
 
-function findParticipant(participants, jid, extraJids = []) {
-    const candidates = [jid, ...extraJids].filter(Boolean);
+function findParticipant(participants, candidates) {
+    if (!Array.isArray(participants)) return null;
 
     return participants.find(participant => {
         const ids = [
@@ -306,12 +222,27 @@ function findParticipant(participants, jid, extraJids = []) {
         ].filter(Boolean);
 
         return candidates.some(candidate =>
-            ids.some(id => sameIdentity(candidate, id))
+            ids.some(id =>
+                sameIdentity(candidate, id)
+            )
         );
-    });
+    }) || null;
 }
 
-// مشاركة طلب بيانات المجموعة بين الرسائل المتزامنة.
+// ==============================
+// GROUP METADATA CACHE
+// ==============================
+
+function trimMetadataCache() {
+    while (metadataCache.size > MAX_METADATA_CACHE) {
+        const oldest = metadataCache.keys().next().value;
+
+        if (oldest === undefined) break;
+
+        metadataCache.delete(oldest);
+    }
+}
+
 async function getGroupMetadata(sock, jid, fresh = false) {
     const now = Date.now();
     const cached = metadataCache.get(jid);
@@ -324,17 +255,25 @@ async function getGroupMetadata(sock, jid, fresh = false) {
         return cached.value;
     }
 
-    if (!fresh && metadataRequests.has(jid)) {
+    if (metadataRequests.has(jid)) {
         return metadataRequests.get(jid);
     }
 
     const request = (async () => {
         const metadata = await sock.groupMetadata(jid);
 
+        if (!metadata || !Array.isArray(metadata.participants)) {
+            throw new Error("بيانات أعضاء المجموعة غير صالحة.");
+        }
+
+        metadataCache.delete(jid);
+
         metadataCache.set(jid, {
             value: metadata,
             time: Date.now()
         });
+
+        trimMetadataCache();
 
         return metadata;
     })();
@@ -350,44 +289,15 @@ async function getGroupMetadata(sock, jid, fresh = false) {
     }
 }
 
-async function getGroupAdminStatus(sock, chatId, senderJid) {
-    if (!chatId?.endsWith("@g.us") || !senderJid) {
-        return { isAdmin: false, participant: null };
-    }
-
-    try {
-        const metadata = await getGroupMetadata(
-            sock,
-            chatId,
-            true
-        );
-
-        const participant = findParticipant(
-            metadata.participants || [],
-            senderJid
-        );
-
-        const isAdmin = Boolean(
-            participant &&
-            (
-                participant.admin === "admin" ||
-                participant.admin === "superadmin"
-            )
-        );
-
-        return { isAdmin, participant };
-    } catch (error) {
-        logError("فشل التحقق من مشرف المجموعة", error);
-
-        return { isAdmin: false, participant: null };
-    }
-}
+// ==============================
+// MESSAGE DETECTION
+// ==============================
 
 function unwrapMessage(message) {
     let current = message;
 
-    for (let depth = 0; depth < 12; depth++) {
-        if (!isPlainObject(current)) return null;
+    for (let depth = 0; depth < 15; depth++) {
+        if (!isObject(current)) return null;
 
         if (
             current.contactMessage ||
@@ -396,38 +306,45 @@ function unwrapMessage(message) {
             return current;
         }
 
-        let next = null;
+        let nestedMessage = null;
 
         for (const wrapper of MESSAGE_WRAPPERS) {
             const nested = current[wrapper]?.message;
 
-            if (isPlainObject(nested)) {
-                next = nested;
+            if (isObject(nested)) {
+                nestedMessage = nested;
                 break;
             }
         }
 
-        if (!next) return current;
+        if (!nestedMessage) return current;
 
-        current = next;
+        current = nestedMessage;
     }
 
-    return current;
+    return null;
 }
 
 function detectContacts(message) {
     const content = unwrapMessage(message);
 
     if (!content) {
-        return { hasContact: false, count: 0 };
+        return {
+            hasContact: false,
+            count: 0
+        };
     }
 
     if (content.contactMessage) {
-        return { hasContact: true, count: 1 };
+        return {
+            hasContact: true,
+            count: 1
+        };
     }
 
     if (content.contactsArrayMessage) {
-        const contacts = content.contactsArrayMessage.contacts;
+        const contacts =
+            content.contactsArrayMessage.contacts;
 
         return {
             hasContact: true,
@@ -437,8 +354,15 @@ function detectContacts(message) {
         };
     }
 
-    return { hasContact: false, count: 0 };
+    return {
+        hasContact: false,
+        count: 0
+    };
 }
+
+// ==============================
+// DUPLICATE PROTECTION
+// ==============================
 
 function rememberMessage(id) {
     if (!id || processedMessages.has(id)) {
@@ -447,8 +371,9 @@ function rememberMessage(id) {
 
     processedMessages.add(id);
 
-    if (processedMessages.size > MAX_PROCESSED_MESSAGES) {
-        const oldest = processedMessages.values().next().value;
+    if (processedMessages.size > MAX_PROCESSED) {
+        const oldest =
+            processedMessages.values().next().value;
 
         if (oldest !== undefined) {
             processedMessages.delete(oldest);
@@ -458,9 +383,13 @@ function rememberMessage(id) {
     return true;
 }
 
+// ==============================
+// MESSAGE DELETION
+// ==============================
+
 async function deleteContactMessage(sock, jid, msg) {
     if (!msg.key?.id) {
-        throw new Error("معرّف الرسالة غير موجود.");
+        throw new Error("معرف الرسالة غير موجود.");
     }
 
     const key = {
@@ -468,20 +397,22 @@ async function deleteContactMessage(sock, jid, msg) {
         remoteJid: jid
     };
 
-    if (!key.participant && msg.participant) {
-        key.participant = msg.participant;
-    }
-
-    return sock.sendMessage(jid, { delete: key });
+    return sock.sendMessage(jid, {
+        delete: key
+    });
 }
+
+// ==============================
+// PARTICIPANT REMOVAL
+// ==============================
 
 async function removeParticipant(sock, jid, participantJid) {
     if (!participantJid) {
-        throw new Error("هوية العضو المطلوب إخراجه غير موجودة.");
+        throw new Error("هوية العضو غير متوفرة.");
     }
 
-    if (isBotIdentity(sock, participantJid)) {
-        throw new Error("تم منع محاولة إخراج البوت نفسه.");
+    if (isBotIdentity(sock, [participantJid])) {
+        throw new Error("تم منع استهداف البوت.");
     }
 
     const result = await sock.groupParticipantsUpdate(
@@ -490,20 +421,30 @@ async function removeParticipant(sock, jid, participantJid) {
         "remove"
     );
 
-    if (
-        Array.isArray(result) &&
-        result.some(item =>
-            item.status &&
-            String(item.status) !== "200"
-        )
-    ) {
+    if (!Array.isArray(result) || result.length === 0) {
+        throw new Error("لم تصل نتيجة مؤكدة من واتساب.");
+    }
+
+    const failed = result.some(item => {
+        const status = Number(item?.status);
+
+        return !Number.isFinite(status) ||
+            status < 200 ||
+            status >= 300;
+    });
+
+    if (failed) {
         throw new Error(
-            `لم تؤكد المنصة نجاح الإخراج: ${JSON.stringify(result)}`
+            `فشلت عملية الإخراج: ${JSON.stringify(result)}`
         );
     }
 
-    return result;
+    return true;
 }
+
+// ==============================
+// NOTIFICATIONS
+// ==============================
 
 async function sendNotice(sock, jid, text) {
     if (!jid) return;
@@ -511,15 +452,49 @@ async function sendNotice(sock, jid, text) {
     try {
         await sock.sendMessage(jid, { text });
     } catch (error) {
-        logError("فشل إرسال الإشعار", error);
+        log("فشل إرسال الإشعار", error);
     }
 }
 
+// ==============================
+// COMMAND
+// ==============================
+
+async function checkAdmin(sock, jid, senderCandidates) {
+    const metadata = await getGroupMetadata(
+        sock,
+        jid,
+        true
+    );
+
+    const participant = findParticipant(
+        metadata.participants,
+        senderCandidates
+    );
+
+    return Boolean(
+        participant &&
+        (
+            participant.admin === "admin" ||
+            participant.admin === "superadmin" ||
+            participant.isAdmin === true ||
+            participant.isSuperAdmin === true
+        )
+    );
+}
+
+// ==============================
+// MAIN PLUGIN
+// ==============================
+
 export default {
     alwaysOn: true,
+
     command: "حمايه",
+
     category: "الحماية",
-    description: "حماية جهات الاتصال في المجموعات",
+
+    description: "حماية المجموعة من إرسال جهات الاتصال",
 
     execute: async (sock, msg, data = {}) => {
         const jid = data.jid || msg.key?.remoteJid;
@@ -532,13 +507,12 @@ export default {
             );
         }
 
-        const sender =
-            data.sender ||
-            msg.key?.participant ||
-            msg.participant ||
-            msg.key?.remoteJid;
+        const senderCandidates = [
+            data.sender,
+            ...getSenderCandidates(msg)
+        ].filter(Boolean);
 
-        if (!sender) {
+        if (senderCandidates.length === 0) {
             return sendNotice(
                 sock,
                 jid,
@@ -547,66 +521,67 @@ export default {
         }
 
         try {
-            const elite = getElite(true);
-
             const isBot = Boolean(
                 msg.key?.fromMe ||
-                isBotIdentity(sock, sender)
+                isBotIdentity(sock, senderCandidates)
             );
 
-            const isElite = isEliteNumber(
-                sender,
-                elite,
-                null
-            );
+            const isAdmin = isBot
+                ? true
+                : await checkAdmin(
+                    sock,
+                    jid,
+                    senderCandidates
+                );
 
-            const { isAdmin } = await getGroupAdminStatus(
-                sock,
-                jid,
-                sender
-            );
-
-            if (!isAdmin && !isElite && !isBot) {
+            if (!isAdmin) {
                 return sendNotice(
                     sock,
                     jid,
-                    "❌ الأمر للمشرفين والنخبة فقط."
+                    "❌ هذا الأمر للمشرفين فقط."
                 );
             }
 
             const db = loadData(true);
+
             const enabled = db[jid] !== true;
 
             db[jid] = enabled;
+
             saveData(db);
 
-            const statusText = enabled
+            const message = enabled
                 ? [
-                    "╔════════════════════╗",
-                    "   🛡️ حماية جهات الاتصال",
-                    "╚════════════════════╝",
+                    "╔══════════════════════╗",
+                    "       🛡️ CONTACT GUARD",
+                    "╚══════════════════════╝",
                     "",
-                    "✅ تم تفعيل الحماية بنجاح.",
-                    "📌 سيتم حذف رسالة جهة الاتصال",
-                    "🚫 ومحاولة إخراج المرسل.",
+                    "✅ تم تفعيل حماية جهات الاتصال.",
+                    "",
+                    "📌 أي عضو يرسل جهة اتصال",
+                    "سيتم التعامل مع رسالته.",
+                    "",
+                    "🚫 لا يوجد استثناء للنخبة.",
+                    "🚫 لا يوجد استثناء للمشرفين.",
                     "",
                     "◇❐ ═━╾ 🩸 ╼━═ ❐◇"
                 ].join("\n")
                 : [
-                    "╔════════════════════╗",
-                    "   🛡️ حماية جهات الاتصال",
-                    "╚════════════════════╝",
+                    "╔══════════════════════╗",
+                    "       🛡️ CONTACT GUARD",
+                    "╚══════════════════════╝",
                     "",
-                    "⚠️ تم تعطيل الحماية.",
-                    "📌 لن تعالج هذه الإضافة",
-                    "جهات الاتصال في المجموعة.",
+                    "⚠️ تم تعطيل حماية جهات الاتصال.",
+                    "",
+                    "لن تتم معالجة جهات الاتصال.",
                     "",
                     "◇❐ ═━╾ 🩸 ╼━═ ❐◇"
                 ].join("\n");
 
-            await sendNotice(sock, jid, statusText);
+            await sendNotice(sock, jid, message);
+
         } catch (error) {
-            logError("فشل تنفيذ أمر الحماية", error);
+            log("فشل تنفيذ أمر الحماية", error);
 
             await sendNotice(
                 sock,
@@ -616,12 +591,26 @@ export default {
         }
     },
 
+    // ==========================
+    // AUTOMATIC MESSAGE HANDLER
+    // ==========================
+
     onMessage: async (sock, msg) => {
         const jid = msg.key?.remoteJid;
 
         if (!jid?.endsWith("@g.us")) return;
         if (!msg.message || !msg.key?.id) return;
-        if (msg.key?.fromMe) return;
+        if (msg.key.fromMe) return;
+
+        let db;
+
+        try {
+            db = loadData();
+        } catch {
+            return;
+        }
+
+        if (db[jid] !== true) return;
 
         const { hasContact, count } = detectContacts(
             msg.message
@@ -629,113 +618,102 @@ export default {
 
         if (!hasContact) return;
 
-        const sender =
-            msg.key?.participant ||
-            msg.participant;
+        const senderCandidates = getSenderCandidates(msg);
 
-        if (!sender || isBotIdentity(sock, sender)) return;
-
-        const uniqueKey = `${jid}:${msg.key.id}`;
-
-        // حجز الرسالة فورًا لمنع معالجتها مرتين بالتزامن.
-        if (!rememberMessage(uniqueKey)) return;
-
-        const db = loadData();
-
-        if (db[jid] !== true) return;
-
-        const elite = getElite();
-
-        let participant = null;
-        let metadataAvailable = false;
-
-        try {
-            const metadata = await getGroupMetadata(sock, jid);
-            const participants = metadata.participants || [];
-
-            metadataAvailable = true;
-
-            participant = findParticipant(
-                participants,
-                sender
+        if (!senderCandidates.length) {
+            log(
+                "تم اكتشاف جهة اتصال لكن تعذر تحديد المرسل",
+                new Error("Missing sender identity")
             );
 
-            // لا نعاقب عضو النخبة، حتى عند اختلاف هوية LID
-            // ورقم الهاتف إذا كانت بيانات العضو متاحة.
-            if (isEliteNumber(sender, elite, participant)) {
-                console.log(
-                    `[ContactGuard] استثناء عضو النخبة: ${sender}`
-                );
-                return;
-            }
-        } catch (error) {
-            logError("تعذر جلب بيانات المجموعة", error);
-
-            // يمكن الاستثناء بالرقم مباشرة إذا كان معروفًا.
-            if (isEliteNumber(sender, elite, null)) {
-                return;
-            }
-        }
-
-        const targetJid = participant?.id || "";
-
-        // إذا تعذر التحقق من هوية العضو، نحذف الرسالة فقط.
-        // لا نحاول طرد هوية غير مؤكدة.
-        if (
-            targetJid &&
-            isBotIdentity(sock, targetJid)
-        ) {
             return;
         }
 
+        if (isBotIdentity(sock, senderCandidates)) return;
+
+        const uniqueId = `${jid}:${msg.key.id}`;
+
+        if (!rememberMessage(uniqueId)) return;
+
         const startedAt = Date.now();
 
-        // بدء الحذف فور الانتهاء من فحص النخبة.
-        // الطرد لا ينتظر انتهاء الحذف، والعكس صحيح.
+        // حذف الرسالة يبدأ مباشرة.
         const deletionTask = deleteContactMessage(
             sock,
             jid,
             msg
         ).then(
-            () => ({ ok: true }),
+            () => true,
             error => {
-                logError("فشل حذف رسالة جهة الاتصال", error);
-                return { ok: false };
+                log("فشل حذف رسالة جهة الاتصال", error);
+                return false;
             }
         );
 
-        const removalTask = targetJid
-            ? removeParticipant(sock, jid, targetJid).then(
-                () => ({ ok: true }),
-                error => {
-                    logError("فشل إخراج مرسل جهة الاتصال", error);
-                    return { ok: false };
-                }
-            )
-            : Promise.resolve({ ok: false });
+        // جلب هوية العضو بالتزامن مع الحذف.
+        const participantTask = getGroupMetadata(
+            sock,
+            jid
+        ).then(
+            metadata => findParticipant(
+                metadata.participants,
+                senderCandidates
+            ),
+            error => {
+                log("فشل جلب بيانات المجموعة", error);
+                return null;
+            }
+        );
 
-        const [deletion, removal] = await Promise.all([
-            deletionTask,
-            removalTask
-        ]);
+        const participant = await participantTask;
+
+        let removal = false;
+
+        if (participant) {
+            const targetJid =
+                participant.id ||
+                participant.phoneNumber;
+
+            if (
+                targetJid &&
+                !isBotIdentity(sock, [targetJid])
+            ) {
+                try {
+                    await removeParticipant(
+                        sock,
+                        jid,
+                        targetJid
+                    );
+
+                    removal = true;
+
+                } catch (error) {
+                    log("فشل إخراج مرسل جهة الاتصال", error);
+                }
+            }
+        } else {
+            log(
+                "تعذر التحقق من هوية العضو؛ لم تتم محاولة إخراجه",
+                new Error(senderCandidates.join(", "))
+            );
+        }
+
+        const deletion = await deletionTask;
+
+        metadataCache.delete(jid);
 
         console.log(
             [
                 "╭━━━━━━━━━━━━━━━━━━━━━━╮",
-                "┃ 🛡️ YUNO SECURITY",
+                "┃ 🛡️ CONTACT GUARD",
                 "┣━━━━━━━━━━━━━━━━━━━━━━┫",
-                `┃ 👤 المرسل: ${sender}`,
-                `┃ 📦 عدد جهات الاتصال: ${count}`,
-                `┃ 🗑️ حذف الرسالة: ${deletion.ok ? "نجح" : "فشل"}`,
-                `┃ 🚫 إخراج المرسل: ${removal.ok ? "نجح" : "فشل أو تعذر التحقق"}`,
-                `┃ ⏱️ زمن المعالجة: ${Date.now() - startedAt} ms`,
+                `┃ 👤 المرسل: ${senderCandidates[0]}`,
+                `┃ 📦 جهات الاتصال: ${count}`,
+                `┃ 🗑️ حذف الرسالة: ${deletion ? "نجح" : "فشل"}`,
+                `┃ 🚫 إخراج العضو: ${removal ? "نجح" : "فشل أو تعذر التحقق"}`,
+                `┃ ⏱️ الوقت: ${Date.now() - startedAt} ms`,
                 "╰━━━━━━━━━━━━━━━━━━━━━━╯"
             ].join("\n")
         );
-
-        // تنظيف الذاكرة المؤقتة للمجموعة بعد عملية الطرد.
-        if (removal.ok || metadataAvailable) {
-            metadataCache.delete(jid);
-        }
     }
 };
