@@ -3,7 +3,7 @@ name: ARTHUR BOT Runner
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *'
+    - cron: '30 */4 * * *'
 
 permissions:
   contents: write
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 290
+    timeout-minutes: 270
 
     steps:
       - name: Checkout Code
