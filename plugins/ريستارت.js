@@ -14,9 +14,9 @@ export default {
     description: "إعادة تشغيل البوت (خاص بالنخبة فقط)",
 
     execute: async (sock, msg, data) => {
-        const jid = data?.jid || msg.key.remoteJid;
+        const jid = data?.jid || msg?.key?.remoteJid;
+        if (!jid) return;
 
-        const dataPath = path.join(__dirname, "../data");
         if (!isEliteMember(msg, data)) {
             return await sock.sendMessage(jid, {
                 text: arthurEliteBox(
@@ -27,22 +27,33 @@ export default {
             });
         }
 
+        const dataPath = path.join(__dirname, "../data");
+        const restartFile = path.join(dataPath, "restart.json");
+
         // ==========================
         // حفظ مكان الرسالة وقت الريستارت
         // ==========================
-        const restartFile = path.join(dataPath, "restart.json");
         try {
             if (!fs.existsSync(dataPath)) {
                 fs.mkdirSync(dataPath, { recursive: true });
             }
+
             fs.writeFileSync(
                 restartFile,
-                JSON.stringify({
-                    jid: jid,
-                    time: Date.now()
-                })
+                JSON.stringify(
+                    {
+                        jid,
+                        quotedKey: msg?.key || null,
+                        time: Date.now()
+                    },
+                    null,
+                    2
+                ),
+                "utf8"
             );
-        } catch (e) {}
+        } catch (err) {
+            console.error("خطأ أثناء حفظ ملف restart.json:", err);
+        }
 
         await sock.sendMessage(jid, {
             text: arthurEliteBox(
@@ -54,7 +65,7 @@ export default {
         });
 
         // ==========================
-        // إعادة التشغيل على Render
+        // إعادة التشغيل
         // ==========================
         setTimeout(() => {
             process.exit(0);
