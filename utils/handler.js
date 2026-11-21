@@ -14,6 +14,8 @@ const eliteFile = path.join(dataDir, "النخبة.json");
 const contactGuardFile = path.join(dataDir, "contactGuard.json");
 
 const GROUP_CACHE_TIME = 30_000;
+const GROUP_METADATA_TIMEOUT_MS = 10_000;
+const GROUP_METADATA_RETRY_MS = 15_000;
 const FILE_CHECK_TIME = 2_000;
 const MESSAGE_CACHE_TIME = 30_000;
 const MAX_PROCESSED_MESSAGES = 6000;
@@ -42,13 +44,24 @@ function log(type, text) {
     } catch {}
 }
 
-function withTimeout(promise, ms, label = "Task") {
+function withTimeout(promise, ms, label = "Task", onTimeout = null) {
     let timer;
+
+    const work = Promise.resolve(promise);
     const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-        if (timer.unref) timer.unref();
+        timer = setTimeout(() => {
+            try {
+                if (typeof onTimeout === "function") onTimeout();
+            } catch {}
+            reject(new Error(`${label} timed out after ${ms}ms`));
+        }, Math.max(1, Number(ms) || 1));
     });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+
+    // Promise.race attaches rejection handlers to both branches, so a late
+    // rejection from the original operation will not become unhandled.
+    return Promise.race([work, timeout]).finally(() => {
+        if (timer) clearTimeout(timer);
+    });
 }
 
 export function extractPureNumber(value) {
@@ -489,41 +502,75 @@ const checkEliteIdentities = vals => (Array.isArray(vals) ? vals : [vals]).some(
 
 const groupCache = new Map();
 const groupLoading = new Map();
+const groupRetryAfter = new Map();
 
 async function getGroupMetadata(sock, jid, force = false) {
     if (!jid?.endsWith("@g.us")) return null;
+
     const now = Date.now();
     const cached = groupCache.get(jid);
-    if (!force && cached && now - cached.time < GROUP_CACHE_TIME) return cached.data;
-    if (groupLoading.has(jid)) return groupLoading.get(jid);
 
-    const promise = (async () => {
+    if (!force && cached && now - cached.time < GROUP_CACHE_TIME) {
+        return cached.data;
+    }
+
+    // Avoid starting repeated requests when Baileys/network is not answering.
+    const retryAt = groupRetryAfter.get(jid) || 0;
+    if (!force && retryAt > now) return cached?.data || null;
+
+    const existing = groupLoading.get(jid);
+    if (existing) return existing;
+
+    let request;
+    request = (async () => {
         try {
-            const meta = await sock.groupMetadata(jid);
-            if (meta) {
+            const meta = await withTimeout(
+                Promise.resolve().then(() => sock.groupMetadata(jid)),
+                GROUP_METADATA_TIMEOUT_MS,
+                `GroupMetadata(${jid})`
+            );
+
+            if (meta && groupLoading.get(jid) === request) {
                 groupCache.set(jid, { data: meta, time: Date.now() });
+                groupRetryAfter.delete(jid);
+
                 if (groupCache.size > MAX_GROUP_CACHE) {
                     const first = groupCache.keys().next().value;
                     if (first) groupCache.delete(first);
                 }
             }
+
             return meta || cached?.data || null;
-        } catch {
+        } catch (err) {
+            groupRetryAfter.set(jid, Date.now() + GROUP_METADATA_RETRY_MS);
+
+            if (err?.message?.includes("timed out")) {
+                console.error(`[ARTHUR] ${err.message}`);
+            }
+
             return cached?.data || null;
         } finally {
-            groupLoading.delete(jid);
+            // A cleared/replaced request must not delete a newer in-flight one.
+            if (groupLoading.get(jid) === request) groupLoading.delete(jid);
         }
     })();
 
-    groupLoading.set(jid, promise);
-    return promise;
+    groupLoading.set(jid, request);
+    return request;
 }
 
 export function clearGroupMetadataCache(jid = null) {
     try {
-        if (jid) { groupCache.delete(jid); groupLoading.delete(jid); return; }
+        if (jid) {
+            groupCache.delete(jid);
+            groupLoading.delete(jid);
+            groupRetryAfter.delete(jid);
+            return;
+        }
+
         groupCache.clear();
         groupLoading.clear();
+        groupRetryAfter.clear();
     } catch {}
 }
 
@@ -611,14 +658,24 @@ function queueMessage(sock, msg) {
     pendingMessageCount++;
 
     const task = prev.catch(() => {}).then(async () => {
-        await acquireWorker();
+        let acquired = false;
+        const controller = new AbortController();
+
         try {
-            await withTimeout(executeHandlerLogic(sock, msg), TASK_TIMEOUT_MS, `Handler(${jid})`);
+            await acquireWorker();
+            acquired = true;
+
+            await withTimeout(
+                executeHandlerLogic(sock, msg, controller.signal),
+                TASK_TIMEOUT_MS,
+                `Handler(${jid})`,
+                () => controller.abort(new Error(`Handler(${jid}) timed out`))
+            );
         } catch (err) {
             console.error("Message Worker Error:", err?.stack || err?.message || err);
         } finally {
             pendingMessageCount = Math.max(0, pendingMessageCount - 1);
-            releaseWorker();
+            if (acquired) releaseWorker();
             if (chatMessageQueues.get(jid) === task) chatMessageQueues.delete(jid);
         }
     });
@@ -849,7 +906,7 @@ function hasPermission(plugin, { isOwner, isElite }) {
 // ⚡ EXECUTION
 // ═══════════════════════════════════════════════════════
 
-async function executeHandlerLogic(sock, msg) {
+async function executeHandlerLogic(sock, msg, signal = null) {
     try {
         const jid = msg.key?.remoteJid;
         if (!jid) return;
@@ -857,11 +914,12 @@ async function executeHandlerLogic(sock, msg) {
         const isGroup = jid.endsWith("@g.us");
         const isPrivate = jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
         const metadata = isGroup ? await getGroupMetadata(sock, jid) : null;
+        if (signal?.aborted) return;
 
         if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) return;
 
         const plugins = await getLoadedPlugins(sock);
-        if (!plugins.length) return;
+        if (signal?.aborted || !plugins.length) return;
 
         const pluginSock = createArthurSocket(sock);
         const mode = getModeFast();
@@ -899,11 +957,15 @@ async function executeHandlerLogic(sock, msg) {
             isListResponse: fromInteractive, isAdmin: botIsAdmin,
             isSuperAdmin: botIsSuperAdmin, adminMode: botIsAdmin,
             botIsAdmin, botIsSuperAdmin, botParticipant: botParticipant || null,
-            groupMetadata: metadata || null, restrictedMode
+            groupMetadata: metadata || null, restrictedMode,
+            // Plugins may use ctx.signal to stop their own long-running work
+            // when the message handler reaches its global timeout.
+            signal
         };
 
         if (msg.message?.reactionMessage && onReact.length) {
             for (const p of onReact) {
+                if (signal?.aborted) return;
                 if (restrictedMode && p?.alwaysOn !== true && !isEliteUser) continue;
                 try { await withTimeout(Promise.resolve(p.onReaction(pluginSock, msg, baseCtx)), 10_000, "onReaction"); }
                 catch (err) { console.error(`❌ Reaction Hook Error: ${err?.message || err}`); }
@@ -912,6 +974,7 @@ async function executeHandlerLogic(sock, msg) {
 
         if (onMsg.length) {
             for (const p of onMsg) {
+                if (signal?.aborted) return;
                 if (restrictedMode && p?.alwaysOn !== true && !isEliteUser) continue;
                 try {
                     const res = await withTimeout(Promise.resolve(p.onMessage(pluginSock, msg, baseCtx)), 12_000, "onMessage");
@@ -922,7 +985,7 @@ async function executeHandlerLogic(sock, msg) {
             }
         }
 
-        if ((restrictedMode && !isEliteUser) || !text) return;
+        if (signal?.aborted || (restrictedMode && !isEliteUser) || !text) return;
 
         const prefixes = Array.isArray(config?.prefix)
             ? config.prefix.map(String).filter(Boolean)
@@ -962,12 +1025,17 @@ async function executeHandlerLogic(sock, msg) {
 export async function warmupHandler(sock) {
     try {
         startDataWatcher();
-        await Promise.all([refreshMode(true), refreshElite(true), getLoadedPlugins(sock)]);
+        const [, , loadedPlugins] = await Promise.all([
+            refreshMode(true),
+            refreshElite(true),
+            getLoadedPlugins(sock)
+        ]);
         syncContactGuard();
         log("ok", `Handler Ready | Bot: ${getBotNumber(sock) || "UNKNOWN"}`);
         log("bot", `Identities: ${getBotIdentities(sock).join(" | ") || "NONE"}`);
         log("elite", `Elite: ${eliteCache.length}`);
         log("ok", `Mode: ${modeCache.elite ? "ELITE" : "NORMAL"}`);
+        log(loadedPlugins.length ? "ok" : "err", `Plugins Loaded: ${loadedPlugins.length}`);
         return true;
     } catch (err) {
         console.error("Handler Warmup Error:", err?.message || err);
@@ -983,7 +1051,8 @@ export function clearHandlerCaches() {
         groupLoading.clear();
         processedMessages.clear();
         chatMessageQueues.clear();
-        pendingMessageCount = 0;
+        // Do not reset active workers / pending count here: tasks already in
+        // progress still execute their finally blocks after cache cleanup.
         pluginCache = { source: null, cmdMap: new Map(), onMsg: [], onReact: [] };
         strictModeMtime = -1;
         strictEliteSig = "";
