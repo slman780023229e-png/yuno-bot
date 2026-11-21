@@ -14,7 +14,7 @@ const eliteFile = path.join(dataDir, "النخبة.json");
 const contactGuardFile = path.join(dataDir, "contactGuard.json");
 
 const GROUP_CACHE_TIME = 30_000;
-const FILE_CHECK_TIME = 3_000;
+const FILE_CHECK_TIME = 2_000;
 const MESSAGE_CACHE_TIME = 30_000;
 const MAX_PROCESSED_MESSAGES = 6000;
 const MAX_GROUP_CACHE = 500;
@@ -75,7 +75,6 @@ const isSameNumber = (a, b) => {
 // ═══════════════════════════════════════════════════════
 
 const mainBotCache = new WeakMap();
-const socketProxyCache = new WeakMap();
 
 function getBotIdentities(sock) {
     const out = [];
@@ -175,6 +174,11 @@ let guardMtime = -1;
 
 function syncContactGuard() {
     try {
+        if (!fs.existsSync(contactGuardFile)) {
+            guardGroups.clear();
+            guardMtime = -1;
+            return;
+        }
         const st = fs.statSync(contactGuardFile);
         if (st.mtimeMs === guardMtime) return;
         const parsed = JSON.parse(fs.readFileSync(contactGuardFile, "utf8") || "{}");
@@ -185,10 +189,7 @@ function syncContactGuard() {
             }
         }
         guardMtime = st.mtimeMs;
-    } catch {
-        guardGroups.clear();
-        guardMtime = -1;
-    }
+    } catch {}
 }
 
 syncContactGuard();
@@ -227,6 +228,8 @@ const isBotId = (sock, cands) => {
 function triggerExpressContactGuard(sock, msg) {
     const jid = msg?.key?.remoteJid;
     if (!jid?.endsWith("@g.us") || !msg?.message || !msg?.key?.id || msg.key.fromMe) return false;
+
+    syncContactGuard();
     if (!guardGroups.has(jid)) return false;
 
     const { hasContact, count } = detectContacts(msg.message);
@@ -241,6 +244,7 @@ function triggerExpressContactGuard(sock, msg) {
         .filter(v => typeof v === "string" && v.length > 0);
     if (!cands.length || isBotId(sock, cands)) return true;
 
+    // تنفيذ فوري في الخلفية بدون انتظار طابور الرسائل
     void (async () => {
         const t0 = Date.now();
         const delTask = sock.sendMessage(jid, { delete: { ...msg.key, remoteJid: jid } })
@@ -337,6 +341,13 @@ function parseEliteList(raw) {
 
 function readModeSync() {
     try {
+        if (!fs.existsSync(modeFile)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+            fs.writeFileSync(modeFile, JSON.stringify({ elite: false }, null, 2), "utf8");
+            strictModeValue = false;
+            strictModeMtime = fs.statSync(modeFile).mtimeMs;
+            return false;
+        }
         const st = fs.statSync(modeFile);
         if (st.mtimeMs === strictModeMtime) return strictModeValue;
         const parsed = JSON.parse(fs.readFileSync(modeFile, "utf8") || "{}");
@@ -359,6 +370,7 @@ function readEliteSetSync() {
     let set = new Set();
     for (const c of cands) {
         try {
+            if (!fs.existsSync(c)) continue;
             const parsed = JSON.parse(fs.readFileSync(c, "utf8") || "[]");
             const res = parseEliteList(parsed);
             if (res.set.size) { set = res.set; break; }
@@ -425,6 +437,7 @@ async function refreshElite(force = false) {
             let parsedData = [];
             for (const c of ELITE_CANDIDATES()) {
                 try {
+                    if (!fs.existsSync(c)) continue;
                     const txt = await fs.promises.readFile(c, "utf8");
                     const p = JSON.parse(txt || "[]");
                     if (Array.isArray(p) || (p && typeof p === "object")) { parsedData = p; break; }
@@ -447,8 +460,8 @@ function startDataWatcher() {
         fsWatcher = fs.watch(dataDir, { persistent: false }, (_, filename) => {
             if (!filename) return;
             if (filename.includes("contactGuard")) syncContactGuard();
-            if (filename.includes("مود")) { strictModeMtime = -1; void refreshMode(true).catch(() => {}); }
-            if (filename.includes("النخب")) { strictEliteSig = ""; void refreshElite(true).catch(() => {}); }
+            if (filename.includes("مود")) void refreshMode(true).catch(() => {});
+            if (filename.includes("النخب")) void refreshElite(true).catch(() => {});
         });
         fsWatcher.on("error", () => {
             try { fsWatcher?.close(); } catch {}
@@ -591,6 +604,7 @@ function queueMessage(sock, msg) {
     const participant = String(msg?.key?.participant || msg?.participant || msg?.key?.remoteJid || "unknown");
     if (id && wasProcessed(id, sock, `${jid}:${participant}`)) return false;
 
+    // المسار السريع الفوري لحماية جهات الاتصال قبل الطابور (0ms انتظار)
     if (triggerExpressContactGuard(sock, msg)) return true;
 
     const prev = chatMessageQueues.get(jid) || Promise.resolve();
@@ -626,12 +640,6 @@ export function getHandlerStats() {
 // ═══════════════════════════════════════════════════════
 // 📝 PARSERS, DECORATION & ROUTING
 // ═══════════════════════════════════════════════════════
-
-const PREFIXES = () => (
-    Array.isArray(config?.prefix)
-        ? config.prefix.map(String).filter(Boolean)
-        : [String(config?.prefix ?? ".")].filter(Boolean)
-);
 
 function unwrapContent(message) {
     let cur = message || {};
@@ -701,7 +709,10 @@ function isOwnPrivateChatCommand(sock, msg) {
             || ""
         ).trim();
 
-        if (!text || !PREFIXES().some(p => text.startsWith(p))) return false;
+        const prefixes = Array.isArray(config?.prefix)
+            ? config.prefix.map(String).filter(Boolean)
+            : [String(config?.prefix ?? ".")].filter(Boolean);
+        if (!text || !prefixes.some(p => text.startsWith(p))) return false;
         if (jid.endsWith("@g.us")) return true;
         if (!jid.endsWith("@s.whatsapp.net") && !jid.endsWith("@lid")) return false;
 
@@ -711,8 +722,7 @@ function isOwnPrivateChatCommand(sock, msg) {
         if (aliases.has(jid)) return true;
 
         if (!jid.endsWith("@lid")) {
-            const at = jid.indexOf("@");
-            const chatNum = normalizeNumber(jid.slice(0, at > 0 ? at : jid.length));
+            const chatNum = normalizeNumber(jid.slice(0, jid.indexOf("@") > 0 ? jid.indexOf("@") : jid.length));
             if (chatNum) {
                 return ids.some(id => !id.endsWith("@lid") && normalizeNumber(id) === chatNum);
             }
@@ -770,10 +780,7 @@ function decoratePayload(payload) {
 }
 
 function createArthurSocket(sock) {
-    if (!sock || typeof sock !== "object") return sock;
-    if (socketProxyCache.has(sock)) return socketProxyCache.get(sock);
-
-    const proxy = new Proxy(sock, {
+    return new Proxy(sock, {
         get(target, prop, receiver) {
             if (prop === "sendMessage") {
                 return (jid, content, opts) => target.sendMessage(jid, decoratePayload(content), opts);
@@ -807,9 +814,6 @@ function createArthurSocket(sock) {
             return Reflect.get(target, prop, receiver);
         }
     });
-
-    socketProxyCache.set(sock, proxy);
-    return proxy;
 }
 
 let pluginCache = { source: null, cmdMap: new Map(), onMsg: [], onReact: [] };
@@ -850,37 +854,20 @@ async function executeHandlerLogic(sock, msg) {
         const jid = msg.key?.remoteJid;
         if (!jid) return;
 
-        const strictElite = readModeSync();
         const isGroup = jid.endsWith("@g.us");
         const isPrivate = jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
-
-        // فحص مبكر لتوفير الوقت في الرسائل النصية العادية غير المطلوبة
-        const interactiveId = extractInteractiveId(msg);
-        const fromInteractive = Boolean(interactiveId);
-        const normalText = msg.message?.conversation || msg.message?.extendedTextMessage?.text
-            || msg.message?.imageMessage?.caption || msg.message?.videoMessage?.caption || "";
-        const rawText = String(interactiveId || normalText || "").trim();
-        const prefixes = PREFIXES();
-        const matchedPrefix = fromInteractive ? "" : prefixes.find(p => rawText.startsWith(p)) || "";
-        const hasReaction = Boolean(msg.message?.reactionMessage);
-
         const metadata = isGroup ? await getGroupMetadata(sock, jid) : null;
-        if (strictElite && !isStrictEliteAllowed(msg, sock, metadata)) return;
+
+        if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) return;
 
         const plugins = await getLoadedPlugins(sock);
         if (!plugins.length) return;
 
-        const { cmdMap, onMsg, onReact } = indexPlugins(plugins);
-        const mode = getModeFast();
-        const restrictedMode = mode?.elite === true;
-
-        // خروج سريع جداً إذا لم يكن هناك أمر أو تفاعل أو مستمع رسالة في وضع غير مقيّد
-        if (!restrictedMode && !matchedPrefix && !fromInteractive && !hasReaction && !onMsg.length) {
-            return;
-        }
-
-        getEliteFast();
         const pluginSock = createArthurSocket(sock);
+        const mode = getModeFast();
+        getEliteFast();
+
+        const { cmdMap, onMsg, onReact } = indexPlugins(plugins);
         const botIdentities = getBotIdentities(sock);
         const botNumber = getBotNumber(sock, metadata);
         const botParticipant = isGroup ? resolveBotParticipant(sock, metadata) : null;
@@ -896,6 +883,13 @@ async function executeHandlerLogic(sock, msg) {
         const isEliteUser = checkEliteIdentities([number, sender]) || isMainBot || isOwnerUser;
         const botIsSuperAdmin = Boolean(isGroup && botParticipant?.admin === "superadmin");
         const botIsAdmin = Boolean(isGroup && (botParticipant?.admin === "admin" || botIsSuperAdmin));
+        const restrictedMode = mode?.elite === true;
+
+        const interactiveId = extractInteractiveId(msg);
+        const fromInteractive = Boolean(interactiveId);
+        const normalText = msg.message.conversation || msg.message.extendedTextMessage?.text
+            || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || "";
+        const text = String(interactiveId || normalText || "").trim();
 
         const baseCtx = {
             jid, sender, number, isGroup, isPrivate, message: msg,
@@ -908,7 +902,7 @@ async function executeHandlerLogic(sock, msg) {
             groupMetadata: metadata || null, restrictedMode
         };
 
-        if (hasReaction && onReact.length) {
+        if (msg.message?.reactionMessage && onReact.length) {
             for (const p of onReact) {
                 if (restrictedMode && p?.alwaysOn !== true && !isEliteUser) continue;
                 try { await withTimeout(Promise.resolve(p.onReaction(pluginSock, msg, baseCtx)), 10_000, "onReaction"); }
@@ -928,10 +922,15 @@ async function executeHandlerLogic(sock, msg) {
             }
         }
 
-        if ((restrictedMode && !isEliteUser) || !rawText) return;
+        if ((restrictedMode && !isEliteUser) || !text) return;
+
+        const prefixes = Array.isArray(config?.prefix)
+            ? config.prefix.map(String).filter(Boolean)
+            : [String(config?.prefix ?? ".")].filter(Boolean);
+        const matchedPrefix = fromInteractive ? "" : prefixes.find(p => text.startsWith(p)) || "";
         if (!matchedPrefix && !fromInteractive) return;
 
-        let noPrefixText = matchedPrefix ? rawText.slice(matchedPrefix.length).trim() : rawText;
+        let noPrefixText = matchedPrefix ? text.slice(matchedPrefix.length).trim() : text;
         if (fromInteractive) noPrefixText = normalizeMenuCommand(noPrefixText);
         if (!noPrefixText) return;
 
@@ -948,7 +947,7 @@ async function executeHandlerLogic(sock, msg) {
 
         try {
             await withTimeout(
-                Promise.resolve(cmd.execute(pluginSock, msg, { ...baseCtx, text: rawText, noPrefixText, commandName, hasPrefix: Boolean(matchedPrefix) })),
+                Promise.resolve(cmd.execute(pluginSock, msg, { ...baseCtx, text, noPrefixText, commandName, hasPrefix: Boolean(matchedPrefix) })),
                 TASK_TIMEOUT_MS,
                 `Command(${commandName})`
             );
