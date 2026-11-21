@@ -2,45 +2,17 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { generateWAMessageFromContent, proto } from "@whiskeysockets/baileys";
+import { isEliteMember } from "../utils/eliteAccess.js";
 import { arthurBox, arthurEliteBox } from "../utils/arthurStyle.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// مسار ملف النخبة الموحد
-const eliteFile = path.join(
-    process.cwd(),
-    "data/النخبة.json"
-);
-
-function getElite() {
-    try {
-        if (!fs.existsSync(eliteFile)) {
-            const dir = path.dirname(eliteFile);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(
-                eliteFile,
-                JSON.stringify([], null, 2)
-            );
-        }
-        return JSON.parse(
-            fs.readFileSync(
-                eliteFile,
-                "utf-8"
-            )
-        );
-    } catch {
-        return [];
-    }
-}
-
-const checkElitePermission = (senderJid) => {
-    if (!senderJid) return false;
-    const cleanSender = senderJid.replace(/[^0-9]/g, "");
-    const eliteUsers = getElite();
-    return eliteUsers.some(num => num.replace(/[^0-9]/g, "") === cleanSender);
+const resolveBotJid = (sock, fallbackJid) => {
+    const rawId = sock?.user?.id || sock?.user?.jid;
+    if (!rawId) return fallbackJid;
+    const cleanNumber = String(rawId).split(":")[0].replace(/[^0-9]/g, "");
+    return cleanNumber ? `${cleanNumber}@s.whatsapp.net` : fallbackJid;
 };
 
 const getAllSystemFiles = () => {
@@ -81,15 +53,18 @@ const getAllSystemFiles = () => {
 export default {
     command: ["كود", "عرض_الكود"],
     category: "النخبة",
+    eliteOnly: true,
     description: "جلب وحذف أكواد النظام والبلجنات بالاسم أو الرقم لأعضاء النخبة حصرياً",
 
     execute: async (sock, msg, data) => {
-        const chatId = data.jid;
-        const senderJid = data.sender || msg.key.participant || msg.key.remoteJid;
+        const chatId = data?.jid || msg.key.remoteJid;
 
-        if (!checkElitePermission(senderJid)) {
+        if (!isEliteMember(msg, data)) {
             return await sock.sendMessage(chatId, {
-                text: arthurEliteBox("❌ هذا الأمر مخصص لأعضاء النخبة.")
+                text: arthurEliteBox(
+                    "❌ هذا الأمر مخصص لأعضاء النخبة فقط\n" +
+                    "لست مسجلاً في قائمة النخبة"
+                )
             }, { quoted: msg });
         }
 
@@ -101,7 +76,7 @@ export default {
         let rawText = data.text ? data.text.trim() : "";
         const parts = rawText.split(/\s+/);
         parts.shift(); // إزالة اسم الأمر الرئيسي
-        
+
         const subCommand = parts[0] ? parts[0].toLowerCase() : "";
         parts.shift(); // إزالة الكلمة الفرعية (عرض أو حذف)
         const queryArg = parts.join(" ").trim();
@@ -208,10 +183,12 @@ export default {
                 }
             };
 
+            const botJid = resolveBotJid(sock, chatId);
+
             const msgEnv = generateWAMessageFromContent(
                 chatId,
                 { viewOnceMessage: { message: { interactiveMessage: proto.Message.InteractiveMessage.fromObject(interactiveMessage) } } },
-                { userJid: sock.user.jid, quoted: msg }
+                { userJid: botJid, quoted: msg }
             );
 
             return await sock.relayMessage(chatId, msgEnv.message, {
