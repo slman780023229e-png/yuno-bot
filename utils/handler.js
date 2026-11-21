@@ -8,443 +8,336 @@ import { arthurBox, isArthurDecorated } from "./arthurStyle.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ═══════════════════════════════════════════════════════
-// 📁 FILES
-// ═══════════════════════════════════════════════════════
-
 const dataDir = path.join(__dirname, "../data");
 const modeFile = path.join(dataDir, "مود.json");
 const eliteFile = path.join(dataDir, "النخبة.json");
-
-// ═══════════════════════════════════════════════════════
-// ⚡ PERFORMANCE CONFIG
-// ═══════════════════════════════════════════════════════
+const contactGuardFile = path.join(dataDir, "contactGuard.json");
 
 const GROUP_CACHE_TIME = 30_000;
 const FILE_CHECK_TIME = 2_000;
-
 const MESSAGE_CACHE_TIME = 30_000;
-const MAX_PROCESSED_MESSAGES = 5000;
-
+const MAX_PROCESSED_MESSAGES = 6000;
 const MAX_GROUP_CACHE = 500;
+const TASK_TIMEOUT_MS = 25_000;
 
-// ═══════════════════════════════════════════════════════
-// 🎨 COLORS
-// ═══════════════════════════════════════════════════════
+const CONTACT_WRAPPERS = [
+    "ephemeralMessage", "viewOnceMessage", "viewOnceMessageV2",
+    "viewOnceMessageV2Extension", "documentWithCaptionMessage",
+    "deviceSentMessage", "editedMessage"
+];
 
 const COLORS = {
-    reset: "\x1b[0m",
-    gold: "\x1b[38;5;220m",
-    green: "\x1b[38;5;46m",
-    red: "\x1b[38;5;196m",
-    cyan: "\x1b[38;5;51m",
-    blue: "\x1b[38;5;39m",
-    magenta: "\x1b[38;5;201m"
+    reset: "\x1b[0m", gold: "\x1b[38;5;220m", green: "\x1b[38;5;46m",
+    red: "\x1b[38;5;196m", cyan: "\x1b[38;5;51m", blue: "\x1b[38;5;39m", magenta: "\x1b[38;5;201m"
 };
-
-// ═══════════════════════════════════════════════════════
-// 📝 LOGGER
-// ═══════════════════════════════════════════════════════
 
 function log(type, text) {
     try {
-        const colors = {
-            ok: COLORS.green,
-            cmd: COLORS.cyan,
-            err: COLORS.red,
-            elite: COLORS.gold,
-            admin: COLORS.blue,
-            bot: COLORS.magenta
+        const map = {
+            ok: [COLORS.green, "✅"], cmd: [COLORS.cyan, "⚡"], err: [COLORS.red, "❌"],
+            elite: [COLORS.gold, "👑"], admin: [COLORS.blue, "🛡️"], bot: [COLORS.magenta, "🤖"]
         };
-
-        const icons = {
-            ok: "✅",
-            cmd: "⚡",
-            err: "❌",
-            elite: "👑",
-            admin: "🛡️",
-            bot: "🤖"
-        };
-
-        console.log(
-            `${colors[type] || COLORS.cyan}` +
-            `[${icons[type] || "•"}] ${text}` +
-            COLORS.reset
-        );
+        const [col, ico] = map[type] || [COLORS.cyan, "•"];
+        console.log(`${col}[${ico}] ${text}${COLORS.reset}`);
     } catch {}
 }
 
-// ═══════════════════════════════════════════════════════
-// 🔢 NUMBER
-// ═══════════════════════════════════════════════════════
+function withTimeout(promise, ms, label = "Task") {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        if (timer.unref) timer.unref();
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 export function extractPureNumber(value) {
-    try {
-        if (value === undefined || value === null) {
-            return "";
-        }
-
-        let v = String(value).trim();
-
-        if (!v) return "";
-
-        const colon = v.indexOf(":");
-
-        if (colon !== -1) {
-            v = v.slice(0, colon);
-        }
-
-        const at = v.indexOf("@");
-
-        if (at !== -1) {
-            v = v.slice(0, at);
-        }
-
-        return v.replace(/\D/g, "");
-    } catch {
-        return "";
-    }
+    if (value === undefined || value === null) return "";
+    let v = String(value).trim();
+    if (!v) return "";
+    const colon = v.indexOf(":");
+    if (colon !== -1) v = v.slice(0, colon);
+    const at = v.indexOf("@");
+    if (at !== -1) v = v.slice(0, at);
+    return v.replace(/\D/g, "");
 }
 
-function normalizeStoredNumber(value) {
-    const number = extractPureNumber(value);
-
-    if (!number) return "";
-
-    return number.replace(/^0+(?=\d)/, "");
-}
-
-function cleanRawId(value) {
-    try {
-        if (value === undefined || value === null) {
-            return "";
-        }
-
-        return String(value).trim().toLowerCase();
-    } catch {
-        return "";
-    }
-}
-
-function isSameNumber(a, b) {
-    const x = normalizeStoredNumber(a);
-    const y = normalizeStoredNumber(b);
-
-    return !!x && !!y && x === y;
-}
+const cleanRawId = v => (v == null ? "" : String(v).trim().toLowerCase());
+const normalizeNumber = v => extractPureNumber(v).replace(/^0+(?=\d)/, "");
+const isSameNumber = (a, b) => {
+    const x = normalizeNumber(a);
+    const y = normalizeNumber(b);
+    return Boolean(x && y && x === y);
+};
 
 // ═══════════════════════════════════════════════════════
-// 🤖 BOT IDENTITIES
-// ═══════════════════════════════════════════════════════
-
-function getBotIdentities(sock) {
-    const result = [];
-    const seen = new Set();
-
-    const add = value => {
-        if (
-            value === undefined ||
-            value === null
-        ) {
-            return;
-        }
-
-        const raw = String(value).trim();
-
-        if (!raw) return;
-
-        const key = raw.toLowerCase();
-
-        if (seen.has(key)) return;
-
-        seen.add(key);
-        result.push(raw);
-    };
-
-    const candidates = [
-        sock?.user?.id,
-        sock?.user?.jid,
-        sock?.user?.lid,
-        sock?.user?.phone,
-
-        sock?.authState?.creds?.me?.id,
-        sock?.authState?.creds?.me?.jid,
-        sock?.authState?.creds?.me?.lid,
-        sock?.authState?.creds?.me?.phone,
-
-        sock?.botJid,
-        sock?.botLid,
-        sock?.botPhone,
-
-        sock?.__botJid,
-        sock?.__botLid,
-        sock?.__botPhone
-    ];
-
-    for (const candidate of candidates) {
-        add(candidate);
-
-        const number = extractPureNumber(candidate);
-
-        if (number) {
-            add(number);
-        }
-    }
-
-    return result;
-}
-
-// ═══════════════════════════════════════════════════════
-// 👤 PARTICIPANT
-// ═══════════════════════════════════════════════════════
-
-function findParticipant(participants, identities) {
-    if (
-        !Array.isArray(participants) ||
-        !participants.length
-    ) {
-        return null;
-    }
-
-    const ids = Array.isArray(identities)
-        ? identities
-        : [identities];
-
-    for (const identity of ids) {
-        if (!identity) continue;
-
-        const raw = cleanRawId(identity);
-
-        if (!raw) continue;
-
-        for (const p of participants) {
-            if (!p) continue;
-
-            if (
-                cleanRawId(p.id) === raw ||
-                cleanRawId(p.jid) === raw ||
-                cleanRawId(p.lid) === raw ||
-                cleanRawId(p.phone) === raw ||
-                cleanRawId(p.phoneNumber) === raw
-            ) {
-                return p;
-            }
-        }
-    }
-
-    for (const identity of ids) {
-        const number =
-            normalizeStoredNumber(identity);
-
-        if (!number) continue;
-
-        for (const p of participants) {
-            if (!p) continue;
-
-            if (
-                isSameNumber(number, p.phoneNumber) ||
-                isSameNumber(number, p.phone) ||
-                isSameNumber(number, p.id) ||
-                isSameNumber(number, p.jid) ||
-                isSameNumber(number, p.lid)
-            ) {
-                return p;
-            }
-        }
-    }
-
-    return null;
-}
-
-function resolveBotParticipant(sock, metadata) {
-    if (!metadata?.participants) {
-        return null;
-    }
-
-    const identities =
-        getBotIdentities(sock);
-
-    if (!identities.length) {
-        return null;
-    }
-
-    return findParticipant(
-        metadata.participants,
-        identities
-    );
-}
-
-function getParticipantPhone(participant) {
-    if (!participant) return "";
-
-    const candidates = [
-        participant.phoneNumber,
-        participant.phone,
-        participant.jid,
-        participant.id,
-        participant.lid
-    ];
-
-    for (const candidate of candidates) {
-        const number =
-            normalizeStoredNumber(candidate);
-
-        if (number) {
-            return number;
-        }
-    }
-
-    return "";
-}
-
-function getBotNumber(sock, metadata = null) {
-    // Prefer a real phone/JID identity over an @lid identifier. LID values
-    // can contain digits that are not the account's phone number.
-    if (metadata) {
-        const participant = resolveBotParticipant(sock, metadata);
-        const participantCandidates = [
-            participant?.phoneNumber,
-            participant?.phone,
-            participant?.jid,
-            participant?.id
-        ];
-        for (const candidate of participantCandidates) {
-            const raw = cleanRawId(candidate);
-            if (!raw || raw.endsWith("@lid")) continue;
-            const number = normalizeStoredNumber(candidate);
-            if (number) return number;
-        }
-    }
-
-    const preferredCandidates = [
-        sock?.user?.phone,
-        sock?.authState?.creds?.me?.phone,
-        sock?.botPhone,
-        sock?.__botPhone,
-        sock?.user?.jid,
-        sock?.authState?.creds?.me?.jid,
-        sock?.botJid,
-        sock?.__botJid,
-        sock?.user?.id,
-        sock?.authState?.creds?.me?.id
-    ];
-    for (const candidate of preferredCandidates) {
-        const raw = cleanRawId(candidate);
-        if (!raw || raw.endsWith("@lid")) continue;
-        const number = normalizeStoredNumber(candidate);
-        if (number) return number;
-    }
-
-    // Fall back to all known identities only when no phone-style identity exists.
-    for (const identity of getBotIdentities(sock)) {
-        const number = normalizeStoredNumber(identity);
-        if (number) return number;
-    }
-    return "";
-}
-
-// ═══════════════════════════════════════════════════════
-// 👑 MAIN BOT
+// 🤖 BOT & PARTICIPANT IDENTITIES
 // ═══════════════════════════════════════════════════════
 
 const mainBotCache = new WeakMap();
 
+function getBotIdentities(sock) {
+    const out = [];
+    const seen = new Set();
+    const add = val => {
+        if (val == null) return;
+        const raw = String(val).trim();
+        if (!raw) return;
+        const k = raw.toLowerCase();
+        if (!seen.has(k)) { seen.add(k); out.push(raw); }
+        const num = extractPureNumber(raw);
+        if (num && !seen.has(num)) { seen.add(num); out.push(num); }
+    };
+    [
+        sock?.user?.id, sock?.user?.jid, sock?.user?.lid, sock?.user?.phone,
+        sock?.authState?.creds?.me?.id, sock?.authState?.creds?.me?.jid,
+        sock?.authState?.creds?.me?.lid, sock?.authState?.creds?.me?.phone,
+        sock?.botJid, sock?.botLid, sock?.botPhone,
+        sock?.__botJid, sock?.__botLid, sock?.__botPhone
+    ].forEach(add);
+    return out;
+}
+
+function findParticipant(participants, identities) {
+    if (!Array.isArray(participants) || !participants.length) return null;
+    const ids = (Array.isArray(identities) ? identities : [identities]).filter(Boolean);
+    const fields = ["id", "jid", "lid", "phone", "phoneNumber"];
+
+    for (const id of ids) {
+        const raw = cleanRawId(id);
+        if (!raw) continue;
+        const hit = participants.find(p => p && fields.some(f => cleanRawId(p[f]) === raw));
+        if (hit) return hit;
+    }
+    for (const id of ids) {
+        const num = normalizeNumber(id);
+        if (!num) continue;
+        const hit = participants.find(p => p && fields.some(f => isSameNumber(num, p[f])));
+        if (hit) return hit;
+    }
+    return null;
+}
+
+const resolveBotParticipant = (sock, metadata) =>
+    metadata?.participants ? findParticipant(metadata.participants, getBotIdentities(sock)) : null;
+
+function getParticipantPhone(p) {
+    if (!p) return "";
+    for (const f of ["phoneNumber", "phone", "jid", "id", "lid"]) {
+        const n = normalizeNumber(p[f]);
+        if (n) return n;
+    }
+    return "";
+}
+
+function getBotNumber(sock, metadata = null) {
+    const pools = [];
+    if (metadata) {
+        const bp = resolveBotParticipant(sock, metadata);
+        pools.push(bp?.phoneNumber, bp?.phone, bp?.jid, bp?.id);
+    }
+    pools.push(
+        sock?.user?.phone, sock?.authState?.creds?.me?.phone, sock?.botPhone, sock?.__botPhone,
+        sock?.user?.jid, sock?.authState?.creds?.me?.jid, sock?.botJid, sock?.__botJid,
+        sock?.user?.id, sock?.authState?.creds?.me?.id
+    );
+    for (const c of pools) {
+        const raw = cleanRawId(c);
+        if (!raw || raw.endsWith("@lid")) continue;
+        const n = normalizeNumber(c);
+        if (n) return n;
+    }
+    for (const id of getBotIdentities(sock)) {
+        const n = normalizeNumber(id);
+        if (n) return n;
+    }
+    return "";
+}
+
 function getMainBotNumber(sock) {
     if (!sock) return "";
-
-    try {
-        const cached =
-            mainBotCache.get(sock);
-
-        if (cached) {
-            return cached;
-        }
-
-        const candidates = [
-            sock?.mainBotNumber,
-            sock?.__mainBotNumber,
-            process.env.MAIN_BOT_NUMBER,
-            sock?.user?.mainBotNumber
-        ];
-
-        for (const candidate of candidates) {
-            const number =
-                normalizeStoredNumber(candidate);
-
-            if (number) {
-                mainBotCache.set(
-                    sock,
-                    number
-                );
-
-                return number;
-            }
-        }
-    } catch {}
-
+    if (mainBotCache.has(sock)) return mainBotCache.get(sock);
+    for (const c of [sock?.mainBotNumber, sock?.__mainBotNumber, process.env.MAIN_BOT_NUMBER, sock?.user?.mainBotNumber]) {
+        const n = normalizeNumber(c);
+        if (n) { mainBotCache.set(sock, n); return n; }
+    }
     return "";
 }
 
 // ═══════════════════════════════════════════════════════
-// 📦 MODE / ELITE CACHE
+// ⚡ ZERO-LATENCY CONTACT GUARD (PRE-QUEUE EXPRESS LANE)
 // ═══════════════════════════════════════════════════════
 
-let modeCache = {
-    elite: false
+const guardGroups = new Set();
+const guardSeen = new Set();
+let guardMtime = -1;
+
+function syncContactGuard() {
+    try {
+        if (!fs.existsSync(contactGuardFile)) {
+            guardGroups.clear();
+            guardMtime = -1;
+            return;
+        }
+        const st = fs.statSync(contactGuardFile);
+        if (st.mtimeMs === guardMtime) return;
+        const parsed = JSON.parse(fs.readFileSync(contactGuardFile, "utf8") || "{}");
+        guardGroups.clear();
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            for (const [jid, on] of Object.entries(parsed)) {
+                if (jid.endsWith("@g.us") && on === true) guardGroups.add(jid);
+            }
+        }
+        guardMtime = st.mtimeMs;
+    } catch {}
+}
+
+syncContactGuard();
+
+function unwrapContact(message) {
+    let cur = message;
+    for (let i = 0; i < 15; i++) {
+        if (!cur || typeof cur !== "object") return null;
+        if (cur.contactMessage || cur.contactsArrayMessage) return cur;
+        let next = null;
+        for (const w of CONTACT_WRAPPERS) {
+            if (cur[w]?.message && typeof cur[w].message === "object") { next = cur[w].message; break; }
+        }
+        if (!next) return cur;
+        cur = next;
+    }
+    return null;
+}
+
+function detectContacts(message) {
+    const c = unwrapContact(message);
+    if (!c) return { hasContact: false, count: 0 };
+    if (c.contactMessage) return { hasContact: true, count: 1 };
+    if (c.contactsArrayMessage) {
+        const arr = c.contactsArrayMessage.contacts;
+        return { hasContact: true, count: Array.isArray(arr) ? Math.max(arr.length, 1) : 1 };
+    }
+    return { hasContact: false, count: 0 };
+}
+
+const isBotId = (sock, cands) => {
+    const bots = getBotIdentities(sock);
+    return cands.some(c => bots.some(b => cleanRawId(c) === cleanRawId(b) || isSameNumber(c, b)));
 };
 
-let eliteCache = [];
-let eliteSet = new Set();
+function triggerExpressContactGuard(sock, msg) {
+    const jid = msg?.key?.remoteJid;
+    if (!jid?.endsWith("@g.us") || !msg?.message || !msg?.key?.id || msg.key.fromMe) return false;
 
-let modeReady = false;
-let eliteReady = false;
+    syncContactGuard();
+    if (!guardGroups.has(jid)) return false;
 
-let modeMtime = 0;
-let eliteMtime = 0;
+    const { hasContact, count } = detectContacts(msg.message);
+    if (!hasContact) return false;
 
-let modeLoading = null;
-let eliteLoading = null;
+    const eventKey = `${jid}:${msg.key.id}`;
+    if (guardSeen.has(eventKey)) return true;
+    guardSeen.add(eventKey);
+    if (guardSeen.size > 15000) guardSeen.delete(guardSeen.values().next().value);
 
-let dataDirReady = false;
-let dataDirPromise = null;
+    const cands = [msg?.key?.participant, msg?.participant, msg?.key?.participantAlt]
+        .filter(v => typeof v === "string" && v.length > 0);
+    if (!cands.length || isBotId(sock, cands)) return true;
 
-let lastFileCheck = 0;
+    // تنفيذ فوري في الخلفية بدون انتظار طابور الرسائل
+    void (async () => {
+        const t0 = Date.now();
+        const delTask = sock.sendMessage(jid, { delete: { ...msg.key, remoteJid: jid } })
+            .then(() => true, err => { log("err", `ContactGuard Delete: ${err?.message || err}`); return false; });
 
-// ═══════════════════════════════════════════════════════
-// 📁 DATA DIRECTORY
-// ═══════════════════════════════════════════════════════
+        const remTask = (async () => {
+            let target = null;
+            try {
+                const meta = await getGroupMetadata(sock, jid);
+                const p = findParticipant(meta?.participants, cands);
+                if (p) target = p.id || p.phoneNumber || p.lid || p.jid;
+            } catch {}
+            if (!target) target = cands.find(c => !isBotId(sock, [c]));
+            if (!target || isBotId(sock, [target])) return false;
 
-async function ensureDataDir() {
-    if (dataDirReady) {
-        return;
-    }
+            try {
+                const res = await sock.groupParticipantsUpdate(jid, [target], "remove");
+                const ok = Array.isArray(res) && res.length > 0 && res.every(r => Number(r?.status) >= 200 && Number(r?.status) < 300);
+                if (ok) clearGroupMetadataCache(jid);
+                return ok;
+            } catch (err) {
+                log("err", `ContactGuard Remove: ${err?.message || err}`);
+                return false;
+            }
+        })();
 
-    if (!dataDirPromise) {
-        dataDirPromise =
-            fs.promises
-                .mkdir(dataDir, {
-                    recursive: true
-                })
-                .then(() => {
-                    dataDirReady = true;
-                })
-                .catch(() => {})
-                .finally(() => {
-                    dataDirPromise = null;
-                });
-    }
+        const [del, rem] = await Promise.allSettled([delTask, remTask]);
+        console.log([
+            "╭━━━━━━━━━━━━━━━━━━━━━━╮",
+            "┃ ⚡ CONTACT GUARD TURBO",
+            "┣━━━━━━━━━━━━━━━━━━━━━━┫",
+            `┃ 👤 المرسل: ${cands[0]}`,
+            `┃ 📦 جهات الاتصال: ${count}`,
+            `┃ 🗑️ حذف الرسالة: ${del.status === "fulfilled" && del.value ? "نجح" : "فشل"}`,
+            `┃ 🚫 إخراج العضو: ${rem.status === "fulfilled" && rem.value ? "نجح" : "فشل"}`,
+            `┃ ⏱️ السرعة: ${Date.now() - t0} ms`,
+            "╰━━━━━━━━━━━━━━━━━━━━━━╯"
+        ].join("\n"));
+    })().catch(() => {});
 
-    await dataDirPromise;
+    return true;
 }
 
 // ═══════════════════════════════════════════════════════
-// 🔒 STRICT ELITE GATE (SYNC)
-// يقرأ الحالة مباشرة قبل تشغيل أي listener أو command.
+// ⚙️ MODE & ELITE STORE + LIVE WATCHER
 // ═══════════════════════════════════════════════════════
-let strictModeValue = false;
-let strictModeMtime = -1;
-let strictEliteSignature = "";
-let strictEliteSet = new Set();
+
+let modeCache = { elite: false };
+let eliteCache = [];
+let eliteSet = new Set();
+let modeReady = false, eliteReady = false;
+let modeMtime = 0, eliteMtime = 0;
+let modeLoading = null, eliteLoading = null;
+let dataDirReady = false, dataDirPromise = null;
+let lastFileCheck = 0;
+let fsWatcher = null;
+
+let strictModeValue = false, strictModeMtime = -1;
+let strictEliteSig = "", strictEliteSet = new Set();
+
+const ELITE_CANDIDATES = () => [
+    eliteFile,
+    path.join(dataDir, "النخبه.json"),
+    path.join(dataDir, "النخبة"),
+    path.join(dataDir, "النخبه")
+];
+
+async function ensureDataDir() {
+    if (dataDirReady) return;
+    if (!dataDirPromise) {
+        dataDirPromise = fs.promises.mkdir(dataDir, { recursive: true })
+            .then(() => { dataDirReady = true; })
+            .catch(() => {})
+            .finally(() => { dataDirPromise = null; });
+    }
+    await dataDirPromise;
+}
+
+function parseEliteList(raw) {
+    const out = [];
+    const set = new Set();
+    const list = Array.isArray(raw) ? raw : (raw && typeof raw === "object" ? Object.values(raw).flat() : []);
+    for (const item of list) {
+        const vals = item && typeof item === "object"
+            ? [item.number, item.phone, item.phoneNumber, item.id, item.jid, item.lid]
+            : [item];
+        for (const v of vals) {
+            const n = normalizeNumber(v);
+            if (n && !set.has(n)) { set.add(n); out.push(n); }
+        }
+    }
+    return { list: out, set };
+}
 
 function readModeSync() {
     try {
@@ -453,927 +346,284 @@ function readModeSync() {
             fs.writeFileSync(modeFile, JSON.stringify({ elite: false }, null, 2), "utf8");
             strictModeValue = false;
             strictModeMtime = fs.statSync(modeFile).mtimeMs;
-            return strictModeValue;
+            return false;
         }
-
-        const stat = fs.statSync(modeFile);
-        if (stat.mtimeMs === strictModeMtime) return strictModeValue;
-
+        const st = fs.statSync(modeFile);
+        if (st.mtimeMs === strictModeMtime) return strictModeValue;
         const parsed = JSON.parse(fs.readFileSync(modeFile, "utf8") || "{}");
         strictModeValue = parsed?.elite === true;
-        strictModeMtime = stat.mtimeMs;
+        strictModeMtime = st.mtimeMs;
         return strictModeValue;
     } catch {
-        // Fail closed only when the file exists but cannot be read: don't silently
-        // switch a protected bot to normal mode because of a transient read error.
         return strictModeValue;
     }
 }
 
 function readEliteSetSync() {
-    const candidates = [
-        eliteFile,
-        path.join(dataDir, "النخبه.json"),
-        path.join(dataDir, "النخبة"),
-        path.join(dataDir, "النخبه")
-    ];
+    const cands = ELITE_CANDIDATES();
+    const sig = cands.map(c => {
+        try { const s = fs.statSync(c); return `${c}:${s.mtimeMs}:${s.size}`; }
+        catch { return `${c}:missing`; }
+    }).join("|");
+    if (sig === strictEliteSig) return strictEliteSet;
 
-    let signature = "";
-    for (const candidate of candidates) {
+    let set = new Set();
+    for (const c of cands) {
         try {
-            const stat = fs.statSync(candidate);
-            signature += `${candidate}:${stat.mtimeMs}:${stat.size}|`;
-        } catch {
-            signature += `${candidate}:missing|`;
-        }
-    }
-    if (signature === strictEliteSignature) return strictEliteSet;
-
-    const set = new Set();
-    for (const candidate of candidates) {
-        try {
-            if (!fs.existsSync(candidate)) continue;
-            const parsed = JSON.parse(fs.readFileSync(candidate, "utf8") || "[]");
-            const list = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? Object.values(parsed).flat() : []);
-            for (const item of list) {
-                const values = item && typeof item === "object"
-                    ? [item.number, item.phone, item.phoneNumber, item.id, item.jid, item.lid]
-                    : [item];
-                for (const value of values) {
-                    const n = normalizeStoredNumber(value);
-                    if (n) set.add(n);
-                }
-            }
-            if (set.size) break;
+            if (!fs.existsSync(c)) continue;
+            const parsed = JSON.parse(fs.readFileSync(c, "utf8") || "[]");
+            const res = parseEliteList(parsed);
+            if (res.set.size) { set = res.set; break; }
         } catch {}
     }
-
-    strictEliteSignature = signature;
+    strictEliteSig = sig;
     strictEliteSet = set;
     return strictEliteSet;
 }
 
-function getEarlySenderNumber(msg) {
-    const raw = msg?.key?.participant || msg?.key?.remoteJid || "";
-    return normalizeStoredNumber(raw);
-}
+const checkOwner = val => {
+    const n = normalizeNumber(val);
+    if (!n) return false;
+    const owners = Array.isArray(config?.owner) ? config.owner : [config?.owner];
+    return owners.some(x => isSameNumber(n, x));
+};
 
 function isStrictEliteAllowed(msg, sock, metadata = null) {
-    const eliteNumbers = readEliteSetSync();
-
-    // In elite mode, a fromMe command is allowed only when at least one
-    // known phone/JID identity for this bot is explicitly in the elite list.
-    // Check all identities because Baileys may expose an @lid as user.id.
+    const eliteNums = readEliteSetSync();
     if (msg?.key?.fromMe === true) {
-        const candidates = [getBotNumber(sock, metadata), ...getBotIdentities(sock)];
-        const participant = metadata ? resolveBotParticipant(sock, metadata) : null;
-        if (participant) {
-            candidates.push(participant.phoneNumber, participant.phone, participant.jid, participant.id, participant.lid);
-        }
-        for (const candidate of candidates) {
-            const number = normalizeStoredNumber(candidate);
-            if (number && eliteNumbers.has(number)) return true;
-        }
-        return false;
+        const cands = [getBotNumber(sock, metadata), ...getBotIdentities(sock)];
+        const bp = metadata ? resolveBotParticipant(sock, metadata) : null;
+        if (bp) cands.push(bp.phoneNumber, bp.phone, bp.jid, bp.id, bp.lid);
+        return cands.some(c => { const n = normalizeNumber(c); return n && eliteNums.has(n); });
     }
-
-    const sender = getEarlySenderNumber(msg);
-    if (!sender) return false;
-    if (checkOwner(sender)) return true;
-    return eliteNumbers.has(sender);
+    const sender = normalizeNumber(msg?.key?.participant || msg?.key?.remoteJid || "");
+    return Boolean(sender && (checkOwner(sender) || eliteNums.has(sender)));
 }
-
-// ═══════════════════════════════════════════════════════
-// ⚙️ MODE
-// ═══════════════════════════════════════════════════════
 
 async function refreshMode(force = false) {
-    if (
-        modeLoading &&
-        !force
-    ) {
-        return modeLoading;
-    }
-
-    modeLoading =
-        (async () => {
-            try {
-                await ensureDataDir();
-
-                let stat;
-
-                try {
-                    stat =
-                        await fs.promises.stat(
-                            modeFile
-                        );
-                } catch {
-                    await fs.promises.writeFile(
-                        modeFile,
-                        JSON.stringify(
-                            {
-                                elite: false
-                            },
-                            null,
-                            2
-                        ),
-                        "utf8"
-                    );
-
-                    stat =
-                        await fs.promises.stat(
-                            modeFile
-                        );
-                }
-
-                const mtime =
-                    stat.mtimeMs;
-
-                if (
-                    !force &&
-                    modeReady &&
-                    mtime === modeMtime
-                ) {
-                    return;
-                }
-
-                const content =
-                    await fs.promises.readFile(
-                        modeFile,
-                        "utf8"
-                    );
-
-                let parsed = {};
-
-                try {
-                    parsed =
-                        JSON.parse(
-                            content || "{}"
-                        );
-                } catch {
-                    parsed = {};
-                }
-
-                if (
-                    parsed &&
-                    typeof parsed ===
-                        "object"
-                ) {
-                    modeCache = {
-                        ...modeCache,
-                        ...parsed
-                    };
-                }
-
-                modeMtime = mtime;
-                modeReady = true;
-
-            } catch {}
-        })();
-
-    try {
-        await modeLoading;
-    } finally {
-        modeLoading = null;
-    }
+    if (modeLoading && !force) return modeLoading;
+    modeLoading = (async () => {
+        try {
+            await ensureDataDir();
+            let st;
+            try { st = await fs.promises.stat(modeFile); }
+            catch {
+                await fs.promises.writeFile(modeFile, JSON.stringify({ elite: false }, null, 2), "utf8");
+                st = await fs.promises.stat(modeFile);
+            }
+            if (!force && modeReady && st.mtimeMs === modeMtime) return;
+            const parsed = JSON.parse((await fs.promises.readFile(modeFile, "utf8")) || "{}");
+            if (parsed && typeof parsed === "object") modeCache = { ...modeCache, ...parsed };
+            modeMtime = st.mtimeMs;
+            modeReady = true;
+        } catch {}
+    })();
+    try { await modeLoading; } finally { modeLoading = null; }
 }
-
-// ═══════════════════════════════════════════════════════
-// 👑 ELITE
-// ═══════════════════════════════════════════════════════
 
 async function refreshElite(force = false) {
-    if (
-        eliteLoading &&
-        !force
-    ) {
-        return eliteLoading;
-    }
+    if (eliteLoading && !force) return eliteLoading;
+    eliteLoading = (async () => {
+        try {
+            await ensureDataDir();
+            let st;
+            try { st = await fs.promises.stat(eliteFile); }
+            catch {
+                await fs.promises.writeFile(eliteFile, "[]", "utf8");
+                st = await fs.promises.stat(eliteFile);
+            }
+            if (!force && eliteReady && st.mtimeMs === eliteMtime) return;
 
-    eliteLoading =
-        (async () => {
-            try {
-                await ensureDataDir();
-
-                let stat;
-
+            let parsedData = [];
+            for (const c of ELITE_CANDIDATES()) {
                 try {
-                    stat =
-                        await fs.promises.stat(
-                            eliteFile
-                        );
-                } catch {
-                    await fs.promises.writeFile(
-                        eliteFile,
-                        "[]",
-                        "utf8"
-                    );
-
-                    stat =
-                        await fs.promises.stat(
-                            eliteFile
-                        );
-                }
-
-                const mtime =
-                    stat.mtimeMs;
-
-                if (
-                    !force &&
-                    eliteReady &&
-                    mtime === eliteMtime
-                ) {
-                    return;
-                }
-
-                let data = [];
-                const eliteCandidates = [
-                    eliteFile,
-                    path.join(dataDir, "النخبه.json"),
-                    path.join(dataDir, "النخبة"),
-                    path.join(dataDir, "النخبه")
-                ];
-
-                for (const candidate of eliteCandidates) {
-                    try {
-                        if (!fs.existsSync(candidate)) continue;
-                        const content = await fs.promises.readFile(candidate, "utf8");
-                        const parsed = JSON.parse(content || "[]");
-                        if (Array.isArray(parsed)) { data = parsed; break; }
-                        if (parsed && typeof parsed === "object") { data = Object.values(parsed).flat(); break; }
-                    } catch {}
-                }
-
-                const result = [];
-                const set = new Set();
-
-                if (
-                    Array.isArray(data)
-                ) {
-                    for (
-                        const item of data
-                    ) {
-                        let values = [];
-
-                        if (
-                            typeof item ===
-                                "string" ||
-                            typeof item ===
-                                "number"
-                        ) {
-                            values.push(item);
-
-                        } else if (
-                            item &&
-                            typeof item ===
-                                "object"
-                        ) {
-                            values.push(
-                                item.number,
-                                item.phone,
-                                item.phoneNumber,
-                                item.id,
-                                item.jid,
-                                item.lid
-                            );
-                        }
-
-                        for (
-                            const value of values
-                        ) {
-                            const number =
-                                normalizeStoredNumber(
-                                    value
-                                );
-
-                            if (
-                                number &&
-                                !set.has(number)
-                            ) {
-                                set.add(number);
-                                result.push(
-                                    number
-                                );
-                            }
-                        }
-                    }
-                }
-
-                eliteCache = result;
-                eliteSet = set;
-
-                eliteMtime = mtime;
-                eliteReady = true;
-
-            } catch {}
-        })();
-
-    try {
-        await eliteLoading;
-    } finally {
-        eliteLoading = null;
-    }
+                    if (!fs.existsSync(c)) continue;
+                    const txt = await fs.promises.readFile(c, "utf8");
+                    const p = JSON.parse(txt || "[]");
+                    if (Array.isArray(p) || (p && typeof p === "object")) { parsedData = p; break; }
+                } catch {}
+            }
+            const res = parseEliteList(parsedData);
+            eliteCache = res.list;
+            eliteSet = res.set;
+            eliteMtime = st.mtimeMs;
+            eliteReady = true;
+        } catch {}
+    })();
+    try { await eliteLoading; } finally { eliteLoading = null; }
 }
 
-// ═══════════════════════════════════════════════════════
-// ⚡ BACKGROUND REFRESH (مُحدث لاستجابة فورية)
-// ═══════════════════════════════════════════════════════
+function startDataWatcher() {
+    if (fsWatcher) return;
+    try {
+        fs.mkdirSync(dataDir, { recursive: true });
+        fsWatcher = fs.watch(dataDir, { persistent: false }, (_, filename) => {
+            if (!filename) return;
+            if (filename.includes("contactGuard")) syncContactGuard();
+            if (filename.includes("مود")) void refreshMode(true).catch(() => {});
+            if (filename.includes("النخب")) void refreshElite(true).catch(() => {});
+        });
+        fsWatcher.on("error", () => {
+            try { fsWatcher?.close(); } catch {}
+            fsWatcher = null;
+        });
+    } catch {}
+}
 
 function scheduleFileRefresh() {
     const now = Date.now();
-
-    if (
-        now - lastFileCheck <
-        FILE_CHECK_TIME
-    ) {
-        return;
-    }
-
+    if (now - lastFileCheck < FILE_CHECK_TIME) return;
     lastFileCheck = now;
-
     void refreshMode().catch(() => {});
     void refreshElite().catch(() => {});
 }
 
-function getModeFast() {
-    // تحديث فوري بدون تأخير ۳۰ ثانية لضمان قراءة التغيير فور حدوثه
-    void refreshMode().catch(() => {});
-    return modeCache;
-}
-
-function getEliteFast() {
-    void refreshElite().catch(() => {});
-    return eliteCache;
-}
-
-function checkElite(value) {
-    const number =
-        normalizeStoredNumber(value);
-
-    return (
-        !!number &&
-        eliteSet.has(number)
-    );
-}
-
-function checkEliteIdentities(values) {
-    if (!Array.isArray(values)) {
-        values = [values];
-    }
-
-    for (
-        const value of values
-    ) {
-        if (checkElite(value)) {
-            return true;
-        }
-    }
-
-    return false;
-}
+const getModeFast = () => { scheduleFileRefresh(); return modeCache; };
+const getEliteFast = () => { scheduleFileRefresh(); return eliteCache; };
+const checkElite = val => { const n = normalizeNumber(val); return Boolean(n && eliteSet.has(n)); };
+const checkEliteIdentities = vals => (Array.isArray(vals) ? vals : [vals]).some(checkElite);
 
 // ═══════════════════════════════════════════════════════
-// 🛡️ GROUP CACHE
+// 🛡️ GROUP CACHE & PLUGINS
 // ═══════════════════════════════════════════════════════
 
 const groupCache = new Map();
 const groupLoading = new Map();
 
-async function getGroupMetadata(
-    sock,
-    jid,
-    force = false
-) {
-    if (
-        !jid ||
-        !jid.endsWith("@g.us")
-    ) {
-        return null;
-    }
-
+async function getGroupMetadata(sock, jid, force = false) {
+    if (!jid?.endsWith("@g.us")) return null;
     const now = Date.now();
-    const cached =
-        groupCache.get(jid);
+    const cached = groupCache.get(jid);
+    if (!force && cached && now - cached.time < GROUP_CACHE_TIME) return cached.data;
+    if (groupLoading.has(jid)) return groupLoading.get(jid);
 
-    if (
-        !force &&
-        cached &&
-        now - cached.time <
-            GROUP_CACHE_TIME
-    ) {
-        return cached.data;
-    }
-
-    const existing =
-        groupLoading.get(jid);
-
-    if (existing) {
-        return existing;
-    }
-
-    const promise =
-        (async () => {
-            try {
-                const metadata =
-                    await sock.groupMetadata(
-                        jid
-                    );
-
-                if (metadata) {
-                    groupCache.set(
-                        jid,
-                        {
-                            data: metadata,
-                            time: Date.now()
-                        }
-                    );
-
-                    if (
-                        groupCache.size >
-                        MAX_GROUP_CACHE
-                    ) {
-                        const first =
-                            groupCache.keys()
-                                .next()
-                                .value;
-
-                        if (first) {
-                            groupCache.delete(
-                                first
-                            );
-                        }
-                    }
+    const promise = (async () => {
+        try {
+            const meta = await sock.groupMetadata(jid);
+            if (meta) {
+                groupCache.set(jid, { data: meta, time: Date.now() });
+                if (groupCache.size > MAX_GROUP_CACHE) {
+                    const first = groupCache.keys().next().value;
+                    if (first) groupCache.delete(first);
                 }
-
-                return (
-                    metadata ||
-                    cached?.data ||
-                    null
-                );
-
-            } catch {
-                return (
-                    cached?.data ||
-                    null
-                );
-
-            } finally {
-                groupLoading.delete(
-                    jid
-                );
             }
-        })();
+            return meta || cached?.data || null;
+        } catch {
+            return cached?.data || null;
+        } finally {
+            groupLoading.delete(jid);
+        }
+    })();
 
-    groupLoading.set(
-        jid,
-        promise
-    );
-
+    groupLoading.set(jid, promise);
     return promise;
 }
 
-export function clearGroupMetadataCache(
-    jid = null
-) {
+export function clearGroupMetadataCache(jid = null) {
     try {
-        if (jid) {
-            groupCache.delete(jid);
-            groupLoading.delete(jid);
-            return;
-        }
-
+        if (jid) { groupCache.delete(jid); groupLoading.delete(jid); return; }
         groupCache.clear();
         groupLoading.clear();
-
     } catch {}
 }
 
-// ═══════════════════════════════════════════════════════
-// 🚀 LIVE PLUGIN LOADER
-// ═══════════════════════════════════════════════════════
-
 export async function getLoadedPlugins(sock) {
-    if (!sock) {
-        return [];
-    }
-
+    if (!sock) return [];
     try {
-        const plugins = await loadPlugins(sock);
-        // loadPlugins already removes invalid modules; preserve array identity
-        // so the command/listener index can be reused between messages.
-        return Array.isArray(plugins) ? plugins : [];
-    } catch (error) {
-        console.error(
-            "Plugin Loader Error:",
-            error?.message || error
-        );
+        const p = await loadPlugins(sock);
+        return Array.isArray(p) ? p : [];
+    } catch (err) {
+        console.error("Plugin Loader Error:", err?.message || err);
         return [];
     }
 }
 
-export function clearPluginsCache(sock = null) {
+export function clearPluginsCache() {
     try { invalidatePluginCache(); } catch {}
 }
 
 // ═══════════════════════════════════════════════════════
-// 🛡️ MESSAGE DEDUPLICATION
+// 🛡️ DEDUPLICATION & NON-BLOCKING QUEUE
 // ═══════════════════════════════════════════════════════
 
-const processedMessages =
-    new Map();
-
+const processedMessages = new Map();
 let cleanupRunning = false;
 
-function getSocketSessionId(sock) {
-    return (
-        sock?.user?.id ||
-        sock?.user?.jid ||
-        sock?.user?.lid ||
-        "unknown"
-    );
-}
-
 function wasProcessed(id, sock, scope = "") {
-    if (!id) {
-        return false;
-    }
+    if (!id) return false;
+    const session = String(sock?.user?.id || sock?.user?.jid || sock?.user?.lid || "unknown");
+    const key = `${session}:${scope}:${id}`;
+    const now = Date.now();
+    const prev = processedMessages.get(key);
+    if (prev && now - prev < MESSAGE_CACHE_TIME) return true;
 
-    const session =
-        String(
-            getSocketSessionId(sock)
-        );
-
-    const key =
-        `${session}:${scope}:${id}`;
-
-    const now =
-        Date.now();
-
-    const previous =
-        processedMessages.get(
-            key
-        );
-
-    if (
-        previous &&
-        now - previous <
-            MESSAGE_CACHE_TIME
-    ) {
-        return true;
-    }
-
-    processedMessages.set(
-        key,
-        now
-    );
-
-    if (
-        processedMessages.size >
-            MAX_PROCESSED_MESSAGES &&
-        !cleanupRunning
-    ) {
+    processedMessages.set(key, now);
+    if (processedMessages.size > MAX_PROCESSED_MESSAGES && !cleanupRunning) {
         cleanupRunning = true;
-
         queueMicrotask(() => {
             try {
-                const cutoff =
-                    Date.now() -
-                    MESSAGE_CACHE_TIME;
-
+                const cutoff = Date.now() - MESSAGE_CACHE_TIME;
                 let count = 0;
-
-                for (
-                    const [
-                        cacheKey,
-                        time
-                    ]
-                    of processedMessages
-                ) {
-                    if (
-                        time <
-                        cutoff
-                    ) {
-                        processedMessages.delete(
-                            cacheKey
-                        );
-
-                        count++;
-
-                        if (
-                            count >=
-                            1000
-                        ) {
-                            break;
-                        }
-                    }
+                for (const [k, t] of processedMessages) {
+                    if (t < cutoff) { processedMessages.delete(k); if (++count >= 1000) break; }
                 }
-
-                if (
-                    processedMessages.size >
-                    MAX_PROCESSED_MESSAGES *
-                        1.25
-                ) {
-                    const removeCount =
-                        processedMessages.size -
-                        MAX_PROCESSED_MESSAGES;
-
-                    let removed = 0;
-
-                    for (
-                        const key
-                        of processedMessages.keys()
-                    ) {
-                        processedMessages.delete(
-                            key
-                        );
-
-                        removed++;
-
-                        if (
-                            removed >=
-                            removeCount
-                        ) {
-                            break;
-                        }
-                    }
+                if (processedMessages.size > MAX_PROCESSED_MESSAGES * 1.25) {
+                    const extra = processedMessages.size - MAX_PROCESSED_MESSAGES;
+                    let rem = 0;
+                    for (const k of processedMessages.keys()) { processedMessages.delete(k); if (++rem >= extra) break; }
                 }
-
-            } finally {
-                cleanupRunning = false;
-            }
+            } finally { cleanupRunning = false; }
         });
     }
-
     return false;
 }
-
-// ═══════════════════════════════════════════════════════
-// 👤 SENDER
-// ═══════════════════════════════════════════════════════
-
-function resolveSender(
-    sock,
-    msg,
-    isGroup,
-    metadata
-) {
-    let rawSender = "";
-
-    if (msg?.key?.fromMe) {
-        rawSender =
-            sock?.user?.id ||
-            sock?.user?.jid ||
-            sock?.user?.lid ||
-            "";
-
-    } else if (isGroup) {
-        rawSender =
-            msg?.key?.participant ||
-            msg?.participant ||
-            "";
-
-    } else {
-        rawSender =
-            msg?.key?.remoteJid ||
-            "";
-    }
-
-    let number =
-        normalizeStoredNumber(
-            rawSender
-        );
-
-    if (
-        isGroup &&
-        metadata?.participants &&
-        rawSender
-    ) {
-        const participant =
-            findParticipant(
-                metadata.participants,
-                [rawSender]
-            );
-
-        if (participant) {
-            const resolved =
-                getParticipantPhone(
-                    participant
-                );
-
-            if (resolved) {
-                number = resolved;
-            }
-        }
-    }
-
-    return {
-        sender: rawSender,
-        number
-    };
-}
-
-// ═══════════════════════════════════════════════════════
-// 📋 INTERACTIVE
-// ═══════════════════════════════════════════════════════
-
-function extractInteractiveResponseId(msg) {
-    try {
-        const message =
-            msg?.message;
-
-        if (!message) {
-            return "";
-        }
-
-        const listId =
-            message
-                ?.listResponseMessage
-                ?.singleSelectReply
-                ?.selectedRowId;
-
-        if (listId) {
-            return String(
-                listId
-            ).trim();
-        }
-
-        const buttonId =
-            message
-                ?.buttonsResponseMessage
-                ?.selectedButtonId;
-
-        if (buttonId) {
-            return String(
-                buttonId
-            ).trim();
-        }
-
-        const templateId =
-            message
-                ?.templateButtonReplyMessage
-                ?.selectedId;
-
-        if (templateId) {
-            return String(
-                templateId
-            ).trim();
-        }
-
-        const flow =
-            message
-                ?.interactiveResponseMessage
-                ?.nativeFlowResponseMessage ||
-            message?.nativeFlowResponseMessage;
-
-        if (flow?.paramsJson) {
-            let parsed;
-
-            try {
-                parsed =
-                    typeof flow.paramsJson ===
-                        "string"
-                        ? JSON.parse(
-                              flow.paramsJson
-                          )
-                        : flow.paramsJson;
-            } catch {
-                parsed = null;
-            }
-
-            if (parsed?.id) {
-                return String(
-                    parsed.id
-                ).trim();
-            }
-
-            if (
-                parsed?.selectedRowId
-            ) {
-                return String(
-                    parsed.selectedRowId
-                ).trim();
-            }
-
-            if (
-                parsed?.selectedId
-            ) {
-                return String(
-                    parsed.selectedId
-                ).trim();
-            }
-
-            if (
-                parsed?.command
-            ) {
-                return String(
-                    parsed.command
-                ).trim();
-            }
-        }
-
-    } catch {}
-
-    return "";
-}
-
-function normalizeMenuCommand(id) {
-    if (!id) {
-        return "";
-    }
-
-    let value =
-        String(id).trim();
-
-    const lower =
-        value.toLowerCase();
-
-    if (
-        lower.startsWith("cmd:")
-    ) {
-        value =
-            value.slice(4).trim();
-
-    } else if (
-        lower.startsWith(
-            "command:"
-        )
-    ) {
-        value =
-            value.slice(8).trim();
-    }
-
-    return value
-        .replace(
-            /^[./\\#,!^&+=]+/,
-            ""
-        )
-        .trim();
-}
-
-// ═══════════════════════════════════════════════════════
-// 🚀 ENTRY
-// ═══════════════════════════════════════════════════════
 
 const chatMessageQueues = new Map();
 let pendingMessageCount = 0;
 let activeMessageWorkers = 0;
-const requestedConcurrency = Number.parseInt(
-    process.env.ARTHUR_CONCURRENCY || "6",
-    10
-);
-const MAX_CONCURRENT_MESSAGE_WORKERS = Number.isFinite(requestedConcurrency)
-    ? Math.max(1, Math.min(12, requestedConcurrency))
-    : 6;
+const parsedConcurrency = Number.parseInt(process.env.ARTHUR_CONCURRENCY || "8", 10);
+const MAX_CONCURRENT_MESSAGE_WORKERS = Number.isFinite(parsedConcurrency)
+    ? Math.max(2, Math.min(16, parsedConcurrency))
+    : 8;
 const workerWaiters = [];
 
-async function acquireMessageWorker() {
-    if (activeMessageWorkers < MAX_CONCURRENT_MESSAGE_WORKERS) {
-        activeMessageWorkers++;
-        return;
-    }
-    // The slot is handed directly to the next waiter by releaseMessageWorker.
+async function acquireWorker() {
+    if (activeMessageWorkers < MAX_CONCURRENT_MESSAGE_WORKERS) { activeMessageWorkers++; return; }
     await new Promise(resolve => workerWaiters.push(resolve));
 }
 
-function releaseMessageWorker() {
+function releaseWorker() {
     const next = workerWaiters.shift();
-    if (next) {
-        next();
-        return;
-    }
-    activeMessageWorkers = Math.max(0, activeMessageWorkers - 1);
+    if (next) next();
+    else activeMessageWorkers = Math.max(0, activeMessageWorkers - 1);
 }
 
 function queueMessage(sock, msg) {
     const id = msg?.key?.id;
     const jid = String(msg?.key?.remoteJid || `unknown:${id || Date.now()}`);
-    const participant = String(
-        msg?.key?.participant ||
-        msg?.participant ||
-        msg?.key?.remoteJid ||
-        "unknown"
-    );
-    // Serialize a whole chat/group so shared game and moderation state cannot race.
-    const queueKey = jid;
-    const scope = `${jid}:${participant}`;
-    if (id && wasProcessed(id, sock, scope)) return false;
-    const previous = chatMessageQueues.get(queueKey) || Promise.resolve();
+    const participant = String(msg?.key?.participant || msg?.participant || msg?.key?.remoteJid || "unknown");
+    if (id && wasProcessed(id, sock, `${jid}:${participant}`)) return false;
+
+    // المسار السريع الفوري لحماية جهات الاتصال قبل الطابور (0ms انتظار)
+    if (triggerExpressContactGuard(sock, msg)) return true;
+
+    const prev = chatMessageQueues.get(jid) || Promise.resolve();
     pendingMessageCount++;
 
-    const task = previous.catch(() => {}).then(async () => {
-        await acquireMessageWorker();
+    const task = prev.catch(() => {}).then(async () => {
+        await acquireWorker();
         try {
-            await executeHandlerLogic(sock, msg);
-        } catch (error) {
-            console.error("Message Worker Error:", error?.stack || error?.message || error);
+            await withTimeout(executeHandlerLogic(sock, msg), TASK_TIMEOUT_MS, `Handler(${jid})`);
+        } catch (err) {
+            console.error("Message Worker Error:", err?.stack || err?.message || err);
         } finally {
             pendingMessageCount = Math.max(0, pendingMessageCount - 1);
-            releaseMessageWorker();
-            if (chatMessageQueues.get(queueKey) === task) chatMessageQueues.delete(queueKey);
+            releaseWorker();
+            if (chatMessageQueues.get(jid) === task) chatMessageQueues.delete(jid);
         }
     });
 
-    chatMessageQueues.set(queueKey, task);
+    chatMessageQueues.set(jid, task);
     return true;
 }
 
@@ -1387,77 +637,120 @@ export function getHandlerStats() {
     };
 }
 
-export function handleMessages(sock, update) {
+// ═══════════════════════════════════════════════════════
+// 📝 PARSERS, DECORATION & ROUTING
+// ═══════════════════════════════════════════════════════
+
+function unwrapContent(message) {
+    let cur = message || {};
+    for (let i = 0; i < 6; i++) {
+        const next = cur.ephemeralMessage?.message || cur.viewOnceMessage?.message
+            || cur.viewOnceMessageV2?.message || cur.documentWithCaptionMessage?.message;
+        if (!next) break;
+        cur = next;
+    }
+    return cur;
+}
+
+function resolveSender(sock, msg, isGroup, metadata) {
+    const rawSender = msg?.key?.fromMe
+        ? (sock?.user?.id || sock?.user?.jid || sock?.user?.lid || "")
+        : isGroup
+            ? (msg?.key?.participant || msg?.participant || "")
+            : (msg?.key?.remoteJid || "");
+
+    let number = normalizeNumber(rawSender);
+    if (isGroup && metadata?.participants && rawSender) {
+        const p = findParticipant(metadata.participants, [rawSender]);
+        const resolved = getParticipantPhone(p);
+        if (resolved) number = resolved;
+    }
+    return { sender: rawSender, number };
+}
+
+function extractInteractiveId(msg) {
+    const m = msg?.message;
+    if (!m) return "";
+    const direct = m.listResponseMessage?.singleSelectReply?.selectedRowId
+        || m.buttonsResponseMessage?.selectedButtonId
+        || m.templateButtonReplyMessage?.selectedId;
+    if (direct) return String(direct).trim();
+
+    const flow = m.interactiveResponseMessage?.nativeFlowResponseMessage || m.nativeFlowResponseMessage;
+    if (!flow?.paramsJson) return "";
     try {
-        // Accept normal incoming notifications and the outgoing append updates
-        // that main.js explicitly forwards. Ignore history replay and other update types.
-        const updateType = update?.type;
-        if (updateType && updateType !== "notify" && updateType !== "append") return 0;
+        const parsed = typeof flow.paramsJson === "string" ? JSON.parse(flow.paramsJson) : flow.paramsJson;
+        return String(parsed?.id || parsed?.selectedRowId || parsed?.selectedId || parsed?.command || "").trim();
+    } catch { return ""; }
+}
 
-        const messages = Array.isArray(update?.messages)
-            ? update.messages
-            : update?.message
-                ? [update.message]
-                : [];
+function normalizeMenuCommand(id) {
+    if (!id) return "";
+    let v = String(id).trim();
+    const low = v.toLowerCase();
+    if (low.startsWith("cmd:")) v = v.slice(4).trim();
+    else if (low.startsWith("command:")) v = v.slice(8).trim();
+    return v.replace(/^[./\\#,!^&+=]+/, "").trim();
+}
 
-        let queued = 0;
-        for (const msg of messages) {
-            if (!msg?.message || !msg?.key?.remoteJid) continue;
+function isOwnPrivateChatCommand(sock, msg) {
+    try {
+        const jid = cleanRawId(msg?.key?.remoteJid);
+        if (!jid || jid === "status@broadcast" || msg?.key?.fromMe !== true) return false;
 
-            // main.js only forwards append updates containing outgoing messages.
-            // Keep this guard here too, so an append event cannot run incoming messages.
-            if (updateType === "append" && msg.key.fromMe !== true) continue;
+        const c = unwrapContent(msg?.message);
+        const text = String(
+            c.conversation || c.extendedTextMessage?.text || c.imageMessage?.caption
+            || c.videoMessage?.caption || c.documentMessage?.caption
+            || c.buttonsResponseMessage?.selectedButtonId
+            || c.listResponseMessage?.singleSelectReply?.selectedRowId
+            || c.templateButtonReplyMessage?.selectedId
+            || c.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson
+            || ""
+        ).trim();
 
-            // Permit only clearly prefixed commands sent by this bot account;
-            // ignore its ordinary replies to prevent loops.
-            if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
-            if (msg.key.remoteJid === "status@broadcast") continue;
+        const prefixes = Array.isArray(config?.prefix)
+            ? config.prefix.map(String).filter(Boolean)
+            : [String(config?.prefix ?? ".")].filter(Boolean);
+        if (!text || !prefixes.some(p => text.startsWith(p))) return false;
+        if (jid.endsWith("@g.us")) return true;
+        if (!jid.endsWith("@s.whatsapp.net") && !jid.endsWith("@lid")) return false;
 
-            try {
-                if (queueMessage(sock, msg)) queued++;
-            } catch (error) {
-                console.error("Message Queue Error:", error?.stack || error?.message || error);
+        const ids = getBotIdentities(sock).map(cleanRawId).filter(Boolean);
+        const aliases = new Set(ids);
+        for (const id of ids) { const at = id.indexOf("@"); if (at > 0) aliases.add(id.slice(0, at)); }
+        if (aliases.has(jid)) return true;
+
+        if (!jid.endsWith("@lid")) {
+            const chatNum = normalizeNumber(jid.slice(0, jid.indexOf("@") > 0 ? jid.indexOf("@") : jid.length));
+            if (chatNum) {
+                return ids.some(id => !id.endsWith("@lid") && normalizeNumber(id) === chatNum);
             }
         }
-        return queued;
-    } catch (error) {
-        console.error("handleMessages Error:", error?.stack || error?.message || error);
-        return 0;
+        return false;
+    } catch {
+        return false;
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// ⚡ MAIN EXECUTION
-// ═══════════════════════════════════════════════════════
-
-
-function checkOwner(value) {
-    const n = normalizeStoredNumber(value);
-    if (!n) return false;
-    const owners = Array.isArray(config?.owner) ? config.owner : [config?.owner];
-    return owners.some(x => isSameNumber(n, x));
-}
-
-function pluginCommands(plugin) {
-    const values = [];
-    const add = value => {
-        if (value === undefined || value === null) return;
-        const key = String(value).trim().toLowerCase();
-        if (key && !values.includes(key)) values.push(key);
-    };
-    const command = plugin?.command;
-    if (Array.isArray(command)) command.forEach(add); else add(command);
-    const aliases = plugin?.aliases;
-    if (Array.isArray(aliases)) aliases.forEach(add); else add(aliases);
-    return values;
-}
-
-function pluginPermission(plugin, { isOwner, isElite }) {
-    if (plugin?.ownerOnly === true && !isOwner) return false;
-    if (plugin?.eliteOnly === true && !isElite && !isOwner) return false;
-    const category = String(plugin?.category || "").toLowerCase();
-    if ((category.includes("مطور") || category.includes("dev")) && !isOwner) return false;
-    return true;
+export function handleMessages(sock, update) {
+    try {
+        const type = update?.type;
+        if (type && type !== "notify" && type !== "append") return 0;
+        const msgs = Array.isArray(update?.messages) ? update.messages : update?.message ? [update.message] : [];
+        let queued = 0;
+        for (const msg of msgs) {
+            if (!msg?.message || !msg?.key?.remoteJid) continue;
+            if (type === "append" && msg.key.fromMe !== true) continue;
+            if (msg.key.fromMe && !isOwnPrivateChatCommand(sock, msg)) continue;
+            if (msg.key.remoteJid === "status@broadcast") continue;
+            if (queueMessage(sock, msg)) queued++;
+        }
+        return queued;
+    } catch (err) {
+        console.error("handleMessages Error:", err?.message || err);
+        return 0;
+    }
 }
 
 function cleanDecorationLines(text) {
@@ -1466,33 +759,22 @@ function cleanDecorationLines(text) {
         .filter(line => {
             const plain = line.replace(/[\*`_~ ]/g, "").trim();
             if (!plain) return true;
-
-            if (/ARTHUR.*BOT|BOT.*ARTHUR/i.test(plain)) {
-                return false;
-            }
-
-            if (/^(╭|╰|┏|┗|◇❐|╔|╚|┌|└).*?(╮|╯|┓|┛|❐◇|╗|╝|┐|┘)$/.test(plain)) {
-                return false;
-            }
-
-            if (/^[╭╮╰╯┣┫┃┏┓┗┛┌┐└┘╔╗╚╝━═─—◇❐╾🩸👑⚔️]+$/.test(plain)) {
-                return false;
-            }
-
+            if (/ARTHUR.*BOT|BOT.*ARTHUR/i.test(plain)) return false;
+            if (/^(╭|╰|┏|┗|◇❐|╔|╚|┌|└).*?(╮|╯|┓|┛|❐◇|╗|╝|┐|┘)$/.test(plain)) return false;
+            if (/^[╭╮╰╯┣┫┃┏┓┗┛┌┐└┘╔╗╚╝━═─—◇❐╾🩸👑⚔️]+$/.test(plain)) return false;
             return true;
         })
         .join("\n")
         .trim();
 }
 
-function decorateOutgoingPayload(payload) {
+function decoratePayload(payload) {
     if (!payload || typeof payload !== "object") return payload;
     const out = { ...payload };
-    if (typeof out.text === "string" && out.text.trim() && !isArthurDecorated(out.text)) {
-        out.text = arthurBox(cleanDecorationLines(out.text));
-    }
-    if (typeof out.caption === "string" && out.caption.trim() && !isArthurDecorated(out.caption)) {
-        out.caption = arthurBox(cleanDecorationLines(out.caption));
+    for (const k of ["text", "caption"]) {
+        if (typeof out[k] === "string" && out[k].trim() && !isArthurDecorated(out[k])) {
+            out[k] = arthurBox(cleanDecorationLines(out[k]));
+        }
     }
     return out;
 }
@@ -1501,44 +783,32 @@ function createArthurSocket(sock) {
     return new Proxy(sock, {
         get(target, prop, receiver) {
             if (prop === "sendMessage") {
-                return async (jid, content, options) => {
-                    return target.sendMessage(jid, decorateOutgoingPayload(content), options);
-                };
+                return (jid, content, opts) => target.sendMessage(jid, decoratePayload(content), opts);
             }
             if (prop === "relayMessage") {
-                return async (jid, message, options) => {
+                return (jid, message, opts) => {
                     const out = message && typeof message === "object" ? { ...message } : message;
-                    if (out?.extendedTextMessage?.text && !isArthurDecorated(out.extendedTextMessage.text)) {
-                        out.extendedTextMessage = { ...out.extendedTextMessage, text: arthurBox(cleanDecorationLines(out.extendedTextMessage.text)) };
-                    }
-                    if (out?.imageMessage?.caption && !isArthurDecorated(out.imageMessage.caption)) {
-                        out.imageMessage = { ...out.imageMessage, caption: arthurBox(cleanDecorationLines(out.imageMessage.caption)) };
-                    }
-                    if (out?.videoMessage?.caption && !isArthurDecorated(out.videoMessage.caption)) {
-                        out.videoMessage = { ...out.videoMessage, caption: arthurBox(cleanDecorationLines(out.videoMessage.caption)) };
-                    }
-                    // Native-flow interactive messages (such as .اوامر and .كود)
-                    // bypass sendMessage, so decorate their visible body/footer here.
-                    const decorateInteractive = (message) => {
-                        if (!message || typeof message !== "object") return message;
-                        const result = { ...message };
-                        if (result.interactiveMessage) {
-                            const interactive = { ...result.interactiveMessage };
-                            if (interactive.body?.text && !isArthurDecorated(interactive.body.text)) {
-                                interactive.body = { ...interactive.body, text: arthurBox(cleanDecorationLines(interactive.body.text)) };
-                            }
-                            result.interactiveMessage = interactive;
+                    for (const k of ["extendedTextMessage", "imageMessage", "videoMessage"]) {
+                        const field = k === "extendedTextMessage" ? "text" : "caption";
+                        if (out?.[k]?.[field] && !isArthurDecorated(out[k][field])) {
+                            out[k] = { ...out[k], [field]: arthurBox(cleanDecorationLines(out[k][field])) };
                         }
-                        if (result.viewOnceMessage?.message) {
-                            result.viewOnceMessage = { ...result.viewOnceMessage, message: decorateInteractive(result.viewOnceMessage.message) };
+                    }
+                    const dec = m => {
+                        if (!m || typeof m !== "object") return m;
+                        const r = { ...m };
+                        if (r.interactiveMessage?.body?.text && !isArthurDecorated(r.interactiveMessage.body.text)) {
+                            r.interactiveMessage = {
+                                ...r.interactiveMessage,
+                                body: { ...r.interactiveMessage.body, text: arthurBox(cleanDecorationLines(r.interactiveMessage.body.text)) }
+                            };
                         }
-                        if (result.ephemeralMessage?.message) {
-                            result.ephemeralMessage = { ...result.ephemeralMessage, message: decorateInteractive(result.ephemeralMessage.message) };
+                        for (const w of ["viewOnceMessage", "ephemeralMessage"]) {
+                            if (r[w]?.message) r[w] = { ...r[w], message: dec(r[w].message) };
                         }
-                        return result;
+                        return r;
                     };
-                    const decorated = decorateInteractive(out);
-                    return target.relayMessage(jid, decorated, options);
+                    return target.relayMessage(jid, dec(out), opts);
                 };
             }
             return Reflect.get(target, prop, receiver);
@@ -1546,574 +816,187 @@ function createArthurSocket(sock) {
     });
 }
 
-let pluginRuntimeCache = {
-    source: null,
-    commandIndex: new Map(),
-    onMessagePlugins: []
-};
+let pluginCache = { source: null, cmdMap: new Map(), onMsg: [], onReact: [] };
 
-function getPluginRuntimeIndex(plugins) {
-    if (pluginRuntimeCache.source === plugins) return pluginRuntimeCache;
-
-    const commandIndex = new Map();
-    const onMessagePlugins = [];
-    for (const plugin of plugins) {
-        if (typeof plugin?.onMessage === "function") onMessagePlugins.push(plugin);
-        if (!plugin?.command) continue;
-        for (const key of pluginCommands(plugin)) {
-            if (!commandIndex.has(key)) commandIndex.set(key, plugin);
+function indexPlugins(plugins) {
+    if (pluginCache.source === plugins) return pluginCache;
+    const cmdMap = new Map(), onMsg = [], onReact = [];
+    for (const p of plugins) {
+        if (typeof p?.onMessage === "function") onMsg.push(p);
+        if (typeof p?.onReaction === "function") onReact.push(p);
+        const keys = [
+            ...(Array.isArray(p?.command) ? p.command : [p?.command]),
+            ...(Array.isArray(p?.aliases) ? p.aliases : [p?.aliases])
+        ];
+        for (const k of keys) {
+            const name = k == null ? "" : String(k).trim().toLowerCase();
+            if (name && !cmdMap.has(name)) cmdMap.set(name, p);
         }
     }
-
-    pluginRuntimeCache = { source: plugins, commandIndex, onMessagePlugins };
-    return pluginRuntimeCache;
+    pluginCache = { source: plugins, cmdMap, onMsg, onReact };
+    return pluginCache;
 }
 
-// Allow only prefixed commands sent in the bot account's own private chat.
-// Ordinary outgoing messages remain ignored to avoid reply loops.
-function unwrapOwnChatContent(message) {
-    let content = message || {};
-    for (let i = 0; i < 5; i++) {
-        const wrapped = content.ephemeralMessage?.message
-            || content.viewOnceMessage?.message
-            || content.viewOnceMessageV2?.message
-            || content.documentWithCaptionMessage?.message;
-        if (!wrapped) break;
-        content = wrapped;
-    }
-    return content;
+function hasPermission(plugin, { isOwner, isElite }) {
+    if (plugin?.ownerOnly === true && !isOwner) return false;
+    if (plugin?.eliteOnly === true && !isElite && !isOwner) return false;
+    const cat = String(plugin?.category || "").toLowerCase();
+    if ((cat.includes("مطور") || cat.includes("dev")) && !isOwner) return false;
+    return true;
 }
 
-function isOwnPrivateChatCommand(sock, msg) {
+// ═══════════════════════════════════════════════════════
+// ⚡ EXECUTION
+// ═══════════════════════════════════════════════════════
+
+async function executeHandlerLogic(sock, msg) {
     try {
-        const jid = cleanRawId(msg?.key?.remoteJid);
-        if (!jid || jid === "status@broadcast") return false;
-
-        // Only process outgoing messages that are clearly commands. This prevents
-        // the bot from reacting to its own ordinary replies and creating loops.
-        const content = unwrapOwnChatContent(msg?.message);
-        const text = String(
-            content.conversation
-            || content.extendedTextMessage?.text
-            || content.imageMessage?.caption
-            || content.videoMessage?.caption
-            || content.documentMessage?.caption
-            || content.buttonsResponseMessage?.selectedButtonId
-            || content.listResponseMessage?.singleSelectReply?.selectedRowId
-            || content.templateButtonReplyMessage?.selectedId
-            || content.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson
-            || ''
-        ).trim();
-        const configuredPrefix = config?.prefix;
-        const prefixes = Array.isArray(configuredPrefix)
-            ? configuredPrefix.map(value => String(value)).filter(Boolean)
-            : [String(configuredPrefix ?? '.')].filter(Boolean);
-        const isPrefixedCommand = Boolean(text && prefixes.some(prefix => text.startsWith(prefix)));
-        if (!isPrefixedCommand || msg?.key?.fromMe !== true) return false;
-
-        // In groups, fromMe confirms the command was sent by this bot account.
-        // Allow prefixed commands only; never process its normal outgoing messages.
-        if (jid.endsWith('@g.us')) return true;
-
-        // Private self-chat: verify the destination is one of the bot's own IDs.
-        if (!jid.endsWith('@s.whatsapp.net') && !jid.endsWith('@lid')) return false;
-
-        const identities = getBotIdentities(sock).map(cleanRawId).filter(Boolean);
-        const ownJidAliases = new Set();
-        for (const identity of identities) {
-            ownJidAliases.add(identity);
-            const at = identity.indexOf('@');
-            if (at > 0) ownJidAliases.add(identity.slice(0, at));
-        }
-
-        let isSelfChat = ownJidAliases.has(jid);
-        if (!isSelfChat && !jid.endsWith('@lid')) {
-            const at = jid.indexOf('@');
-            const jidUser = at > 0 ? jid.slice(0, at) : jid;
-            const chatNumber = normalizeStoredNumber(jidUser);
-            if (chatNumber) {
-                isSelfChat = identities.some(identity => {
-                    if (identity.endsWith('@lid')) return false;
-                    return normalizeStoredNumber(identity) === chatNumber;
-                });
-            }
-        }
-        return isSelfChat;
-    } catch (error) {
-        console.error('[SELF CHAT CHECK]', error?.message || error);
-        return false;
-    }
-}
-
-async function executeHandlerLogic(
-    sock,
-    msg
-) {
-    try {
-        const jid =
-            msg.key?.remoteJid;
-
-        if (!jid) {
-            return;
-        }
+        const jid = msg.key?.remoteJid;
+        if (!jid) return;
 
         const isGroup = jid.endsWith("@g.us");
         const isPrivate = jid.endsWith("@s.whatsapp.net") || jid.endsWith("@lid");
-        const metadataPromise = isGroup
-            ? getGroupMetadata(sock, jid)
-            : Promise.resolve(null);
-        const metadata = await metadataPromise;
+        const metadata = isGroup ? await getGroupMetadata(sock, jid) : null;
 
-        // Strict elite gate stays enabled. For group messages, resolve metadata
-        // first so the bot's phone identity can be matched to its participant.
-        if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) {
-            return;
-        }
+        if (readModeSync() && !isStrictEliteAllowed(msg, sock, metadata)) return;
 
-        let rawPlugins = [];
-        try {
-            rawPlugins = await loadPlugins(sock);
-        } catch (err) {
-            console.error("Plugin Load Error:", err);
-        }
-
-        const plugins = Array.isArray(rawPlugins) ? rawPlugins : [];
-        const pluginSock = createArthurSocket(sock);
+        const plugins = await getLoadedPlugins(sock);
         if (!plugins.length) return;
 
-        getModeFast();
+        const pluginSock = createArthurSocket(sock);
+        const mode = getModeFast();
         getEliteFast();
 
-        const runtimeIndex = getPluginRuntimeIndex(plugins);
-        const commandIndex = runtimeIndex.commandIndex;
-        const onMessagePlugins = runtimeIndex.onMessagePlugins;
+        const { cmdMap, onMsg, onReact } = indexPlugins(plugins);
+        const botIdentities = getBotIdentities(sock);
+        const botNumber = getBotNumber(sock, metadata);
+        const botParticipant = isGroup ? resolveBotParticipant(sock, metadata) : null;
+        const mainNumber = getMainBotNumber(sock);
+        const isMainBot = Boolean(mainNumber && (
+            isSameNumber(botNumber, mainNumber)
+            || isSameNumber(getParticipantPhone(botParticipant), mainNumber)
+            || botIdentities.some(id => isSameNumber(id, mainNumber))
+        ));
 
-        const botIdentities =
-            getBotIdentities(sock);
-
-        const botNumber =
-            getBotNumber(
-                sock,
-                metadata
-            );
-
-        const botParticipant =
-            isGroup
-                ? resolveBotParticipant(
-                      sock,
-                      metadata
-                  )
-                : null;
-
-        const participantPhone =
-            getParticipantPhone(
-                botParticipant
-            );
-
-        const mainNumber =
-            getMainBotNumber(sock);
-
-        const isMainBot =
-            !!(
-                mainNumber &&
-                (
-                    isSameNumber(
-                        botNumber,
-                        mainNumber
-                    ) ||
-                    isSameNumber(
-                        participantPhone,
-                        mainNumber
-                    ) ||
-                    botIdentities.some(
-                        identity =>
-                            isSameNumber(
-                                identity,
-                                mainNumber
-                            )
-                    )
-                )
-            );
-
-        const resolved =
-            resolveSender(
-                sock,
-                msg,
-                isGroup,
-                metadata
-            );
-
-        const sender =
-            resolved.sender;
-
-        const number =
-            resolved.number;
-
-        const isOwnerUser =
-            checkOwner(number) ||
-            checkOwner(sender);
-
-        let isEliteUser =
-            checkEliteIdentities([
-                number,
-                sender
-            ]);
-
-        // لا تجعل تسجيل رقم البوت في النخبة جميع المستخدمين نخبة.
-        // رسائل البوت الذاتية تُقيّم برقم المرسل المحسوب في resolveSender أعلاه.
-
-        if (
-            !isEliteUser &&
-            (isMainBot || isOwnerUser)
-        ) {
-            isEliteUser = true;
-        }
-
-        let botAdminData = {
-            isAdmin: false,
-            isSuperAdmin: false,
-            participant:
-                botParticipant,
-            metadata
-        };
-
-        if (
-            isGroup &&
-            botParticipant
-        ) {
-            const admin =
-                botParticipant.admin;
-
-            botAdminData.isSuperAdmin =
-                admin ===
-                "superadmin";
-
-            botAdminData.isAdmin =
-                admin === "admin" ||
-                botAdminData.isSuperAdmin;
-        }
-
-        const botIsAdmin =
-            botAdminData.isAdmin;
-
-        const botIsSuperAdmin =
-            botAdminData.isSuperAdmin;
-
-        const message =
-            msg.message;
-
-        const normalText =
-            message.conversation ||
-            message.extendedTextMessage?.text ||
-            message.imageMessage?.caption ||
-            message.videoMessage?.caption ||
-            "";
-
-        const interactiveId =
-            extractInteractiveResponseId(
-                msg
-            );
-
-        const fromInteractive =
-            !!interactiveId;
-
-        const text =
-            String(
-                interactiveId ||
-                normalText ||
-                ""
-            ).trim();
-
-        const mode = getModeFast();
+        const { sender, number } = resolveSender(sock, msg, isGroup, metadata);
+        const isOwnerUser = checkOwner(number) || checkOwner(sender);
+        const isEliteUser = checkEliteIdentities([number, sender]) || isMainBot || isOwnerUser;
+        const botIsSuperAdmin = Boolean(isGroup && botParticipant?.admin === "superadmin");
+        const botIsAdmin = Boolean(isGroup && (botParticipant?.admin === "admin" || botIsSuperAdmin));
         const restrictedMode = mode?.elite === true;
 
-        // In elite mode, normal onMessage listeners are also restricted.
-        // Security listeners explicitly marked alwaysOn continue to protect the group.
-        if (onMessagePlugins.length) {
-            const context = {
-                jid, sender, number, isGroup, isPrivate, message: msg,
-                isElite: isEliteUser, isOwner: isOwnerUser,
-                botNumber, mainBotNumber: mainNumber, isMainBot,
-                isInteractive: fromInteractive, interactiveId: interactiveId || null,
-                isListResponse: fromInteractive, isAdmin: botIsAdmin,
-                isSuperAdmin: botIsSuperAdmin, adminMode: botIsAdmin,
-                botIsAdmin, botIsSuperAdmin, botParticipant: botParticipant || null,
-                groupMetadata: metadata || null, restrictedMode
-            };
+        const interactiveId = extractInteractiveId(msg);
+        const fromInteractive = Boolean(interactiveId);
+        const normalText = msg.message.conversation || msg.message.extendedTextMessage?.text
+            || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || "";
+        const text = String(interactiveId || normalText || "").trim();
 
-            for (const plugin of onMessagePlugins) {
-                const alwaysOn = plugin?.alwaysOn === true;
-                if (restrictedMode && !alwaysOn && !isEliteUser && !isOwnerUser && !isMainBot) continue;
+        const baseCtx = {
+            jid, sender, number, isGroup, isPrivate, message: msg,
+            isElite: isEliteUser, isOwner: isOwnerUser, botNumber,
+            mainBotNumber: mainNumber, isMainBot,
+            isInteractive: fromInteractive, interactiveId: interactiveId || null,
+            isListResponse: fromInteractive, isAdmin: botIsAdmin,
+            isSuperAdmin: botIsSuperAdmin, adminMode: botIsAdmin,
+            botIsAdmin, botIsSuperAdmin, botParticipant: botParticipant || null,
+            groupMetadata: metadata || null, restrictedMode
+        };
+
+        if (msg.message?.reactionMessage && onReact.length) {
+            for (const p of onReact) {
+                if (restrictedMode && p?.alwaysOn !== true && !isEliteUser) continue;
+                try { await withTimeout(Promise.resolve(p.onReaction(pluginSock, msg, baseCtx)), 10_000, "onReaction"); }
+                catch (err) { console.error(`❌ Reaction Hook Error: ${err?.message || err}`); }
+            }
+        }
+
+        if (onMsg.length) {
+            for (const p of onMsg) {
+                if (restrictedMode && p?.alwaysOn !== true && !isEliteUser) continue;
                 try {
-                    const listenerResult = await plugin.onMessage(pluginSock, msg, context);
-                    if (listenerResult?.handled === true) return;
-                } catch (listenerError) {
-                    console.error(`❌ Listener Error: ${listenerError?.message || listenerError}`);
+                    const res = await withTimeout(Promise.resolve(p.onMessage(pluginSock, msg, baseCtx)), 12_000, "onMessage");
+                    if (res?.handled === true) return;
+                } catch (err) {
+                    console.error(`❌ Listener Error: ${err?.message || err}`);
                 }
             }
         }
 
-        if (restrictedMode && !isMainBot && !isEliteUser && !isOwnerUser) {
-            return;
+        if ((restrictedMode && !isEliteUser) || !text) return;
+
+        const prefixes = Array.isArray(config?.prefix)
+            ? config.prefix.map(String).filter(Boolean)
+            : [String(config?.prefix ?? ".")].filter(Boolean);
+        const matchedPrefix = fromInteractive ? "" : prefixes.find(p => text.startsWith(p)) || "";
+        if (!matchedPrefix && !fromInteractive) return;
+
+        let noPrefixText = matchedPrefix ? text.slice(matchedPrefix.length).trim() : text;
+        if (fromInteractive) noPrefixText = normalizeMenuCommand(noPrefixText);
+        if (!noPrefixText) return;
+
+        const space = noPrefixText.search(/\s/);
+        const commandName = (space === -1 ? noPrefixText : noPrefixText.slice(0, space)).toLowerCase();
+        const cmd = commandName ? cmdMap.get(commandName) : null;
+        if (!cmd) return;
+
+        if (!hasPermission(cmd, { isOwner: isOwnerUser, isElite: isEliteUser })) {
+            return await sock.sendMessage(jid, { text: arthurBox("❌ ليس لديك صلاحية استخدام هذا الأمر") }, { quoted: msg });
         }
 
-        if (!text) {
-            return;
-        }
-
-        const configuredPrefix = config?.prefix;
-        const prefixes = Array.isArray(configuredPrefix)
-            ? configuredPrefix.map(value => String(value)).filter(Boolean)
-            : [String(configuredPrefix ?? ".")].filter(Boolean);
-        const matchedPrefix = fromInteractive
-            ? ""
-            : prefixes.find(prefix => text.startsWith(prefix)) || "";
-        const hasPrefix = Boolean(matchedPrefix);
-
-        if (!hasPrefix && !fromInteractive) {
-            return;
-        }
-
-        let noPrefixText = hasPrefix
-            ? text.slice(matchedPrefix.length).trim()
-            : text;
-
-        if (fromInteractive) {
-            noPrefixText =
-                normalizeMenuCommand(
-                    noPrefixText
-                );
-        }
-
-        if (!noPrefixText) {
-            return;
-        }
-
-        const space =
-            noPrefixText.search(
-                /\s/
-            );
-
-        const commandName =
-            (
-                space === -1
-                    ? noPrefixText
-                    : noPrefixText.slice(
-                          0,
-                          space
-                      )
-            ).toLowerCase();
-
-        if (!commandName) {
-            return;
-        }
-
-        const cmd =
-            commandIndex.get(
-                commandName
-            );
-
-        if (!cmd) {
-            return;
-        }
-
-        if (!pluginPermission(cmd, { isOwner: isOwnerUser, isElite: isEliteUser })) {
-            return await sock.sendMessage(jid, {
-                text: arthurBox("❌ ليس لديك صلاحية استخدام هذا الأمر")
-            }, { quoted: msg });
-        }
-
-        log(
-            "cmd",
-            `${commandName} ← ${
-                number ||
-                sender ||
-                "UNKNOWN"
-            } ← ${
-                isEliteUser
-                    ? "ELITE"
-                    : botIsAdmin
-                    ? "BOT ADMIN"
-                    : "USER"
-            }`
-        );
+        log("cmd", `${commandName} ← ${number || sender || "UNKNOWN"} ← ${isEliteUser ? "ELITE" : botIsAdmin ? "BOT ADMIN" : "USER"}`);
 
         try {
-            await cmd.execute(
-                pluginSock,
-                msg,
-                {
-                    text,
-                    noPrefixText,
-                    commandName,
-
-                    jid,
-                    sender,
-                    number,
-
-                    isGroup,
-                    isPrivate,
-                    hasPrefix,
-
-                    isElite:
-                        isEliteUser,
-
-                    isOwner: isOwnerUser,
-
-                    botNumber,
-
-                    mainBotNumber:
-                        mainNumber,
-
-                    isMainBot,
-
-                    isInteractive:
-                        fromInteractive,
-
-                    interactiveId:
-                        interactiveId ||
-                        null,
-
-                    isListResponse:
-                        fromInteractive,
-
-                    isAdmin:
-                        botIsAdmin,
-
-                    isSuperAdmin:
-                        botIsSuperAdmin,
-
-                    adminMode:
-                        botIsAdmin,
-
-                    botIsAdmin,
-                    botIsSuperAdmin,
-
-                    botParticipant:
-                        botParticipant ||
-                        null,
-
-                    groupMetadata:
-                        metadata ||
-                        null
-                }
+            await withTimeout(
+                Promise.resolve(cmd.execute(pluginSock, msg, { ...baseCtx, text, noPrefixText, commandName, hasPrefix: Boolean(matchedPrefix) })),
+                TASK_TIMEOUT_MS,
+                `Command(${commandName})`
             );
-
-        } catch (error) {
-            console.error(
-                `❌ Command Execution Failed [${commandName}]:`,
-                error?.message ||
-                    error
-            );
+        } catch (err) {
+            console.error(`❌ Command Execution Failed [${commandName}]:`, err?.message || err);
         }
-
-    } catch (error) {
-        console.error(
-            "Critical Execute Handler Error:",
-            error?.message ||
-                error
-        );
+    } catch (err) {
+        console.error("Critical Execute Handler Error:", err?.message || err);
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// 🔥 WARMUP
-// ═══════════════════════════════════════════════════════
-
-export async function warmupHandler(
-    sock
-) {
+export async function warmupHandler(sock) {
     try {
-        await Promise.all([
-            refreshMode(true),
-            refreshElite(true),
-            getLoadedPlugins(sock)
-        ]);
-
-        const botNumber =
-            getBotNumber(sock);
-
-        const identities =
-            getBotIdentities(sock);
-
-        log(
-            "ok",
-            `Handler Ready | Bot: ${
-                botNumber ||
-                "UNKNOWN"
-            }`
-        );
-
-        log(
-            "bot",
-            `Identities: ${
-                identities.join(
-                    " | "
-                ) ||
-                "NONE"
-            }`
-        );
-
-        log(
-            "elite",
-            `Elite: ${
-                eliteCache.length
-            }`
-        );
-
-        log(
-            "ok",
-            `Mode: ${
-                modeCache.elite
-                    ? "ELITE"
-                    : "NORMAL"
-            }`
-        );
-
+        startDataWatcher();
+        await Promise.all([refreshMode(true), refreshElite(true), getLoadedPlugins(sock)]);
+        syncContactGuard();
+        log("ok", `Handler Ready | Bot: ${getBotNumber(sock) || "UNKNOWN"}`);
+        log("bot", `Identities: ${getBotIdentities(sock).join(" | ") || "NONE"}`);
+        log("elite", `Elite: ${eliteCache.length}`);
+        log("ok", `Mode: ${modeCache.elite ? "ELITE" : "NORMAL"}`);
         return true;
-
-    } catch (error) {
-        console.error(
-            "Handler Warmup Error:",
-            error?.message ||
-                error
-        );
-
+    } catch (err) {
+        console.error("Handler Warmup Error:", err?.message || err);
         return false;
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// 🧹 CLEAN SHUTDOWN
-// ═══════════════════════════════════════════════════════
-
 export function clearHandlerCaches() {
     try {
+        try { fsWatcher?.close(); } catch {}
+        fsWatcher = null;
         groupCache.clear();
         groupLoading.clear();
-
         processedMessages.clear();
         chatMessageQueues.clear();
         pendingMessageCount = 0;
-        pluginRuntimeCache = { source: null, commandIndex: new Map(), onMessagePlugins: [] };
+        pluginCache = { source: null, cmdMap: new Map(), onMsg: [], onReact: [] };
         strictModeMtime = -1;
-        strictEliteSignature = "";
+        strictEliteSig = "";
         strictEliteSet = new Set();
-
+        guardSeen.clear();
+        guardMtime = -1;
         modeReady = false;
         eliteReady = false;
-
         modeMtime = 0;
         eliteMtime = 0;
-
-        modeCache = {
-            elite: false
-        };
-
+        modeCache = { elite: false };
         eliteCache = [];
         eliteSet = new Set();
-
         lastFileCheck = 0;
-
     } catch {}
 }
