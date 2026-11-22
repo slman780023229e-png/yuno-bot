@@ -214,11 +214,6 @@ async function runPluginEvent(sock, eventName, payload) {
 // ============================================================
 
 async function startBot() {
-    if (authRejected) {
-        console.log(chalk.red('🛑 Authentication was rejected. Automatic restart is paused to protect the immutable MASTER snapshot.'));
-        return
-    }
-
     if (isStarting) {
         console.log(
             chalk.yellow(
@@ -323,6 +318,8 @@ async function startBot() {
 
             version = undefined
         }
+
+        let authRepairStarted = false
 
         const sock = makeWASocket({
             ...(version ? { version } : {}),
@@ -685,16 +682,57 @@ async function startBot() {
                     statusCode === DisconnectReason.loggedOut ||
                     statusCode === 401
                 ) {
+                    if (authRepairStarted) return
+                    authRepairStarted = true
                     connectionOpen = false
-                    authRejected = true
-                    console.log(chalk.red.bold('🚫 WhatsApp rejected the saved authentication (401 / loggedOut).'))
-                    console.log(chalk.yellow('🔒 The immutable MASTER snapshot and all MongoDB auth records were preserved.'))
-                    console.log(chalk.yellow('⏸️ Automatic reconnect and automatic re-pairing are paused to prevent overwriting or deleting the original session.'))
-                    console.log(chalk.gray('Check the linked-device session in WhatsApp. If a new pairing is required, deliberately reset the MASTER snapshot before pairing again.'))
 
-                    if (currentSock === sock) currentSock = null
-                    if (global.sock === sock) global.sock = null
-                    clearReconnectTimer()
+                    console.log(chalk.red.bold('🚫 WhatsApp logged out this linked session (401 / loggedOut).'))
+                    console.log(chalk.yellow('🔐 Starting a fresh pairing cycle. Previous MASTER snapshots will remain archived and untouched.'))
+
+                    try {
+                        if (
+                            useMongoSession &&
+                            typeof authStore.requestRePair === 'function'
+                        ) {
+                            // Mark the old master generation as rejected. The next
+                            // auth load starts empty and will not restore that generation.
+                            await authStore.requestRePair()
+                        } else {
+                            // Local-file mode: remove only the active local auth folder.
+                            await fs.remove(sessionDir)
+                            await fs.ensureDir(sessionDir)
+                        }
+
+                        authRejected = false
+                        if (currentSock === sock) currentSock = null
+                        if (global.sock === sock) global.sock = null
+                        if (currentAuthStore === authStore) currentAuthStore = null
+                        clearReconnectTimer()
+
+                        if (isShuttingDown) return
+
+                        console.log(chalk.cyan('📲 Preparing a new WhatsApp pairing code...'))
+                        reconnectTimer = setTimeout(async () => {
+                            reconnectTimer = null
+                            if (isShuttingDown) return
+
+                            try {
+                                await startBot()
+                            } catch (repairError) {
+                                console.error(
+                                    chalk.red('❌ Fresh pairing restart failed:'),
+                                    repairError?.stack || repairError?.message || repairError
+                                )
+                            }
+                        }, 2500)
+                    } catch (repairError) {
+                        authRejected = true
+                        console.error(
+                            chalk.red.bold('❌ Could not prepare a fresh pairing session:'),
+                            repairError?.stack || repairError?.message || repairError
+                        )
+                        console.log(chalk.yellow('The previous MASTER was preserved. Fix the MongoDB/storage error, then restart the bot.'))
+                    }
                     return
                 }
 
