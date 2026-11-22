@@ -48,12 +48,28 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # حماية: انشاء .gitignore اذا مو موجود، عشان ما يرفع المكتبة ابدا
+          if [ ! -f .gitignore ]; then
+            touch .gitignore
+          fi
+          grep -qxF "node_modules/" .gitignore || echo "node_modules/" >> .gitignore
+          grep -qxF "**/node_modules/" .gitignore || echo "**/node_modules/" >> .gitignore
+          grep -qxF ".env" .gitignore || echo ".env" >> .gitignore
+          grep -qxF "**/auth_info_baileys/" .gitignore || echo "**/auth_info_baileys/" >> .gitignore
+          grep -qxF "**/creds.json" .gitignore || echo "**/creds.json" >> .gitignore
+
           save_changes() {
             echo "Checking repository changes..."
 
+            # اهم خطوة: حذف المكتبة والملفات الحساسة من التتبع اذا كانت مرفوعة بالغلط، بدون حذفها من السيرفر
+            git rm -r --cached --ignore-unmatch node_modules yuno_bot/node_modules "ملف_الاتصال" auth_info_baileys 2>/dev/null || true
+            git rm --cached --ignore-unmatch .env .env.* "**/creds.json" "**/*.pem" "**/*.key" 2>/dev/null || true
+
             git add -A -- . \
+              ':(exclude).gitignore' \
               ':(exclude)ملف_الاتصال/creds.json' \
               ':(exclude)ملف_الاتصال/*.json' \
+              ':(exclude)**/ملف_الاتصال/**' \
               ':(exclude).env' \
               ':(exclude).env.*' \
               ':(exclude)**/.env' \
@@ -62,10 +78,19 @@ jobs:
               ':(exclude)**/node_modules/**' \
               ':(exclude)**/auth_info_baileys' \
               ':(exclude)**/auth_info_baileys/**' \
+              ':(exclude)**/creds.json' \
+              ':(exclude)**/*.session' \
+              ':(exclude)**/session' \
+              ':(exclude)**/session/**' \
               ':(exclude)**/*.pem' \
               ':(exclude)**/*.key' \
               ':(exclude)**/*.p12' \
-              ':(exclude)**/*.pfx' || return 1
+              ':(exclude)**/*.pfx' \
+              ':(exclude)**/*.log' \
+              ':(exclude)**/temp/**' || return 1
+
+            # تأكد ان .gitignore نفسه يترفع عشان الحماية تستمر
+            git add .gitignore || true
 
             if ! git diff --cached --quiet; then
               git commit -m "Auto-save ARTHUR repository progress" || return 1
@@ -80,20 +105,16 @@ jobs:
             if [ "$(git rev-list --count "origin/${GITHUB_REF_NAME}..HEAD")" -gt 0 ]; then
               if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
                 echo "Push failed; synchronizing with GitHub..."
-
                 git fetch origin \
                   "+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}" || return 1
-
                 git -c rebase.autoStash=true rebase \
                   "origin/${GITHUB_REF_NAME}" || {
                     git rebase --abort || true
                     echo "Sync conflict. Changes remain in the runner."
                     return 1
                   }
-
                 git push origin "HEAD:${GITHUB_REF_NAME}" || return 1
               fi
-
               echo "Repository changes saved successfully."
             else
               echo "No new commits to push."
@@ -114,9 +135,7 @@ jobs:
             node start.js &
             BOT_PID=$!
             echo "ARTHUR BOT started (PID: $BOT_PID)."
-
             LAST_SAVE=$(date +%s)
-
             while kill -0 "$BOT_PID" 2>/dev/null; do
               sleep 5
               NOW=$(date +%s)
@@ -127,7 +146,6 @@ jobs:
                 LAST_SAVE=$(date +%s)
               fi
             done
-
             wait "$BOT_PID"
             BOT_STATUS=$?
             echo "Bot exited with status $BOT_STATUS. Saving progress and restarting immediately..."
