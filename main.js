@@ -30,7 +30,6 @@ import {
 } from '@whiskeysockets/baileys'
 
 import { useMongoDBAuthState } from './mongoAuth.js'
-import mongoose from 'mongoose'
 
 import pino from 'pino'
 import chalk from 'chalk'
@@ -108,11 +107,14 @@ if (!useMongoSession) {
 const PORT = process.env.PORT || 3000
 
 const keepAliveServer = http.createServer((req, res) => {
-    res.writeHead(200, {
-        'Content-Type': 'text/plain; charset=utf-8'
+    const healthy = connectionOpen && !authRejected && !isShuttingDown
+    res.writeHead(healthy ? 200 : 503, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
     })
-
-    res.end('ARTHUR BOT IS RUNNING 🟢\n')
+    res.end(healthy
+        ? 'ARTHUR BOT ONLINE — WHATSAPP CONNECTED 🟢\n'
+        : `ARTHUR BOT PROCESS ACTIVE — WHATSAPP ${authRejected ? 'AUTH REJECTED' : 'DISCONNECTED'} 🔴\n`)
 })
 
 keepAliveServer.listen(PORT, '0.0.0.0', () => {
@@ -148,6 +150,9 @@ let isStarting = false
 let isShuttingDown = false
 let reconnectTimer = null
 let projectScanned = false
+let connectionOpen = false
+let authRejected = false
+let currentAuthStore = null
 
 const RECONNECT_DELAY = 3000
 
@@ -162,15 +167,7 @@ function clearReconnectTimer() {
     }
 }
 
-async function clearMongoSession(sessionId = MONGO_SESSION_ID) {
-    if (!useMongoSession || !mongoose.connection?.db) return
-    const collection = mongoose.connection
-        .useDb('whatsapp_bot')
-        .db.collection('auth_sessions')
-    await collection.deleteMany({
-        _id: { $regex: `^${sessionId}-` }
-    })
-}
+// MongoDB master snapshots are intentionally never deleted automatically.
 
 // ============================================================
 // PLUGIN EVENT SYSTEM
@@ -217,6 +214,11 @@ async function runPluginEvent(sock, eventName, payload) {
 // ============================================================
 
 async function startBot() {
+    if (authRejected) {
+        console.log(chalk.red('🛑 Authentication was rejected. Automatic restart is paused to protect the immutable MASTER snapshot.'));
+        return
+    }
+
     if (isStarting) {
         console.log(
             chalk.yellow(
@@ -249,6 +251,7 @@ async function startBot() {
     }
 
     isStarting = true
+    connectionOpen = false
     clearReconnectTimer()
 
     try {
@@ -284,29 +287,19 @@ async function startBot() {
             }
         }
 
-        console.log(
-            chalk.cyan(
-                '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            )
-        )
+        const gold = chalk.hex('#D4AF37')
+        const blood = chalk.hex('#B32632')
+        console.log(gold('╔══════════════════════════════════════════════╗'))
+        console.log(gold('║') + '       ' + blood.bold('♛  🩸  A R T H U R   B O T  🩸  ♛') + '       ' + gold('║'))
+        console.log(gold('╟──────────────────────────────────────────────╢'))
+        console.log(gold('║') + chalk.gray('              CORE SESSION INITIALIZING       ') + gold('║'))
+        console.log(gold('╚══════════════════════════════════════════════╝\n'))
 
-        console.log(
-            chalk.cyan.bold('        🩸 ARTHUR BOT 🩸')
-        )
-
-        console.log(
-            chalk.gray('        Main Session Starting...')
-        )
-
-        console.log(
-            chalk.cyan(
-                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
-            )
-        )
-
-        const { state, saveCreds } = useMongoSession
+        const authStore = useMongoSession
             ? await useMongoDBAuthState(MONGO_URI, MONGO_SESSION_ID)
             : await useMultiFileAuthState(sessionDir)
+        currentAuthStore = authStore
+        const { state, saveCreds } = authStore
 
         let version
 
@@ -513,6 +506,7 @@ async function startBot() {
                     try {
                         if (
                             isShuttingDown ||
+                            authRejected ||
                             currentSock !== sock
                         ) {
                             return
@@ -556,6 +550,7 @@ async function startBot() {
             const { connection, lastDisconnect } = update
 
             if (connection === 'connecting') {
+                connectionOpen = false
                 console.log(
                     chalk.yellow(
                         '🔄 Connecting to WhatsApp...'
@@ -564,6 +559,8 @@ async function startBot() {
             }
 
             if (connection === 'open') {
+                connectionOpen = true
+                authRejected = false
                 console.log(
                     chalk.green.bold(
                         '\n╭──────────────────────────────╮'
@@ -581,6 +578,14 @@ async function startBot() {
                         '╰──────────────────────────────╯\n'
                     )
                 )
+
+                if (useMongoSession && typeof authStore.createMasterSnapshot === 'function') {
+                    try {
+                        await authStore.createMasterSnapshot()
+                    } catch (snapshotError) {
+                        console.error(chalk.red('❌ MASTER snapshot creation failed:'), snapshotError?.stack || snapshotError?.message || snapshotError)
+                    }
+                }
 
                 try {
                     if (sock.user?.id) {
@@ -661,60 +666,35 @@ async function startBot() {
             }
 
             if (connection === 'close') {
-                const statusCode =
-                    lastDisconnect?.error?.output?.statusCode
+                connectionOpen = false
+                const rawStatusCode =
+                    lastDisconnect?.error?.output?.statusCode ??
+                    lastDisconnect?.error?.data?.statusCode
+                const statusCode = rawStatusCode == null ? null : Number(rawStatusCode)
 
                 const errorMessage =
                     lastDisconnect?.error?.message || ''
+                const errorName = lastDisconnect?.error?.name || 'UnknownError'
 
                 const closeReason =
                     statusCode ?? errorMessage ?? 'UNKNOWN'
 
-                console.log(
-                    chalk.red(
-                        `❌ Connection closed : ${closeReason}`
-                    )
-                )
+                console.log(chalk.red(`❌ Connection closed: code=${closeReason}, error=${errorName}, message=${errorMessage || 'n/a'}`))
 
                 if (
-                    statusCode === DisconnectReason.loggedOut
+                    statusCode === DisconnectReason.loggedOut ||
+                    statusCode === 401
                 ) {
-                    console.log(
-                        chalk.red(
-                            '🚫 Session logged out. Clearing session files and restarting to request new pairing code.'
-                        )
-                    )
+                    connectionOpen = false
+                    authRejected = true
+                    console.log(chalk.red.bold('🚫 WhatsApp rejected the saved authentication (401 / loggedOut).'))
+                    console.log(chalk.yellow('🔒 The immutable MASTER snapshot and all MongoDB auth records were preserved.'))
+                    console.log(chalk.yellow('⏸️ Automatic reconnect and automatic re-pairing are paused to prevent overwriting or deleting the original session.'))
+                    console.log(chalk.gray('Check the linked-device session in WhatsApp. If a new pairing is required, deliberately reset the MASTER snapshot before pairing again.'))
 
-                    try {
-                        if (useMongoSession) {
-                            await clearMongoSession()
-                            console.log(chalk.green('🗑️ Successfully cleared MongoDB session.'))
-                        } else if (fs.existsSync(sessionDir)) {
-                            fs.removeSync(sessionDir)
-                            console.log(chalk.green('🗑️ Successfully cleared session directory.'))
-                        }
-                    } catch (err) {
-                        console.error(chalk.red('❌ Failed to clear session:'), err)
-                    }
-
-                    if (currentSock === sock) {
-                        currentSock = null
-                    }
-
-                    if (global.sock === sock) {
-                        global.sock = null
-                    }
-
+                    if (currentSock === sock) currentSock = null
+                    if (global.sock === sock) global.sock = null
                     clearReconnectTimer()
-
-                    setTimeout(async () => {
-                        try {
-                            await startBot()
-                        } catch (error) {
-                            console.error(chalk.red('❌ Restart after logout failed:'), error)
-                        }
-                    }, 2000)
-
                     return
                 }
 
@@ -729,6 +709,7 @@ async function startBot() {
 
                 if (currentSock === sock) {
                     currentSock = null
+                    currentAuthStore = null
                 }
 
                 if (global.sock === sock) {
@@ -1005,6 +986,12 @@ async function gracefulShutdown(signal) {
             keepAliveServer.close(() => resolve())
         })
     } catch {}
+
+    try {
+        if (currentAuthStore?.flush) await currentAuthStore.flush()
+    } catch (error) {
+        console.error(chalk.red('❌ Final MongoDB auth flush failed:'), error?.message || error)
+    }
 
     try {
         if (currentSock) {
